@@ -18,8 +18,6 @@ class NarrativeLogWidget(RichLog):
     text renders correctly.
     """
 
-    markup = True
-
     DEFAULT_CSS = """
     NarrativeLogWidget {
         height: 1fr;
@@ -27,10 +25,14 @@ class NarrativeLogWidget(RichLog):
         margin: 0;
         padding: 0 1;
         background: $surface;
-        overflow-y: auto;
-        text-wrap: wrap;
     }
     """
+
+    def __init__(self, *args, **kwargs):
+        """Enable Rich markup and word wrapping by default."""
+        kwargs.setdefault("markup", True)
+        kwargs.setdefault("wrap", True)
+        super().__init__(*args, **kwargs)
 
     def add_line(self, text: str) -> None:
         """Append a line of narrative text to the log."""
