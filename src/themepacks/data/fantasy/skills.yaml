@@ -1,0 +1,258 @@
+# Fantasy Skill Definitions
+# Each skill has an id (snake_case), a human-readable name, an optional
+# description, and an optional career association for referential integrity.
+# Career associations must match a career id in careers.yaml.
+
+# --- Combat Skills ---
+
+sword:
+  id: sword
+  name: "Sword"
+  description: "Fight with longswords, shortswords, and bladed sidearms."
+  career: knight
+
+bow:
+  id: bow
+  name: "Bow"
+  description: "Use longbows, shortbows, and composite bows in combat."
+  career: ranger
+
+crossbow:
+  id: crossbow
+  name: "Crossbow"
+  description: "Use crossbows and hand crossbows in combat."
+  career: mercenary
+
+shield:
+  id: shield
+  name: "Shield"
+  description: "Use shields for defense and shield-bash attacks."
+  career: knight
+
+wrestling:
+  id: wrestling
+  name: "Wrestling"
+  description: "Grappling, throws, and unarmed close-quarters combat."
+  career: mercenary
+
+polearm:
+  id: polearm
+  name: "Polearm"
+  description: "Fight with spears, halberds, pikes, and glaives."
+  career: knight
+
+# --- Physical Skills ---
+
+ride:
+  id: ride
+  name: "Ride"
+  description: "Ride and care for horses and other mounts."
+  career: knight
+
+climb:
+  id: climb
+  name: "Climb"
+  description: "Scale walls, cliffs, and difficult surfaces."
+  career: thief
+
+swim:
+  id: swim
+  name: "Swim"
+  description: "Swim in calm and rough water, tread water for extended periods."
+  career: sailor
+
+stealth:
+  id: stealth
+  name: "Stealth"
+  description: "Move silently, hide in shadows, and avoid detection."
+  career: thief
+
+athletics:
+  id: athletics
+  name: "Athletics"
+  description: "Running, jumping, climbing, and general physical exertion."
+  career: ""
+
+# --- Social Skills ---
+
+persuasion:
+  id: persuasion
+  name: "Persuasion"
+  description: "Convince, influence, and persuade others through dialogue."
+  career: bard
+
+intimidation:
+  id: intimidation
+  name: "Intimidation"
+  description: "Frighten or coerce others through threats and physical presence."
+  career: mercenary
+
+streetwise:
+  id: streetwise
+  name: "Streetwise"
+  description: "Navigate underworld networks, find fences, and gather rumors."
+  career: thief
+
+performance:
+  id: performance
+  name: "Performance"
+  description: "Sing, play instruments, act, and entertain audiences."
+  career: bard
+
+etiquette:
+  id: etiquette
+  name: "Etiquette"
+  description: "Knowledge of courtly manners, protocol, and social customs."
+  career: bard
+
+# --- Knowledge Skills ---
+
+lore:
+  id: lore
+  name: "Lore"
+  description: "Knowledge of legends, myths, monsters, and magical creatures."
+  career: mage
+
+history:
+  id: history
+  name: "History"
+  description: "Knowledge of historical events, dynasties, and ancient kingdoms."
+  career: scholar
+
+arcana:
+  id: arcana
+  name: "Arcana"
+  description: "Understanding of magical theory, spell structures, and enchantments."
+  career: mage
+
+alchemy:
+  id: alchemy
+  name: "Alchemy"
+  description: "Brew potions, identify substances, and transmute materials."
+  career: healer
+
+languages:
+  id: languages
+  name: "Languages"
+  description: "Speak, read, and write ancient and foreign languages."
+  career: scholar
+
+# --- Magic Skills ---
+
+spellcasting:
+  id: spellcasting
+  name: "Spellcasting"
+  description: "Cast arcane spells from memory or grimoire."
+  career: mage
+
+ritual:
+  id: ritual
+  name: "Ritual"
+  description: "Perform complex magical ceremonies and binding rituals."
+  career: mage
+
+enchant:
+  id: enchant
+  name: "Enchant"
+  description: "Imbue items, weapons, and armor with magical properties."
+  career: mage
+
+# --- Practical Skills ---
+
+craft:
+  id: craft
+  name: "Craft"
+  description: "Forge weapons, tailor garments, build structures, and work materials."
+  career: ""
+
+healing:
+  id: healing
+  name: "Healing"
+  description: "Treat wounds, set bones, diagnose illness, and perform surgery."
+  career: healer
+
+herbalism:
+  id: herbalism
+  name: "Herbalism"
+  description: "Identify, cultivate, and prepare herbs for medicine and poison."
+  career: healer
+
+survival:
+  id: survival
+  name: "Survival"
+  description: "Find food, water, and shelter in wilderness environments."
+  career: ranger
+
+tracking:
+  id: tracking
+  name: "Tracking"
+  description: "Follow tracks, read sign, and hunt prey across terrain."
+  career: ranger
+
+# --- General Skills ---
+
+gambler:
+  id: gambler
+  name: "Gambling"
+  description: "Games of chance, betting, and reading tells."
+  career: ""
+
+leadership:
+  id: leadership
+  name: "Leadership"
+  description: "Command, inspire, and coordinate followers and troops."
+  career: knight
+
+appraisal:
+  id: appraisal
+  name: "Appraisal"
+  description: "Assess the value of gems, art, artifacts, and trade goods."
+  career: scholar
+
+navigation:
+  id: navigation
+  name: "Navigation"
+  description: "Plot courses by stars, landmarks, and maps on land or sea."
+  career: sailor
+
+seamanship:
+  id: seamanship
+  name: "Seamanship"
+  description: "Rig sails, manage decks, and operate sailing vessels."
+  career: sailor
+
+religion:
+  id: religion
+  name: "Religion"
+  description: "Knowledge of deities, rites, holy texts, and sacred traditions."
+  career: priest
+
+tactics:
+  id: tactics
+  name: "Tactics"
+  description: "Small-unit battle strategy, formations, and battlefield planning."
+  career: mercenary
+
+investigate:
+  id: investigate
+  name: "Investigate"
+  description: "Search for clues, conduct research, and solve mysteries."
+  career: thief
+
+deception:
+  id: deception
+  name: "Deception"
+  description: "Lie, bluff, disguise, and misdirect."
+  career: thief
+
+recon:
+  id: recon
+  name: "Recon"
+  description: "Scout terrain, spot threats, and gather intelligence ahead of the party."
+  career: ranger
+
+animals_handling:
+  id: animals_handling
+  name: "Animals (Handling)"
+  description: "Train, calm, and command animals and beasts of burden."
+  career: ranger

@@ -1,0 +1,862 @@
+# Fantasy Careers — 10 original careers with full table data.
+# Each career has qualification, survival, advancement, three skill tables
+# (Personal Development, Service Skills, Advanced Education), optional ranks,
+# and mustering-out benefit tables (cash and material).
+# All skill results reference skill ids from skills.yaml or characteristic
+# increases (+1 STR).
+
+knight:
+  id: knight
+  name: "Knight"
+  description: >
+    Noble warriors sworn to defend the realm. Knights train from youth in the
+    arts of sword, shield, and horsemanship. They are bound by codes of honour
+    and serve as the martial arm of kings and lords. Knights excel in mounted
+    combat, leadership, and courtly diplomacy.
+  qualification:
+    characteristic: STR
+    target: 5
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: EDU
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "leadership"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "sword"}
+          - {min: 3, max: 3, result: "shield"}
+          - {min: 4, max: 5, result: "ride"}
+          - {min: 6, max: 6, result: "polearm"}
+          - {min: 7, max: 7, result: "intimidation"}
+          - {min: 8, max: 9, result: "tactics"}
+          - {min: 10, max: 11, result: "etiquette"}
+          - {min: 12, max: 12, result: "athletics"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "leadership"}
+          - {min: 4, max: 5, result: "tactics"}
+          - {min: 6, max: 7, result: "etiquette"}
+          - {min: 8, max: 9, result: "history"}
+          - {min: 10, max: 11, result: "religion"}
+          - {min: 12, max: 12, result: "persuasion"}
+  ranks:
+    - {rank: 1, title: "Squire"}
+    - {rank: 2, title: "Knight"}
+    - {rank: 3, title: "Captain"}
+    - {rank: 4, title: "Baron"}
+    - {rank: 5, title: "Count"}
+    - {rank: 6, title: "Duke"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    dm_per_rank: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "100 gold crowns"}
+        - {min: 2, max: 2, result: "200 gold crowns"}
+        - {min: 3, max: 3, result: "500 gold crowns"}
+        - {min: 4, max: 4, result: "800 gold crowns"}
+        - {min: 5, max: 5, result: "1,200 gold crowns"}
+        - {min: 6, max: 6, result: "2,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Sword"}
+        - {min: 2, max: 2, result: "Shield"}
+        - {min: 3, max: 3, result: "Warhorse"}
+        - {min: 4, max: 4, result: "Suit of Armour"}
+        - {min: 5, max: 5, result: "Land Grant"}
+        - {min: 6, max: 6, result: "Retainer"}
+
+ranger:
+  id: ranger
+  name: "Ranger"
+  description: >
+    Woodsmen, trackers, and wardens of the wild. Rangers patrol the frontier
+    between civilization and the untamed wilderness. They are masters of bow,
+    trail, and beast, equally at home in dense forest and open plain. Rangers
+    are self-reliant survivors who protect settlements from the dangers that
+    lurk beyond the hedge.
+  qualification:
+    characteristic: DEX
+    target: 5
+  survival:
+    characteristic: END
+    target: 4
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "athletics"}
+          - {min: 8, max: 9, result: "survival"}
+          - {min: 10, max: 12, result: "stealth"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "bow"}
+          - {min: 3, max: 3, result: "tracking"}
+          - {min: 4, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "stealth"}
+          - {min: 7, max: 7, result: "ride"}
+          - {min: 8, max: 9, result: "recon"}
+          - {min: 10, max: 11, result: "animals_handling"}
+          - {min: 12, max: 12, result: "athletics"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "healing"}
+          - {min: 4, max: 5, result: "herbalism"}
+          - {min: 6, max: 7, result: "lore"}
+          - {min: 8, max: 9, result: "languages"}
+          - {min: 10, max: 11, result: "history"}
+          - {min: 12, max: 12, result: "navigation"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "50 gold crowns"}
+        - {min: 2, max: 2, result: "100 gold crowns"}
+        - {min: 3, max: 3, result: "200 gold crowns"}
+        - {min: 4, max: 4, result: "400 gold crowns"}
+        - {min: 5, max: 5, result: "600 gold crowns"}
+        - {min: 6, max: 6, result: "1,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Bow"}
+        - {min: 2, max: 2, result: "Hunting Knife"}
+        - {min: 3, max: 3, result: "Trail Map"}
+        - {min: 4, max: 4, result: "Riding Horse"}
+        - {min: 5, max: 5, result: "Herbal Kit"}
+        - {min: 6, max: 6, result: "Trained Hound"}
+
+priest:
+  id: priest
+  name: "Priest"
+  description: >
+    Servants of the gods and spiritual leaders of the faithful. Priests channel
+    divine power to heal the sick, bless the worthy, and smite the wicked. They
+    are versed in sacred lore, ancient rites, and the art of moving hearts with
+    word and prayer. In a world of steel and sorcery, priests are the moral
+    compass and the last line against the undead.
+  qualification:
+    characteristic: INT
+    target: 5
+  survival:
+    characteristic: SOC
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "+1 SOC"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "religion"}
+          - {min: 3, max: 3, result: "healing"}
+          - {min: 4, max: 5, result: "persuasion"}
+          - {min: 6, max: 6, result: "etiquette"}
+          - {min: 7, max: 7, result: "leadership"}
+          - {min: 8, max: 9, result: "lore"}
+          - {min: 10, max: 11, result: "history"}
+          - {min: 12, max: 12, result: "performance"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "healing"}
+          - {min: 4, max: 5, result: "lore"}
+          - {min: 6, max: 7, result: "languages"}
+          - {min: 8, max: 9, result: "history"}
+          - {min: 10, max: 11, result: "persuasion"}
+          - {min: 12, max: 12, result: "religion"}
+  ranks:
+    - {rank: 1, title: "Acolyte"}
+    - {rank: 2, title: "Priest"}
+    - {rank: 3, title: "Senior Priest"}
+    - {rank: 4, title: "Bishop"}
+    - {rank: 5, title: "Archbishop"}
+    - {rank: 6, title: "High Patriarch"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "100 gold crowns"}
+        - {min: 2, max: 2, result: "200 gold crowns"}
+        - {min: 3, max: 3, result: "400 gold crowns"}
+        - {min: 4, max: 4, result: "600 gold crowns"}
+        - {min: 5, max: 5, result: "900 gold crowns"}
+        - {min: 6, max: 6, result: "1,500 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Holy Symbol"}
+        - {min: 2, max: 2, result: "Healing Salve"}
+        - {min: 3, max: 3, result: "Sacred Text"}
+        - {min: 4, max: 4, result: "Blessed Weapon"}
+        - {min: 5, max: 5, result: "Temple Contact"}
+        - {min: 6, max: 6, result: "Relic"}
+
+mage:
+  id: mage
+  name: "Mage"
+  description: >
+    Practitioners of the arcane arts, wielders of raw magical power. Mages spend
+    years studying ancient tomes, learning to shape reality through spell, ritual,
+    and enchantment. They are scholars of the mystical, feared and sought after
+    in equal measure. A seasoned mage can reshape battlefields with fire and
+    lightning, or bind spirits to their will.
+  qualification:
+    characteristic: INT
+    target: 6
+  survival:
+    characteristic: INT
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "arcana"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "spellcasting"}
+          - {min: 3, max: 3, result: "arcana"}
+          - {min: 4, max: 5, result: "ritual"}
+          - {min: 6, max: 6, result: "lore"}
+          - {min: 7, max: 7, result: "alchemy"}
+          - {min: 8, max: 9, result: "enchant"}
+          - {min: 10, max: 11, result: "languages"}
+          - {min: 12, max: 12, result: "history"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "spellcasting"}
+          - {min: 4, max: 5, result: "arcana"}
+          - {min: 6, max: 7, result: "lore"}
+          - {min: 8, max: 9, result: "languages"}
+          - {min: 10, max: 11, result: "alchemy"}
+          - {min: 12, max: 12, result: "history"}
+  ranks:
+    - {rank: 1, title: "Apprentice"}
+    - {rank: 2, title: "Adept"}
+    - {rank: 3, title: "Magus"}
+    - {rank: 4, title: "Master"}
+    - {rank: 5, title: "Archmage"}
+    - {rank: 6, title: "Wizard Lord"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "100 gold crowns"}
+        - {min: 2, max: 2, result: "200 gold crowns"}
+        - {min: 3, max: 3, result: "400 gold crowns"}
+        - {min: 4, max: 4, result: "700 gold crowns"}
+        - {min: 5, max: 5, result: "1,000 gold crowns"}
+        - {min: 6, max: 6, result: "1,500 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Spell Scroll"}
+        - {min: 2, max: 2, result: "Arcane Focus"}
+        - {min: 3, max: 3, result: "Potion"}
+        - {min: 4, max: 4, result: "Grimoire"}
+        - {min: 5, max: 5, result: "Enchanted Item"}
+        - {min: 6, max: 6, result: "Familiar"}
+
+thief:
+  id: thief
+  name: "Thief"
+  description: >
+    Cutpurses, cat burglars, and shadow-steppers. Thieves live by their wits and
+    nimble fingers, prowling rooftops and back alleys for opportunity. They are
+    masters of stealth, locks, and the unspoken rules of the underworld. Where
+    there is wealth to be taken, a thief has already mapped the way in.
+  qualification:
+    characteristic: DEX
+    target: 5
+  survival:
+    characteristic: DEX
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 6
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "stealth"}
+          - {min: 8, max: 9, result: "athletics"}
+          - {min: 10, max: 12, result: "streetwise"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "stealth"}
+          - {min: 3, max: 3, result: "streetwise"}
+          - {min: 4, max: 5, result: "climb"}
+          - {min: 6, max: 6, result: "deception"}
+          - {min: 7, max: 7, result: "appraisal"}
+          - {min: 8, max: 9, result: "investigate"}
+          - {min: 10, max: 11, result: "athletics"}
+          - {min: 12, max: 12, result: "persuasion"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "streetwise"}
+          - {min: 4, max: 5, result: "appraisal"}
+          - {min: 6, max: 7, result: "deception"}
+          - {min: 8, max: 9, result: "persuasion"}
+          - {min: 10, max: 11, result: "languages"}
+          - {min: 12, max: 12, result: "investigate"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "50 gold crowns"}
+        - {min: 2, max: 2, result: "100 gold crowns"}
+        - {min: 3, max: 3, result: "200 gold crowns"}
+        - {min: 4, max: 4, result: "400 gold crowns"}
+        - {min: 5, max: 5, result: "600 gold crowns"}
+        - {min: 6, max: 6, result: "1,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Lockpicks"}
+        - {min: 2, max: 2, result: "Grappling Hook"}
+        - {min: 3, max: 3, result: "Disguise Kit"}
+        - {min: 4, max: 4, result: "Fence Contact"}
+        - {min: 5, max: 5, result: "Thieves' Tools"}
+        - {min: 6, max: 6, result: "Loot Map"}
+
+sailor:
+  id: sailor
+  name: "Sailor"
+  description: >
+    Mariners, fishermen, and naval crew who ply the seas and great rivers of the
+    realm. Sailors are tough, adaptable, and at home on the deck of a ship in any
+    weather. They know the stars, the currents, and the tides, and can fight as
+    well as any soldier when pirates or sea beasts come calling.
+  qualification:
+    characteristic: DEX
+    target: 4
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 6
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "athletics"}
+          - {min: 8, max: 9, result: "swim"}
+          - {min: 10, max: 12, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "seamanship"}
+          - {min: 3, max: 3, result: "navigation"}
+          - {min: 4, max: 5, result: "swim"}
+          - {min: 6, max: 6, result: "sword"}
+          - {min: 7, max: 7, result: "crossbow"}
+          - {min: 8, max: 9, result: "athletics"}
+          - {min: 10, max: 11, result: "intimidation"}
+          - {min: 12, max: 12, result: "streetwise"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "healing"}
+          - {min: 4, max: 5, result: "leadership"}
+          - {min: 6, max: 7, result: "navigation"}
+          - {min: 8, max: 9, result: "appraisal"}
+          - {min: 10, max: 11, result: "languages"}
+          - {min: 12, max: 12, result: "lore"}
+  ranks:
+    - {rank: 1, title: "Deckhand"}
+    - {rank: 2, title: "Bosun"}
+    - {rank: 3, title: "Sailing Master"}
+    - {rank: 4, title: "First Mate"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Fleet Admiral"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "50 gold crowns"}
+        - {min: 2, max: 2, result: "100 gold crowns"}
+        - {min: 3, max: 3, result: "200 gold crowns"}
+        - {min: 4, max: 4, result: "400 gold crowns"}
+        - {min: 5, max: 5, result: "600 gold crowns"}
+        - {min: 6, max: 6, result: "1,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Cutlass"}
+        - {min: 2, max: 2, result: "Spyglass"}
+        - {min: 3, max: 3, result: "Sea Chart"}
+        - {min: 4, max: 4, result: "Sailing Kit"}
+        - {min: 5, max: 5, result: "Harbour Contact"}
+        - {min: 6, max: 6, result: "Ship Share"}
+
+scholar:
+  id: scholar
+  name: "Scholar"
+  description: >
+    Academics, historians, and sages who preserve and expand the realm's
+    knowledge. Scholars dwell in libraries, monasteries, and universities,
+    studying ancient texts and cataloguing the natural world. While not
+    warriors, their knowledge can be deadlier than any sword, and their
+    researches unlock secrets that others cannot fathom.
+  qualification:
+    characteristic: INT
+    target: 5
+  survival:
+    characteristic: INT
+    target: 5
+  advancement:
+    characteristic: EDU
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "+1 SOC"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "history"}
+          - {min: 3, max: 3, result: "investigate"}
+          - {min: 4, max: 5, result: "languages"}
+          - {min: 6, max: 6, result: "lore"}
+          - {min: 7, max: 7, result: "appraisal"}
+          - {min: 8, max: 9, result: "alchemy"}
+          - {min: 10, max: 11, result: "persuasion"}
+          - {min: 12, max: 12, result: "deception"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "history"}
+          - {min: 4, max: 5, result: "languages"}
+          - {min: 6, max: 7, result: "lore"}
+          - {min: 8, max: 9, result: "arcana"}
+          - {min: 10, max: 11, result: "religion"}
+          - {min: 12, max: 12, result: "investigate"}
+  ranks:
+    - {rank: 1, title: "Student"}
+    - {rank: 2, title: "Researcher"}
+    - {rank: 3, title: "Lecturer"}
+    - {rank: 4, title: "Professor"}
+    - {rank: 5, title: "Dean"}
+    - {rank: 6, title: "Chancellor"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "50 gold crowns"}
+        - {min: 2, max: 2, result: "100 gold crowns"}
+        - {min: 3, max: 3, result: "200 gold crowns"}
+        - {min: 4, max: 4, result: "400 gold crowns"}
+        - {min: 5, max: 5, result: "600 gold crowns"}
+        - {min: 6, max: 6, result: "1,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Scroll Case"}
+        - {min: 2, max: 2, result: "Ink and Quill"}
+        - {min: 3, max: 3, result: "Rare Tome"}
+        - {min: 4, max: 4, result: "Library Access"}
+        - {min: 5, max: 5, result: "Scholar Contact"}
+        - {min: 6, max: 6, result: "Ancient Map"}
+
+mercenary:
+  id: mercenary
+  name: "Mercenary"
+  description: >
+    Professional soldiers who sell their blades to the highest bidder.
+    Mercenaries are veteran fighters, equally adept with sword, crossbow, and
+    fist. They live rough, fight hard, and trust their comrades above all else.
+    When kingdoms cannot or will not fight their own battles, they hire
+    mercenary companies to do the dying for them.
+  qualification:
+    characteristic: STR
+    target: 4
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 6
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "intimidation"}
+          - {min: 8, max: 9, result: "athletics"}
+          - {min: 10, max: 12, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "sword"}
+          - {min: 3, max: 3, result: "crossbow"}
+          - {min: 4, max: 5, result: "wrestling"}
+          - {min: 6, max: 6, result: "shield"}
+          - {min: 7, max: 7, result: "tactics"}
+          - {min: 8, max: 9, result: "intimidation"}
+          - {min: 10, max: 11, result: "athletics"}
+          - {min: 12, max: 12, result: "polearm"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "tactics"}
+          - {min: 4, max: 5, result: "leadership"}
+          - {min: 6, max: 7, result: "appraisal"}
+          - {min: 8, max: 9, result: "persuasion"}
+          - {min: 10, max: 11, result: "history"}
+          - {min: 12, max: 12, result: "navigation"}
+  ranks:
+    - {rank: 1, title: "Sell-sword"}
+    - {rank: 2, title: "Veteran"}
+    - {rank: 3, title: "Sergeant"}
+    - {rank: 4, title: "Lieutenant"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Commander"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "100 gold crowns"}
+        - {min: 2, max: 2, result: "200 gold crowns"}
+        - {min: 3, max: 3, result: "400 gold crowns"}
+        - {min: 4, max: 4, result: "600 gold crowns"}
+        - {min: 5, max: 5, result: "800 gold crowns"}
+        - {min: 6, max: 6, result: "1,200 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Shield"}
+        - {min: 3, max: 3, result: "Armour"}
+        - {min: 4, max: 4, result: "Warhorse"}
+        - {min: 5, max: 5, result: "Sergeant Contact"}
+        - {min: 6, max: 6, result: "Company Charter"}
+
+bard:
+  id: bard
+  name: "Bard"
+  description: >
+    Wandering minstrels, storytellers, and loremasters. Bards travel the realm
+    collecting tales, spreading news, and earning their keep with song and wit.
+    They are welcome in every hall and tavern, for they carry the stories that
+    bind a kingdom together. A bard's words can inspire heroes, defuse feuds, or
+    topple a lord with a well-placed rumour.
+  qualification:
+    characteristic: SOC
+    target: 6
+  survival:
+    characteristic: SOC
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 SOC"}
+          - {min: 10, max: 12, result: "performance"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "performance"}
+          - {min: 3, max: 3, result: "persuasion"}
+          - {min: 4, max: 5, result: "etiquette"}
+          - {min: 6, max: 6, result: "lore"}
+          - {min: 7, max: 7, result: "deception"}
+          - {min: 8, max: 9, result: "history"}
+          - {min: 10, max: 11, result: "languages"}
+          - {min: 12, max: 12, result: "streetwise"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "lore"}
+          - {min: 4, max: 5, result: "history"}
+          - {min: 6, max: 7, result: "languages"}
+          - {min: 8, max: 9, result: "persuasion"}
+          - {min: 10, max: 11, result: "arcana"}
+          - {min: 12, max: 12, result: "religion"}
+  ranks:
+    - {rank: 1, title: "Wandering Minstrel"}
+    - {rank: 2, title: "Court Bard"}
+    - {rank: 3, title: "Master Bard"}
+    - {rank: 4, title: "Royal Chronicler"}
+    - {rank: 5, title: "Master of the Guild"}
+    - {rank: 6, title: "Bard Laureate"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "50 gold crowns"}
+        - {min: 2, max: 2, result: "100 gold crowns"}
+        - {min: 3, max: 3, result: "200 gold crowns"}
+        - {min: 4, max: 4, result: "400 gold crowns"}
+        - {min: 5, max: 5, result: "700 gold crowns"}
+        - {min: 6, max: 6, result: "1,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Instrument"}
+        - {min: 2, max: 2, result: "Songbook"}
+        - {min: 3, max: 3, result: "Noble Contact"}
+        - {min: 4, max: 4, result: "Tavern Pass"}
+        - {min: 5, max: 5, result: "Rare Manuscript"}
+        - {min: 6, max: 6, result: "Royal Warrant"}
+
+healer:
+  id: healer
+  name: "Healer"
+  description: >
+    Herbalists, chirurgeons, and apothecaries who tend the sick and wounded.
+    Healers travel battlefields and villages alike, armed with poultices,
+    potions, and steady hands. They are sought after by armies, nobles, and
+    common folk alike, for in a world of steel and disease, those who can mend
+    flesh are worth their weight in gold.
+  qualification:
+    characteristic: INT
+    target: 5
+  survival:
+    characteristic: DEX
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "+1 SOC"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "healing"}
+          - {min: 3, max: 3, result: "herbalism"}
+          - {min: 4, max: 5, result: "alchemy"}
+          - {min: 6, max: 6, result: "lore"}
+          - {min: 7, max: 7, result: "persuasion"}
+          - {min: 8, max: 9, result: "investigate"}
+          - {min: 10, max: 11, result: "survival"}
+          - {min: 12, max: 12, result: "religion"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "healing"}
+          - {min: 4, max: 5, result: "herbalism"}
+          - {min: 6, max: 7, result: "alchemy"}
+          - {min: 8, max: 9, result: "lore"}
+          - {min: 10, max: 11, result: "languages"}
+          - {min: 12, max: 12, result: "history"}
+  ranks:
+    - {rank: 1, title: "Apprentice"}
+    - {rank: 2, title: "Apothecary"}
+    - {rank: 3, title: "Chirurgeon"}
+    - {rank: 4, title: "Master Healer"}
+    - {rank: 5, title: "Court Physician"}
+    - {rank: 6, title: "Grand Master"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "50 gold crowns"}
+        - {min: 2, max: 2, result: "100 gold crowns"}
+        - {min: 3, max: 3, result: "200 gold crowns"}
+        - {min: 4, max: 4, result: "400 gold crowns"}
+        - {min: 5, max: 5, result: "600 gold crowns"}
+        - {min: 6, max: 6, result: "1,000 gold crowns"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Healer's Kit"}
+        - {min: 2, max: 2, result: "Herb Pouch"}
+        - {min: 3, max: 3, result: "Mortar and Pestle"}
+        - {min: 4, max: 4, result: "Potion Stock"}
+        - {min: 5, max: 5, result: "Guild Contact"}
+        - {min: 6, max: 6, result: "Rare Herbs"}

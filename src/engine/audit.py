@@ -25,12 +25,14 @@ class EventKind(str, Enum):
 
     ``ROLL`` events are the audit log proper (R4); ``STATE_CHANGE`` and
     ``SYSTEM`` are the non-dice events that share the same append-only log.
-    Audit views filter to ``ROLL`` only.
+    ``REWIND_APPLIED`` marks a Checkpoint rewind boundary so replay tooling
+    can skip the abandoned scene branch. Audit views filter to ``ROLL`` only.
     """
 
     ROLL = "roll"
     STATE_CHANGE = "state_change"
     SYSTEM = "system"
+    REWIND_APPLIED = "rewind_applied"
 
 
 class Event(BaseModel):

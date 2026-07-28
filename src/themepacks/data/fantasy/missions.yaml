@@ -1,0 +1,66 @@
+# Mission hook tables for generating fantasy adventure seeds.
+# Each table covers 2D6 (2-12) contiguously.
+
+- id: patron_type
+  name: "Patron Type"
+  description: >-
+    Determine who is offering the quest. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Thieves' guild — a guild master needs deniable operators for a heist or smuggling run."}
+      - {min: 3, max: 4, result: "Village elder — a desperate farming community plagued by bandits or a monster."}
+      - {min: 5, max: 6, result: "Merchant guild — a prosperous guild master offers gold for an escort or retrieval job."}
+      - {min: 7, max: 8, result: "Noble lord — a baron or count needs discreet agents for an errand of state or honour."}
+      - {min: 9, max: 10, result: "Temple — the high priest needs someone to recover a stolen relic or investigate a curse."}
+      - {min: 11, max: 11, result: "Court wizard — a powerful mage seeks rare reagents, a lost tome, or a rogue apprentice."}
+      - {min: 12, max: 12, result: "Crown — the king or queen themselves offers a quest that will shape the fate of the kingdom."}
+
+- id: mission_objective
+  name: "Mission Objective"
+  description: >-
+    Determine the core task of the quest. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Rescue — a prisoner, hostage, or captured noble must be freed from a dungeon or beast's lair."}
+      - {min: 3, max: 4, result: "Escort — transport a VIP, relic, or caravan safely through dangerous territory."}
+      - {min: 5, max: 6, result: "Retrieval — recover a stolen artifact, family heirloom, or magic item from bandits or a rival."}
+      - {min: 7, max: 8, result: "Investigation — uncover the truth behind a disappearance, haunting, or curse plaguing a village."}
+      - {min: 9, max: 10, result: "Slay — hunt down a monster, dragon, or undead threat terrorizing the realm."}
+      - {min: 11, max: 11, result: "Defend — hold a castle, village, or temple against an incoming siege or horde."}
+      - {min: 12, max: 12, result: "Quest — embark on an epic journey to find a legendary relic, lift an ancient curse, or fulfill a prophecy."}
+
+- id: mission_complication
+  name: "Mission Complication"
+  description: >-
+    Add a twist to an otherwise straightforward quest. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Betrayal — the patron is setting the party up; the quest is a trap."}
+      - {min: 3, max: 4, result: "Rival party — another group of adventurers is after the same treasure and will compete for it."}
+      - {min: 5, max: 6, result: "Time pressure — the ritual completes at moonrise, or the prisoner will be executed at dawn."}
+      - {min: 7, max: 8, result: "False prophecy — key details about the quest are wrong; the beast is larger, the curse older."}
+      - {min: 9, max: 10, result: "Moral dilemma — the objective requires an ethically difficult choice with lasting consequences."}
+      - {min: 11, max: 11, result: "Hidden agenda — the patron has a secondary objective they did not reveal, involving forbidden magic."}
+      - {min: 12, max: 12, result: "Ancient evil — a force far older and more dangerous than expected stirs beneath the surface."}
+
+- id: mission_reward
+  name: "Mission Reward"
+  description: >-
+    Determine the payment for completing the quest. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Modest — 100 gold crowns, barely enough to cover supplies and innkeep tabs."}
+      - {min: 3, max: 4, result: "Standard — 300 gold crowns plus provisions and basic equipment."}
+      - {min: 5, max: 6, result: "Good — 600 gold crowns plus a healing potion or enchanted trinket."}
+      - {min: 7, max: 8, result: "Generous — 1,000 gold crowns plus a finely crafted weapon or piece of armour."}
+      - {min: 9, max: 10, result: "Excellent — 2,000 gold crowns plus a rare magic item or powerful scroll."}
+      - {min: 11, max: 11, result: "Exceptional — 5,000 gold crowns plus a noble title, land grant, or powerful enchanted artifact."}
+      - {min: 12, max: 12, result: "Legendary — a dragon's hoard in gold and gems, plus something beyond money: a legendary weapon, a kingdom, or a wish granted by a grateful king."}

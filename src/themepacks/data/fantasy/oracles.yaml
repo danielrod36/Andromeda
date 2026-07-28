@@ -1,0 +1,86 @@
+# Oracle tables for fantasy scene scaffolding and solo play prompts.
+# Each table covers 2D6 (2-12) contiguously.
+
+- id: action_outcome
+  name: "Action Outcome"
+  description: >-
+    General outcome oracle for when the player attempts an action without a
+    specific skill check. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Disaster — the spell backfires, the sword slips, or the plan collapses with lasting consequences."}
+      - {min: 3, max: 4, result: "Failure — the attempt fails, and a complication or curse arises."}
+      - {min: 5, max: 6, result: "Setback — partial success at a cost; choose to succeed with a complication or fail."}
+      - {min: 7, max: 7, result: "Tension — success but the situation grows more dangerous as a monster or guard approaches."}
+      - {min: 8, max: 9, result: "Success — the attempt works as intended."}
+      - {min: 10, max: 11, result: "Strong success — the attempt succeeds with an unexpected advantage or discovered relic."}
+      - {min: 12, max: 12, result: "Triumph — flawless success that creates a lasting opportunity or earns a boon from the gods."}
+
+- id: npc_reaction
+  name: "NPC Reaction"
+  description: >-
+    Determine how a newly encountered NPC reacts to the character in a fantasy
+    setting. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Hostile — draws steel and attacks or raises the alarm."}
+      - {min: 3, max: 4, result: "Unfriendly — cold, suspicious, and demands a toll or proof of worth."}
+      - {min: 5, max: 6, result: "Wary — cautious and guarded, may help for gold or a favor."}
+      - {min: 7, max: 8, result: "Neutral — neither friendly nor hostile, willing to trade or share tavern gossip."}
+      - {min: 9, max: 10, result: "Friendly — warm and cooperative, offers what help they can."}
+      - {min: 11, max: 11, result: "Helpful — eager to assist and may volunteer knowledge of a quest or treasure."}
+      - {min: 12, max: 12, result: "Devoted — becomes a loyal ally, retainer, or sworn companion."}
+
+- id: scene_focus
+  name: "Scene Focus"
+  description: >-
+    Determine what aspect of the fantasy story the current scene centers on.
+    Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 3, result: "Combat — the scene is dominated by a battle with beasts, bandits, or monsters."}
+      - {min: 4, max: 5, result: "Social — the scene centers on interaction in a tavern, throne room, or guild hall."}
+      - {min: 6, max: 7, result: "Exploration — the scene focuses on discovering a dungeon, ancient ruin, or lost temple."}
+      - {min: 8, max: 9, result: "Magic — the scene involves spellcasting, a magical trap, or an arcane ritual."}
+      - {min: 10, max: 11, result: "Political — the scene centers on courtly intrigue, noble feuds, or kingdom law."}
+      - {min: 12, max: 12, result: "Plot twist — a curse is revealed, a dragon appears, or an ancient prophecy unfolds."}
+
+- id: environment_hazard
+  name: "Environmental Hazard"
+  description: >-
+    Generate an environmental challenge for wilderness or dungeon exploration.
+    Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Magical storm — a wild surge of arcane energy sweeps the area, disrupting spells."}
+      - {min: 3, max: 4, result: "Difficult terrain — treacherous bog, dense thorn, or crumbling dungeon floor."}
+      - {min: 5, max: 6, result: "Monster lair — a beast or creature stalks the party from the shadows."}
+      - {min: 7, max: 8, result: "Cursed ground — the area is hexed; supplies spoil and morale drops."}
+      - {min: 9, max: 10, result: "Ancient ruins — signs of a lost civilization, possibly with salvageable relics."}
+      - {min: 11, max: 11, result: "Sanctuary — a hidden grove, abandoned shrine, or hermit's hut offers safe rest."}
+      - {min: 12, max: 12, result: "Treasure hoard — a cache of gold, gems, or a magic item lies undiscovered."}
+
+- id: settlement_type
+  name: "Settlement Type"
+  description: >-
+    Determine what kind of settlement the party arrives at during travel.
+    Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Abandoned ruins — a desolate village or castle, long dead, possibly haunted."}
+      - {min: 3, max: 4, result: "Isolated farmstead — a lone homestead struggling against the wilderness."}
+      - {min: 5, max: 6, result: "Border village — a small, wary community of farmers and hunters near the frontier."}
+      - {min: 7, max: 8, result: "Market town — a bustling hub of trade with a tavern, smith, and market square."}
+      - {min: 9, max: 10, result: "Fortified castle — a lord's seat with walls, guards, and a great hall."}
+      - {min: 11, max: 11, result: "Holy city — a temple complex or monastery, a center of faith and pilgrimage."}
+      - {min: 12, max: 12, result: "Capital — the seat of a kingdom, vast and teeming with opportunity and danger."}
