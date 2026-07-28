@@ -20,6 +20,7 @@ from textual.screen import Screen
 from textual.widgets import Footer, Label, OptionList
 
 from src.engine.commands import SetFlagCommand
+from src.rulesets.cepheus import CepheusRuleSet
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
@@ -108,6 +109,7 @@ class LifepathScreen(Screen):
     def on_mount(self) -> None:
         """Initialize: show character sheet, resume context, set phase."""
         self._update_character_sheet()
+        self._update_status_bar()
         self._show_resume_context()
         self.phase = self._determine_phase()
         # Focus the choice menu's OptionList for immediate interaction.
@@ -184,21 +186,21 @@ class LifepathScreen(Screen):
         state = self.app.engine.state
         char = state.character
 
-        self._narrate(f"=== Campaign: {self.app.campaign_name} ===")
+        self._narrate_separator(f"Campaign: {self.app.campaign_name}")
 
         if char.name:
-            self._narrate(f"Character: {char.name}")
+            self._narrate(f"[bold]{char.name}[/bold]")
 
         if char.characteristics:
             chars = ", ".join(
                 f"{k} {v}" for k, v in char.characteristics.items()
             )
-            self._narrate(f"Characteristics: {chars}.")
+            self._narrate(f"[dim]Characteristics:[/dim] {chars}")
 
         if char.career:
             self._narrate(
-                f"Career: {char.career.title()}, Rank: {char.rank}, "
-                f"Terms: {char.terms}, Age: {char.age}."
+                f"[dim]Career:[/dim] {char.career.title()}, Rank {char.rank}, "
+                f"{char.terms} terms, Age {char.age}"
             )
 
         if char.skills:
@@ -206,10 +208,11 @@ class LifepathScreen(Screen):
                 f"{s.replace('_', ' ').title()}-{v}"
                 for s, v in sorted(char.skills.items())
             )
-            self._narrate(f"Skills: {skills}.")
+            self._narrate(f"[dim]Skills:[/dim] {skills}")
 
         if not char.alive:
-            self._narrate("[red]This character has died.[/red]")
+            self._narrate("[bold red]This character has died.[/bold red]")
+        self._narrate("")
 
     # ------------------------------------------------------------------
     # Reactive watcher — updates choices whenever phase changes.
@@ -231,23 +234,42 @@ class LifepathScreen(Screen):
             cm.set_choices(
                 "Begin character generation:",
                 [("Roll Characteristics (2D6 x6)", "roll_chars")],
+                descriptions=["Rolls STR, DEX, END, INT, EDU, SOC — each 2D6. These define your character's core aptitudes."],
             )
         elif self.phase == "choose_career":
             careers = sorted(
                 self.app.pack.careers.values(), key=lambda c: c.name
             )
-            choices = [(c.name, f"career:{c.id}") for c in careers]
-            cm.set_choices("Choose your career:", choices)
+            choices = []
+            descs = []
+            for c in careers:
+                choices.append((c.name, f"career:{c.id}"))
+                qual = c.qualification
+                surv = c.survival
+                desc = (
+                    f"Qualify: {qual.characteristic} target {qual.target}. "
+                    f"Survival: {surv.characteristic} target {surv.target}. "
+                    f"{c.description.strip()[:80]}"
+                )
+                descs.append(desc)
+            cm.set_choices("Choose your career:", choices, descriptions=descs)
         elif self.phase == "run_term":
             next_term = self.app.engine.state.character.terms + 1
+            career = self.app.engine.state.character.career.title()
+            age_after = self.app.engine.state.character.age + 4
+            aging_note = " Aging check applies." if age_after >= 34 else ""
             cm.set_choices(
-                f"Term {next_term} of {self.app.target_terms}:",
+                f"Term {next_term} of {self.app.target_terms} ({career}):",
                 [(f"Run Term {next_term}", "run_term")],
+                descriptions=[
+                    f"4 years of service. Survival, advancement, and skill rolls.{aging_note}"
+                ],
             )
         elif self.phase == "mustering_out":
             cm.set_choices(
                 "Your service is ending:",
                 [("Muster Out (collect benefits)", "muster_out")],
+                descriptions=["Roll for cash and material benefits based on terms served and rank achieved."],
             )
         elif self.phase == "complete":
             state = self.app.engine.state
@@ -257,6 +279,7 @@ class LifepathScreen(Screen):
             cm.set_choices(
                 label,
                 [("Finish — Return to Main Menu", "finish")],
+                descriptions=["Save the character and return to the main menu."],
             )
 
     # ------------------------------------------------------------------
@@ -289,29 +312,44 @@ class LifepathScreen(Screen):
 
     def _do_roll_characteristics(self) -> None:
         """Roll the six characteristics via the engine funnel."""
-        self._narrate("Rolling characteristics...")
+        self._narrate_section("Characteristic Rolls")
         chars = self.app.runner.roll_characteristics()
-        char_line = ", ".join(f"{k} {v}" for k, v in chars.items())
-        self._narrate(f"Characteristics: {char_line}.")
+
+        # Show each roll individually with DM info.
+        state = self.app.engine.state
+        for stat, val in chars.items():
+            dm = CepheusRuleSet().characteristic_dm(val)
+            dm_str = f"DM {'+' if dm >= 0 else ''}{dm}" if dm else "DM +0"
+            tier = "strong" if val >= 9 else ("weak" if val <= 5 else "average")
+            self._narrate(f"  [bold]{stat}[/bold]: {val} ({dm_str}, {tier})")
+        self._narrate("")
+
         self._post_step()
         self.phase = self._determine_phase()
 
     def _do_choose_career(self, career_id: str) -> None:
         """Attempt qualification for the selected career."""
         career_name = self.app.pack.careers[career_id].name
-        self._narrate(f"Attempting qualification for {career_name}...")
+        self._narrate_section(f"Qualification: {career_name}")
         qual = self.app.runner.qualify(career_id)
-        self._narrate(self.app.narrator.narrate_qualification(qual))
+
+        # Show the roll.
+        if hasattr(qual, 'roll_total') and qual.roll_total:
+            self._narrate_roll(
+                "Qualification", f"2D6({qual.roll_total})",
+                qual.roll_total, qual.adjusted_total - qual.roll_total,
+                qual.target, qual.success,
+            )
+        self._narrate_paragraph(self.app.narrator.narrate_qualification(qual))
 
         if not qual.success:
-            # Drifter fallback (matches LifepathRunner.run_lifepath behavior).
             if (
                 career_id != "drifter"
                 and "drifter" in self.app.pack.careers
             ):
-                self._narrate("Falling back to the drifter career...")
+                self._narrate("[dim]Falling back to the drifter career...[/dim]")
                 qual2 = self.app.runner.qualify("drifter")
-                self._narrate(
+                self._narrate_paragraph(
                     self.app.narrator.narrate_qualification(qual2)
                 )
 
@@ -324,13 +362,24 @@ class LifepathScreen(Screen):
         career_id = state.character.career
         term_number = state.character.terms + 1
 
-        self._narrate(f"-- Term {term_number} begins --")
+        self._narrate_section(f"Term {term_number}")
         term_result = self.app.runner.run_term(career_id, term_number)
-        self._narrate(self.app.narrator.narrate_term(term_result))
+
+        # Show survival roll.
+        if hasattr(term_result, 'survival_total') and term_result.survival_total:
+            self._narrate_roll(
+                "Survival", f"2D6({term_result.survival_total})",
+                term_result.survival_total, 0,
+                term_result.survival_target,
+                not term_result.died and not term_result.mishap,
+                "MISHAP" if term_result.mishap else "",
+            )
+
+        self._narrate_paragraph(self.app.narrator.narrate_term(term_result))
 
         if term_result.died:
             self._narrate(
-                "[red]Your character did not survive character generation.[/red]"
+                "[bold red]Your character did not survive character generation.[/bold red]"
             )
 
         self._post_step()
@@ -341,9 +390,9 @@ class LifepathScreen(Screen):
         state = self.app.engine.state
         career_id = state.character.career
 
-        self._narrate("Mustering out of service...")
+        self._narrate_section("Mustering Out")
         mo_result = self.app.runner.muster_out(career_id)
-        self._narrate(self.app.narrator.narrate_mustering_out(mo_result))
+        self._narrate_paragraph(self.app.narrator.narrate_mustering_out(mo_result))
 
         # Mark mustering out as complete via the funnel so save/resume
         # can distinguish "needs mustering out" from "already done".
@@ -367,6 +416,35 @@ class LifepathScreen(Screen):
     def _narrate(self, text: str) -> None:
         """Add a line to the narrative log."""
         self.query_one(NarrativeLogWidget).add_line(text)
+
+    def _update_status_bar(self) -> None:
+        """Update the status bar to reflect LLM connection state."""
+        bar = self.query_one("#status-bar", Label)
+        if self.app.llm_settings.is_configured:
+            provider = self.app.llm_settings.provider
+            model = self.app.llm_settings.model
+            bar.update(f"[green]LLM: {provider}/{model}[/green]")
+        else:
+            bar.update("[dim]Template narration — configure LLM in Settings[/dim]")
+
+    def _narrate_section(self, title: str) -> None:
+        """Add a section header to the log."""
+        self.query_one(NarrativeLogWidget).add_section(title)
+
+    def _narrate_separator(self, label: str = "") -> None:
+        """Add a separator line."""
+        self.query_one(NarrativeLogWidget).add_separator(label)
+
+    def _narrate_roll(self, label: str, dice: str, total: int,
+                      dm: int, target: int, success: bool, tier: str = "") -> None:
+        """Add a formatted dice roll result."""
+        self.query_one(NarrativeLogWidget).add_roll(
+            label, dice, total, dm, target, success, tier
+        )
+
+    def _narrate_paragraph(self, text: str) -> None:
+        """Add a paragraph with a blank line after."""
+        self.query_one(NarrativeLogWidget).add_paragraph(text)
 
     def _update_character_sheet(self) -> None:
         """Refresh the character sheet from engine state."""

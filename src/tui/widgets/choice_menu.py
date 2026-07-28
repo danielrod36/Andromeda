@@ -1,4 +1,9 @@
-"""Choice menu bottom panel — OptionList with number-key selection (R16)."""
+"""Choice menu bottom panel — OptionList with number-key selection (R16).
+
+Options display fiction label + compact mechanics suffix (skill, difficulty,
+characteristic) so players make informed decisions. Number keys 1-9 select
+directly; Tab cycles focus between panels.
+"""
 from __future__ import annotations
 
 from textual.binding import Binding
@@ -50,18 +55,32 @@ class ChoiceMenuWidget(Container):
         """Return the inner OptionList widget."""
         return self.query_one("#choice-list", OptionList)
 
-    def set_choices(self, prompt: str, choices: list[tuple[str, str]]) -> None:
+    def set_choices(
+        self,
+        prompt: str,
+        choices: list[tuple[str, str]],
+        descriptions: list[str] | None = None,
+    ) -> None:
         """Populate the choice menu.
 
         Args:
             prompt: Label text shown above the options.
             choices: List of (display_text, option_id) tuples.
+            descriptions: Optional list of description strings, one per
+                choice. When provided, each option shows the display text
+                on the first line and the description (dimmed) below it.
         """
         self.query_one("#choice-prompt", Label).update(prompt)
         ol = self.option_list
         ol.clear_options()
-        for display, oid in choices:
-            ol.add_option(Option(display, id=oid))
+        for i, (display, oid) in enumerate(choices):
+            if descriptions and i < len(descriptions) and descriptions[i]:
+                # Multi-line option: main label + dimmed description.
+                desc = descriptions[i]
+                label = f"{display}\n  [dim]{desc}[/dim]"
+            else:
+                label = display
+            ol.add_option(Option(label, id=oid))
 
     def clear_choices(self) -> None:
         """Remove all choices."""

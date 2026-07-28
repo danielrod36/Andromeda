@@ -113,7 +113,7 @@ class TestThreePanelLayout:
             assert "TestHero" in content
 
     async def test_status_bar_present(self, seeded_app: CepheusApp):
-        """Status bar is present showing narration mode."""
+        """Status bar is present and shows narration source."""
         app = seeded_app
         async with app.run_test() as pilot:
             await push_lifepath(app, pilot)
@@ -122,7 +122,9 @@ class TestThreePanelLayout:
 
             status = app.screen.query_one("#status-bar", Label)
             assert status is not None
-            assert "Template narration" in str(status.render())
+            # Status bar shows either LLM info or template fallback notice.
+            rendered = str(status.render())
+            assert "LLM" in rendered or "Template" in rendered
 
 
 # ---------------------------------------------------------------------------
