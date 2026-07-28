@@ -12,6 +12,11 @@ per the CE SRD.
 from __future__ import annotations
 
 from src.rulesets.base import CheckOutcome, OutcomeQuality
+from src.rulesets.profiles import (
+    ClassicProfile,
+    NarrativeProfile,
+    ResolutionProfile,
+)
 
 
 class CepheusRuleSet:
@@ -63,9 +68,11 @@ class CepheusRuleSet:
     _resolution_profiles: tuple[str, ...] = ("classic", "narrative")
     _death_modes: tuple[str, ...] = ("narrative", "ironman", "checkpoint")
 
-    # Narrative-profile thresholds (in terms of effect = total - target).
-    # Effect >= 4 → strong hit; 0 <= effect <= 3 → weak hit; effect < 0 → miss.
-    _narrative_strong_hit_effect = 4
+    #: Profile strategy instances keyed by profile name (U6 strategy pattern).
+    _profile_instances: dict[str, ResolutionProfile] = {
+        "classic": ClassicProfile(),
+        "narrative": NarrativeProfile(),
+    }
 
     # ------------------------------------------------------------------
     # Protocol properties.
@@ -148,34 +155,21 @@ class CepheusRuleSet:
         ``roll_total`` is the raw 2D6 sum (before difficulty DM). The difficulty
         modifier is applied internally. Effect = adjusted_total - target.
 
-        In the *classic* profile: success → STRONG_HIT, failure → MISS.
-        In the *narrative* profile: effect >= 4 → STRONG_HIT, 0-3 → WEAK_HIT,
-        < 0 → MISS.
+        Resolution is delegated to the appropriate :class:`ResolutionProfile`
+        strategy (U6):
+
+        - *classic* profile: binary 2D6+DM >= 8. Success -> STRONG_HIT,
+          failure -> MISS. No DM clamping.
+        - *narrative* profile: PbtA-compatible three-tier. 10+ -> strong hit,
+          7-9 -> weak hit (complication), <=6 -> miss (consequence).
+          DM clamped to [-3, +3] for tier resolution.
+
+        Raises ``ValueError`` for unknown profile names.
         """
+        if profile not in self._profile_instances:
+            raise ValueError(
+                f"Unknown resolution profile '{profile}'. "
+                f"Known: {sorted(self._profile_instances)}"
+            )
         dm = self.difficulty_modifier(difficulty)
-        adjusted = roll_total + dm
-        effect = adjusted - self._resolution_target
-        success = effect >= 0
-
-        if profile == "narrative":
-            if success and effect >= self._narrative_strong_hit_effect:
-                quality = OutcomeQuality.STRONG_HIT
-            elif success:
-                quality = OutcomeQuality.WEAK_HIT
-            else:
-                quality = OutcomeQuality.MISS
-        else:
-            # Classic: no weak-hit tier.
-            quality = OutcomeQuality.STRONG_HIT if success else OutcomeQuality.MISS
-
-        return CheckOutcome(
-            success=success,
-            effect=effect,
-            quality=quality,
-            description=(
-                f"2D6={roll_total} + DM({difficulty})={dm:+d} = {adjusted} "
-                f"vs {self._resolution_target} → "
-                f"{'success' if success else 'failure'} "
-                f"(effect {effect:+d}, {quality.value})"
-            ),
-        )
+        return self._profile_instances[profile].resolve(roll_total, dm)
