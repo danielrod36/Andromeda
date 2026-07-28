@@ -107,6 +107,10 @@ class GameState(BaseModel):
     entities: list[EntityUnion] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     narrative_log: list[str] = Field(default_factory=list)
+    # U7: Mission tracking and chapter summaries.
+    active_mission: dict | None = None
+    completed_missions: list[dict] = Field(default_factory=list)
+    chapter_summaries: list[str] = Field(default_factory=list)
 
     @classmethod
     def new(cls, seed: int, **kwargs: object) -> GameState:

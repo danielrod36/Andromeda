@@ -9,6 +9,7 @@ so they can be registered with any agent and unit-tested independently.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,6 +17,11 @@ from pydantic_ai import RunContext
 
 from src.engine.commands import Command, Engine, SetFlagCommand
 from src.engine.state import GameState
+
+#: Strict whitelist for LLM-provided flag keys: lowercase snake_case,
+#: starting with a letter, max 64 chars. Prevents log injection and key
+#: confusion from untrusted LLM output.
+_FLAG_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 # ---------------------------------------------------------------------------
@@ -56,10 +62,14 @@ async def set_narrative_flag(
     Returns:
         A confirmation message describing what was set.
     """
-    if not key or not key.strip():
-        raise ValueError("Flag key must be non-empty")
+    key = key.strip() if key else ""
+    if not _FLAG_KEY_RE.match(key):
+        raise ValueError(
+            "Flag key must be lowercase snake_case starting with a letter "
+            f"(e.g. 'met_npc'): got {key!r}"
+        )
 
-    cmd = SetFlagCommand(key=key.strip(), value=value)
+    cmd = SetFlagCommand(key=key, value=value)
     event = ctx.deps.engine.apply(cmd)
     return f"Narrative flag set: {key}={value}"
 

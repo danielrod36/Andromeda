@@ -220,4 +220,6 @@ class TestCuratedViewExcludesProhibited:
             "scene_npcs",
             "recent_log",
             "open_threads",
+            "chapter_summaries",
+            "relevant_facts",
         }

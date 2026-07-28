@@ -71,13 +71,23 @@ class TestSetNarrativeFlag:
 
     @pytest.mark.asyncio
     async def test_rejects_empty_key(self, ctx):
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="snake_case"):
             await set_narrative_flag(ctx, "", "value")
 
     @pytest.mark.asyncio
     async def test_rejects_whitespace_key(self, ctx):
-        with pytest.raises(ValueError, match="non-empty"):
+        with pytest.raises(ValueError, match="snake_case"):
             await set_narrative_flag(ctx, "   ", "value")
+
+    @pytest.mark.asyncio
+    async def test_rejects_uppercase_key(self, ctx):
+        with pytest.raises(ValueError, match="snake_case"):
+            await set_narrative_flag(ctx, "MetNPC", "value")
+
+    @pytest.mark.asyncio
+    async def test_rejects_special_chars_in_key(self, ctx, deps):
+        with pytest.raises(ValueError, match="snake_case"):
+            await set_narrative_flag(ctx, "met;drop table", "value")
 
     @pytest.mark.asyncio
     async def test_multiple_flags_appended(self, ctx, deps):

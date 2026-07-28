@@ -56,6 +56,13 @@ class NpcSummary(BaseModel):
     description: str = ""
 
 
+class FactSummary(BaseModel):
+    """A narrative fact safe for the LLM to see (R25)."""
+
+    name: str
+    description: str = ""
+
+
 class CuratedView(BaseModel):
     """The complete curated view passed to the LLM (R2, AE13).
 
@@ -68,6 +75,10 @@ class CuratedView(BaseModel):
     scene_npcs: list[NpcSummary] = Field(default_factory=list)
     recent_log: list[str] = Field(default_factory=list)
     open_threads: list[str] = Field(default_factory=list)
+    # U7: Chapter summaries replace raw event history (R19, AE16).
+    chapter_summaries: list[str] = Field(default_factory=list)
+    # U7: Relevant narrative facts re-surfaced for context (R25).
+    relevant_facts: list[FactSummary] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +93,8 @@ def build_curated_view(
     active_mission: str | None = None,
     open_threads: list[str] | None = None,
     recent_log_count: int = 3,
+    chapter_summaries: list[str] | None = None,
+    relevant_facts: list[FactSummary] | None = None,
 ) -> CuratedView:
     """Build a :class:`CuratedView` from the canonical :class:`GameState`.
 
@@ -91,6 +104,8 @@ def build_curated_view(
         active_mission: Description of the active mission, or ``None``.
         open_threads: Open narrative threads (empty if not provided).
         recent_log_count: How many recent narrative-log entries to include.
+        chapter_summaries: Validated chapter summaries replacing raw events (R19).
+        relevant_facts: Re-surfaced narrative facts for context (R25).
 
     The narrative log is capped at ``recent_log_count`` entries (default 3)
     per the spec. Raw dice events from the audit log are never included —
@@ -110,12 +125,19 @@ def build_curated_view(
     # Only the last N prose entries — no raw dice/audit data.
     log_slice = list(state.narrative_log[-recent_log_count:])
 
+    # Use chapter summaries from state if not explicitly provided.
+    summaries = chapter_summaries if chapter_summaries is not None else list(
+        state.chapter_summaries
+    )
+
     return CuratedView(
         character_sheet=sheet,
         active_mission=active_mission,
         scene_npcs=list(scene_npcs or []),
         recent_log=log_slice,
         open_threads=list(open_threads or []),
+        chapter_summaries=summaries,
+        relevant_facts=list(relevant_facts or []),
     )
 
 
