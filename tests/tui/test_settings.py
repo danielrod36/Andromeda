@@ -315,7 +315,7 @@ class TestFetchAvailableModels:
         with patch("httpx.AsyncClient", return_value=mock_client):
             from src.tui.providers import fetch_available_models
 
-            with pytest.raises(RuntimeError, match="401"):
+            with pytest.raises(RuntimeError, match="Authentication failed"):
                 await fetch_available_models("openai", "bad-key")
 
     @pytest.mark.asyncio

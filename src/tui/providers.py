@@ -167,12 +167,17 @@ async def fetch_available_models(
             resp.raise_for_status()
             data = resp.json()
     except httpx.HTTPStatusError as exc:
-        raise RuntimeError(
-            f"API returned {exc.response.status_code}: "
-            f"{exc.response.text[:200]}"
-        ) from exc
+        status = exc.response.status_code
+        if status == 401:
+            raise RuntimeError("Authentication failed. Check your API key.") from exc
+        elif status == 403:
+            raise RuntimeError("Access denied. Your API key may lack permissions.") from exc
+        elif 400 <= status < 500:
+            raise RuntimeError(f"API request failed (HTTP {status}). Check your configuration.") from exc
+        else:
+            raise RuntimeError(f"API request failed (HTTP {status}). Try again later.") from exc
     except httpx.RequestError as exc:
-        raise RuntimeError(f"Connection failed: {exc}") from exc
+        raise RuntimeError(f"Connection failed. Check your network and base URL.") from exc
 
     # Parse model IDs — most OpenAI-compatible APIs return {"data": [{"id": ...}]}.
     # Anthropic returns {"data": [{"id": ...}]} as well.
