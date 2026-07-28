@@ -44,6 +44,10 @@ class TestLLMSettings:
         s = LLMSettings(provider="anthropic", model="claude-sonnet-5")
         assert s.model_string == "anthropic:claude-sonnet-5"
 
+    def test_model_string_deepseek_uses_openai_prefix(self):
+        s = LLMSettings(provider="deepseek", model="deepseek-chat")
+        assert s.model_string == "openai:deepseek-chat"
+
     def test_model_string_none_when_empty(self):
         s = LLMSettings()
         assert s.model_string is None
@@ -58,21 +62,37 @@ class TestLLMSettings:
         assert env["ANTHROPIC_API_KEY"] == "sk-test"
         assert env["ANTHROPIC_BASE_URL"] == "https://custom.example.com"
 
-    def test_env_overrides_openai(self):
+    def test_env_overrides_openai_uses_default_base_url(self):
         s = LLMSettings(provider="openai", api_key="sk-oai", base_url="")
         env = s.env_overrides()
         assert env["OPENAI_API_KEY"] == "sk-oai"
-        assert "OPENAI_BASE_URL" not in env
+        # Default base URL is populated when no explicit override.
+        assert env["OPENAI_BASE_URL"] == "https://api.openai.com"
+
+    def test_env_overrides_deepseek_sets_openai_vars(self):
+        """DeepSeek uses Pydantic AI's OpenAI provider, so OPENAI_* must be set."""
+        s = LLMSettings(provider="deepseek", api_key="sk-ds")
+        env = s.env_overrides()
+        assert env["DEEPSEEK_API_KEY"] == "sk-ds"
+        assert env["DEEPSEEK_BASE_URL"] == "https://api.deepseek.com"
+        # Also sets OPENAI_* so Pydantic AI's openai prefix finds the endpoint.
+        assert env["OPENAI_API_KEY"] == "sk-ds"
+        assert env["OPENAI_BASE_URL"] == "https://api.deepseek.com"
 
     def test_env_overrides_custom_provider(self):
         s = LLMSettings(provider="custom", api_key="key", base_url="http://localhost:8080")
         env = s.env_overrides()
-        assert env["API_KEY"] == "key"
-        assert env["BASE_URL"] == "http://localhost:8080"
+        assert env["CUSTOM_API_KEY"] == "key"
+        assert env["CUSTOM_BASE_URL"] == "http://localhost:8080"
+        assert env["OPENAI_API_KEY"] == "key"
+        assert env["OPENAI_BASE_URL"] == "http://localhost:8080"
 
-    def test_env_overrides_empty_when_no_key(self):
-        s = LLMSettings()
-        assert s.env_overrides() == {}
+    def test_env_overrides_no_key_sets_only_base_url(self):
+        """Without an API key, only the base URL env is populated."""
+        s = LLMSettings(provider="anthropic")
+        env = s.env_overrides()
+        assert "ANTHROPIC_API_KEY" not in env
+        assert env["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
 
     def test_base_url_rejects_non_http_scheme(self):
         with pytest.raises(ValueError, match="http or https"):
@@ -173,6 +193,156 @@ class TestModelPresets:
 
     def test_openai_has_presets(self):
         assert len(MODEL_PRESETS["openai"]) > 0
+
+    def test_deepseek_has_presets(self):
+        assert "deepseek-chat" in MODEL_PRESETS["deepseek"]
+
+    def test_openrouter_has_presets(self):
+        assert len(MODEL_PRESETS["openrouter"]) > 0
+
+    def test_xiaomi_mimo_has_presets(self):
+        assert len(MODEL_PRESETS["xiaomi_mimo"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# Provider config tests.
+# ---------------------------------------------------------------------------
+
+
+class TestProviderConfigs:
+    def test_all_expected_providers_present(self):
+        from src.tui.providers import PROVIDER_CONFIGS
+
+        expected = {"anthropic", "openai", "deepseek", "openrouter",
+                    "xiaomi_mimo", "groq", "custom"}
+        assert expected <= set(PROVIDER_CONFIGS.keys())
+
+    def test_each_provider_has_required_fields(self):
+        from src.tui.providers import PROVIDER_CONFIGS
+
+        required = {"label", "pydantic_prefix", "key_env", "base_url_env",
+                     "default_base_url", "models_path", "auth_header",
+                     "auth_prefix", "presets"}
+        for key, cfg in PROVIDER_CONFIGS.items():
+            missing = required - set(cfg.keys())
+            assert not missing, f"Provider {key} missing fields: {missing}"
+
+    def test_openai_compatible_providers_use_openai_prefix(self):
+        from src.tui.providers import PROVIDER_CONFIGS
+
+        for key in ("deepseek", "openrouter", "xiaomi_mimo", "groq", "custom"):
+            assert PROVIDER_CONFIGS[key]["pydantic_prefix"] == "openai", (
+                f"{key} should use openai prefix for Pydantic AI compatibility"
+            )
+
+    def test_models_endpoint_builds_url(self):
+        from src.tui.providers import models_endpoint
+
+        url = models_endpoint("deepseek")
+        assert url == "https://api.deepseek.com/v1/models"
+
+    def test_models_endpoint_with_custom_base_url(self):
+        from src.tui.providers import models_endpoint
+
+        url = models_endpoint("custom", "https://my-proxy.com")
+        assert url == "https://my-proxy.com/v1/models"
+
+    def test_models_endpoint_empty_for_no_base_url(self):
+        from src.tui.providers import models_endpoint
+
+        url = models_endpoint("xiaomi_mimo")  # No default base URL
+        assert url == ""
+
+    def test_provider_labels_for_dropdown(self):
+        from src.tui.providers import provider_labels
+
+        labels = provider_labels()
+        assert all(isinstance(l, tuple) and len(l) == 2 for l in labels)
+        keys = [k for _, k in labels]
+        assert "anthropic" in keys
+        assert "deepseek" in keys
+
+
+# ---------------------------------------------------------------------------
+# Model fetcher tests.
+# ---------------------------------------------------------------------------
+
+
+class TestFetchAvailableModels:
+    @pytest.mark.asyncio
+    async def test_fetch_parses_openai_format(self):
+        """Mock httpx to return OpenAI-style /models response."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "data": [
+                {"id": "gpt-4o"},
+                {"id": "gpt-4o-mini"},
+            ]
+        }
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            from src.tui.providers import fetch_available_models
+
+            models = await fetch_available_models("openai", "sk-test")
+            assert models == ["gpt-4o", "gpt-4o-mini"]
+
+    @pytest.mark.asyncio
+    async def test_fetch_handles_auth_error(self):
+        """RuntimeError on 401."""
+        import httpx
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_resp.text = "Unauthorized"
+        mock_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "401", request=MagicMock(), response=mock_resp
+        )
+
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            from src.tui.providers import fetch_available_models
+
+            with pytest.raises(RuntimeError, match="401"):
+                await fetch_available_models("openai", "bad-key")
+
+    @pytest.mark.asyncio
+    async def test_fetch_raises_on_missing_base_url(self):
+        from src.tui.providers import fetch_available_models
+
+        with pytest.raises(RuntimeError, match="base URL"):
+            await fetch_available_models("xiaomi_mimo", "key")
+
+    @pytest.mark.asyncio
+    async def test_fetch_raises_on_empty_response(self):
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"data": []}
+        mock_resp.raise_for_status = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            from src.tui.providers import fetch_available_models
+
+            with pytest.raises(RuntimeError, match="No models found"):
+                await fetch_available_models("openai", "sk-test")
 
 
 # ---------------------------------------------------------------------------

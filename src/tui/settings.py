@@ -13,19 +13,17 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, field_validator
 
+from src.tui.providers import PROVIDER_CONFIGS, get_provider_config
+
 
 class LLMSettings(BaseModel):
     """User-configurable LLM connection settings.
 
     Attributes:
-        provider: Model provider (``"anthropic"``, ``"openai"``, ``"groq"``,
-            ``"custom"``). Default ``"anthropic"``.
-        model: Model identifier without provider prefix
-            (e.g. ``"claude-sonnet-5"``, ``"gpt-4o"``).
+        provider: Provider key from :data:`PROVIDER_CONFIGS`.
+        model: Model identifier without provider prefix.
         api_key: API key for the provider. Stored locally only.
-        base_url: Optional custom endpoint URL (for proxies, local LLMs,
-            OpenAI-compatible endpoints). When set, the appropriate
-            ``*_BASE_URL`` env var is populated at adapter creation time.
+        base_url: Optional custom endpoint URL.
         max_retries: Max retries on invalid LLM output before template fallback.
     """
 
@@ -53,41 +51,56 @@ class LLMSettings(BaseModel):
     @property
     def is_configured(self) -> bool:
         """Whether enough info is present to attempt an LLM connection."""
-        return bool(self.model and self.api_key)
+        cfg = get_provider_config(self.provider)
+        needs_url = not cfg["default_base_url"]
+        return bool(self.model and self.api_key and (self.base_url or not needs_url))
 
     @property
     def model_string(self) -> str | None:
-        """Pydantic AI model string (``"provider:model"``) or None."""
+        """Pydantic AI model string (``"prefix:model"``) or None."""
         if not self.model:
             return None
-        return f"{self.provider}:{self.model}"
+        cfg = get_provider_config(self.provider)
+        return f"{cfg['pydantic_prefix']}:{self.model}"
+
+    def effective_base_url(self) -> str:
+        """The base URL to use — explicit override or provider default."""
+        return self.base_url or get_provider_config(self.provider).get(
+            "default_base_url", ""
+        )
 
     def env_overrides(self) -> dict[str, str]:
         """Return environment variables to set before creating the adapter.
 
-        Maps api_key and base_url to the provider-specific env vars that
-        Pydantic AI's provider clients read.
+        Maps api_key and base_url to env vars for both the UI provider's
+        own env name AND the Pydantic AI provider prefix's env name (so
+        OpenAI-compatible providers like DeepSeek/OpenRouter correctly
+        populate OPENAI_API_KEY / OPENAI_BASE_URL).
         """
+        cfg = get_provider_config(self.provider)
         env: dict[str, str] = {}
+
+        # Provider-specific key env var (e.g. DEEPSEEK_API_KEY).
+        key_env = cfg["key_env"]
+        base_env = cfg["base_url_env"]
+
         if self.api_key:
-            env[self._key_env_name()] = self.api_key
-        if self.base_url:
-            env[self._base_url_env_name()] = self.base_url
+            env[key_env] = self.api_key
+        url = self.effective_base_url()
+        if url:
+            env[base_env] = url
+
+        # Also set Pydantic AI's provider prefix env vars so the model
+        # string (e.g. "openai:deepseek-chat") finds the right endpoint.
+        pydantic_prefix = cfg["pydantic_prefix"]
+        pydantic_key_env = f"{pydantic_prefix.upper()}_API_KEY"
+        pydantic_base_env = f"{pydantic_prefix.upper()}_BASE_URL"
+        if pydantic_key_env != key_env and self.api_key:
+            env[pydantic_key_env] = self.api_key
+        if pydantic_base_env != base_env and url:
+            env[pydantic_base_env] = url
+
         return env
-
-    def _key_env_name(self) -> str:
-        return {
-            "anthropic": "ANTHROPIC_API_KEY",
-            "openai": "OPENAI_API_KEY",
-            "groq": "GROQ_API_KEY",
-        }.get(self.provider, "API_KEY")
-
-    def _base_url_env_name(self) -> str:
-        return {
-            "anthropic": "ANTHROPIC_BASE_URL",
-            "openai": "OPENAI_BASE_URL",
-            "groq": "GROQ_BASE_URL",
-        }.get(self.provider, "BASE_URL")
 
 
 #: Default settings directory — alongside saves, in the project root.
@@ -134,18 +147,7 @@ def save_settings(
     return path
 
 
-#: Common model presets shown in the settings screen dropdown.
+#: Common model presets per provider (fallback when API fetch is unavailable).
 MODEL_PRESETS: dict[str, list[str]] = {
-    "anthropic": [
-        "claude-sonnet-5",
-        "claude-opus-5",
-        "claude-haiku-4-5-20251001",
-    ],
-    "openai": [
-        "gpt-4o",
-        "gpt-4o-mini",
-    ],
-    "groq": [
-        "llama-3.3-70b-versatile",
-    ],
+    key: cfg.get("presets", []) for key, cfg in PROVIDER_CONFIGS.items()
 }
