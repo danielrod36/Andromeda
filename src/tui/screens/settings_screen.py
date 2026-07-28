@@ -62,7 +62,7 @@ class SettingsScreen(Screen):
     .field-hint {
         color: $text-muted;
         padding: 0 0 0 1;
-        font-style: italic;
+        text-style: italic;
     }
     #settings-buttons {
         height: 3;
