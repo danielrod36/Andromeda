@@ -519,33 +519,38 @@ class LifepathRunner:
         )
 
     # ------------------------------------------------------------------
-    # Step 3: Run one term.
+    # Step 3: Run one term — individual sub-step methods.
     # ------------------------------------------------------------------
 
-    def run_term(
-        self,
-        career_id: str,
-        term_number: int,
-        skill_table_choices: list[str] | None = None,
-    ) -> TermResult:
-        """Execute one 4-year term: survival, advancement, skills, aging."""
+    def start_term(self, career_id: str, term_number: int) -> TermResult:
+        """Create an initial :class:`TermResult` for a new term.
+
+        Does not roll any dice — just sets up the dataclass with static
+        info from the career and current character state.
+        """
         career = self._get_career(career_id)
         state = self.engine.state
-        age_before = state.character.age
-        rank_before = state.character.rank
-
-        result = TermResult(
+        return TermResult(
             term_number=term_number,
             career_id=career_id,
             career_name=career.name,
-            age_before=age_before,
-            age_after=age_before + 4,
-            rank_before=rank_before,
+            age_before=state.character.age,
+            age_after=state.character.age + 4,
+            rank_before=state.character.rank,
             survival_target=career.survival.target,
             advancement_target=career.advancement.target,
         )
 
-        # --- 1. Survival ---
+    def run_survival_step(self, career_id: str, result: TermResult) -> None:
+        """Roll survival check and advance the term counter.
+
+        Modifies *result* in place.  After this call ``result.died`` /
+        ``result.mishap`` indicate whether the term ended prematurely.
+        Age and term count always advance (even on death/mishap).
+        """
+        career = self._get_career(career_id)
+        state = self.engine.state
+
         surv_cmd = SurvivalCommand(
             career_id=career_id,
             characteristic=career.survival.characteristic,
@@ -565,12 +570,19 @@ class LifepathRunner:
         advance_event = self.engine.apply(AdvanceTermCommand())
         ac = advance_event.changes
         result.age_after = ac["age_after"]
-        result.rank_after = rank_before
+        result.rank_after = result.rank_before
 
-        if result.died or result.mishap:
-            return result
+    def run_advancement_step(
+        self, career_id: str, result: TermResult
+    ) -> None:
+        """Roll advancement check and update rank.
 
-        # --- 2. Advancement ---
+        Modifies *result* in place.  Should only be called after a
+        successful survival check.
+        """
+        career = self._get_career(career_id)
+        state = self.engine.state
+
         adv_cmd = AdvancementCommand(
             career_id=career_id,
             characteristic=career.advancement.characteristic,
@@ -585,13 +597,104 @@ class LifepathRunner:
         result.advancement_success = ac["success"]
         result.rank_after = state.character.rank
 
-        # --- 3. Skill rolls ---
+    def compute_num_skill_rolls(self, result: TermResult) -> int:
+        """Compute the number of skill table rolls for this term.
+
+        Base 1, +1 if advancement succeeded, +1 if rank 3+.
+        """
         num_rolls = 1  # base
         if result.advancement_success:
             num_rolls += 1
-        if state.character.rank >= 3:
+        if self.engine.state.character.rank >= 3:
             num_rolls += 1
+        return num_rolls
 
+    def run_skill_roll_step(
+        self, career_id: str, result: TermResult, table_name: str
+    ) -> SkillGain:
+        """Roll one skill on the chosen table.
+
+        Appends a :class:`SkillGain` to ``result.skill_gains`` and
+        returns it.  If *table_name* doesn't match any table, the first
+        table is used as a fallback.
+        """
+        career = self._get_career(career_id)
+        table = next(
+            (t for t in career.skill_tables if t.name == table_name),
+            career.skill_tables[0],
+        )
+        skill_cmd = SkillTableRollCommand(
+            table_name=table.name,
+            entries=table.entries.entries,
+            num_dice=table.entries.num_dice,
+            die_size=table.entries.die_size,
+        )
+        skill_event = self.engine.apply(skill_cmd)
+        sec = skill_event.changes
+        gain = SkillGain(
+            table_name=table.name,
+            roll=sec["roll_total"],
+            result_text=sec["result_text"],
+            gain_type=sec["gain_type"],
+            gain_name=sec["gain_name"],
+        )
+        result.skill_gains.append(gain)
+        return gain
+
+    def run_aging_step(self, result: TermResult) -> bool:
+        """Roll aging check if character is 34+.
+
+        Modifies *result* in place.  Returns ``True`` if an aging check
+        was performed, ``False`` if the character is too young.
+        """
+        if self.engine.state.character.age >= 34:
+            aging_cmd = AgingCommand()
+            aging_event = self.engine.apply(aging_cmd)
+            agc = aging_event.changes
+            result.aging_raw = agc["raw_roll"]
+            result.aging_success = agc["success"]
+            result.aging_reductions = agc.get("reductions", {})
+            return True
+        return False
+
+    def finalize_term(self, career_id: str, result: TermResult) -> None:
+        """Set rank title based on current rank. Call after all steps."""
+        career = self._get_career(career_id)
+        if career.ranks:
+            matching = [
+                r for r in career.ranks
+                if r.rank == self.engine.state.character.rank
+            ]
+            if matching:
+                result.rank_title = matching[0].title
+
+    # ------------------------------------------------------------------
+    # Step 3 (legacy): Run one term — convenience wrapper.
+    # ------------------------------------------------------------------
+
+    def run_term(
+        self,
+        career_id: str,
+        term_number: int,
+        skill_table_choices: list[str] | None = None,
+    ) -> TermResult:
+        """Execute one 4-year term: survival, advancement, skills, aging.
+
+        This is the legacy all-in-one entry point.  It delegates to the
+        individual ``run_*_step`` methods so the TUI can call them
+        interactively while engine tests and ``run_lifepath`` still get
+        the same behaviour in a single call.
+        """
+        result = self.start_term(career_id, term_number)
+        self.run_survival_step(career_id, result)
+
+        if result.died or result.mishap:
+            return result
+
+        self.run_advancement_step(career_id, result)
+
+        num_rolls = self.compute_num_skill_rolls(result)
+        career = self._get_career(career_id)
         table_names = [t.name for t in career.skill_tables]
         if skill_table_choices is None:
             skill_table_choices = [
@@ -600,45 +703,10 @@ class LifepathRunner:
             ]
 
         for table_name in skill_table_choices[:num_rolls]:
-            table = next(
-                (t for t in career.skill_tables if t.name == table_name),
-                career.skill_tables[0],
-            )
-            skill_cmd = SkillTableRollCommand(
-                table_name=table.name,
-                entries=table.entries.entries,
-                num_dice=table.entries.num_dice,
-                die_size=table.entries.die_size,
-            )
-            skill_event = self.engine.apply(skill_cmd)
-            sec = skill_event.changes
-            result.skill_gains.append(
-                SkillGain(
-                    table_name=table.name,
-                    roll=sec["roll_total"],
-                    result_text=sec["result_text"],
-                    gain_type=sec["gain_type"],
-                    gain_name=sec["gain_name"],
-                )
-            )
+            self.run_skill_roll_step(career_id, result, table_name)
 
-        # --- 4. Aging (age 34+) ---
-        if state.character.age >= 34:
-            aging_cmd = AgingCommand()
-            aging_event = self.engine.apply(aging_cmd)
-            agc = aging_event.changes
-            result.aging_raw = agc["raw_roll"]
-            result.aging_success = agc["success"]
-            result.aging_reductions = agc.get("reductions", {})
-
-        # Set rank title.
-        if career.ranks:
-            matching = [
-                r for r in career.ranks if r.rank == state.character.rank
-            ]
-            if matching:
-                result.rank_title = matching[0].title
-
+        self.run_aging_step(result)
+        self.finalize_term(career_id, result)
         return result
 
     # ------------------------------------------------------------------

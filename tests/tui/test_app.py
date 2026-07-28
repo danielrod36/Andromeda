@@ -49,13 +49,20 @@ def Q(app, widget_type=None, selector=None):
 @pytest.fixture
 def app(tmp_path: Path) -> CepheusApp:
     """Create a CepheusApp with a temporary saves directory."""
-    return CepheusApp(saves_dir=tmp_path)
+    app = CepheusApp(saves_dir=tmp_path)
+    # Ensure LLM is not configured so tests use template narration.
+    from src.tui.settings import LLMSettings
+    app.llm_settings = LLMSettings()
+    return app
 
 
 @pytest.fixture
 def seeded_app(tmp_path: Path) -> CepheusApp:
     """Create an app with a pre-initialised campaign (past config screen)."""
     app = CepheusApp(saves_dir=tmp_path)
+    # Ensure LLM is not configured so tests use template narration.
+    from src.tui.settings import LLMSettings
+    app.llm_settings = LLMSettings()
     config = CampaignConfig(
         ruleset="cepheus",
         theme_pack="scifi",
@@ -82,6 +89,37 @@ async def push_lifepath(app: CepheusApp, pilot) -> LifepathScreen:
     app.push_screen(LifepathScreen())
     await pilot.pause()
     return app.screen
+
+
+#: Phases that belong to the interactive term sub-state-machine.
+TERM_PHASES = frozenset(
+    {"run_survival", "run_advancement", "choose_skills", "run_aging", "re_enlist"}
+)
+
+
+async def play_through_term(app: CepheusApp, pilot, screen) -> None:
+    """Advance through all sub-phases of one term (up to re_enlist).
+
+    Presses the first option repeatedly until the phase leaves the
+    term sub-phases or reaches ``re_enlist``.
+    """
+    for _ in range(20):  # safety limit
+        if screen.phase not in TERM_PHASES or screen.phase == "re_enlist":
+            break
+        cm = app.screen.query_one(ChoiceMenuWidget)
+        if not cm.option_list.option_count:
+            break
+        cm.option_list.highlighted = 0
+        cm.option_list.action_select()
+        await pilot.pause()
+
+
+async def select_first(app: CepheusApp, pilot) -> None:
+    """Select the first option in the choice menu."""
+    cm = app.screen.query_one(ChoiceMenuWidget)
+    cm.option_list.highlighted = 0
+    cm.option_list.action_select()
+    await pilot.pause()
 
 
 # ---------------------------------------------------------------------------
@@ -238,28 +276,36 @@ class TestLifepathInteraction:
             cm = app.screen.query_one(ChoiceMenuWidget)
 
             # 1. Roll characteristics.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
             assert screen.phase == "choose_career"
 
             # 2. Choose first career (alphabetically).
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
-            assert screen.phase in ("run_term", "mustering_out")
+            await select_first(app, pilot)
+            assert screen.phase in TERM_PHASES or screen.phase == "mustering_out"
 
-            # 3. Run all terms.
-            while screen.phase == "run_term":
-                cm.option_list.highlighted = 0
-                cm.option_list.action_select()
-                await pilot.pause()
+            # 3. Play through terms until we choose to muster out.
+            for _ in range(10):  # safety limit on terms
+                # Play through all sub-phases of one term.
+                await play_through_term(app, pilot, screen)
+
+                if screen.phase == "re_enlist":
+                    # After enough terms, choose to muster out (option index 1).
+                    if app.engine.state.character.terms >= app.target_terms:
+                        cm.option_list.highlighted = 1
+                    else:
+                        cm.option_list.highlighted = 0
+                    cm.option_list.action_select()
+                    await pilot.pause()
+                elif screen.phase == "mustering_out":
+                    break
+                elif screen.phase == "complete":
+                    break
+                else:
+                    break
 
             # 4. Muster out.
             if screen.phase == "mustering_out":
-                cm.option_list.highlighted = 0
-                cm.option_list.action_select()
-                await pilot.pause()
+                await select_first(app, pilot)
 
             # 5. Should be complete.
             assert screen.phase == "complete"
@@ -274,22 +320,16 @@ class TestLifepathInteraction:
             cm = app.screen.query_one(ChoiceMenuWidget)
 
             # Roll characteristics.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
 
             # Choose career.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
 
-            # Run term 1 (if qualified).
-            if screen.phase == "run_term":
-                cm.option_list.highlighted = 0
-                cm.option_list.action_select()
-                await pilot.pause()
+            # Play through survival (first step of term 1).
+            if screen.phase in TERM_PHASES:
+                await play_through_term(app, pilot, screen)
 
-            # Character should have gained terms.
+            # Character should have gained terms (survival advances term).
             assert app.engine.state.character.terms >= 1
 
 
@@ -384,20 +424,14 @@ class TestSaveAndResume:
             cm = app.screen.query_one(ChoiceMenuWidget)
 
             # Roll characteristics.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
 
             # Choose first career.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
 
-            # Run first term if in that phase.
-            if screen.phase == "run_term":
-                cm.option_list.highlighted = 0
-                cm.option_list.action_select()
-                await pilot.pause()
+            # Play through first term sub-phases if qualified.
+            if screen.phase in TERM_PHASES:
+                await play_through_term(app, pilot, screen)
 
             # Capture state before save.
             state_before = app.engine.state.model_dump_json()
@@ -427,20 +461,14 @@ class TestSaveAndResume:
             cm = app.screen.query_one(ChoiceMenuWidget)
 
             # Roll characteristics.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
 
             # Choose career.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await select_first(app, pilot)
 
-            # Run one term.
-            if screen.phase == "run_term":
-                cm.option_list.highlighted = 0
-                cm.option_list.action_select()
-                await pilot.pause()
+            # Play through first term sub-phases.
+            if screen.phase in TERM_PHASES:
+                await play_through_term(app, pilot, screen)
 
             terms_done = app.engine.state.character.terms
             app.save_game()

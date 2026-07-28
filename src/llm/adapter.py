@@ -29,7 +29,12 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import UsageLimits
 
 from src.engine.commands import Engine
-from src.engine.lifepath import LifepathResult, TermResult
+from src.engine.lifepath import (
+    LifepathResult,
+    MusteringOutResult,
+    QualificationResult,
+    TermResult,
+)
 from src.engine.narration import Narrator
 from src.engine.state import GameState
 from src.llm.prompts import (
@@ -294,6 +299,131 @@ class LLMAdapter:
             )
             return NarrationResult(
                 prose=self._narrator.narrate_term(term_result),
+                source="template",
+                llm_failed=True,
+            )
+
+    # ------------------------------------------------------------------
+    # Qualification narration.
+    # ------------------------------------------------------------------
+
+    async def narrate_qualification(
+        self,
+        state: GameState,
+        engine: Engine,
+        qual_result: QualificationResult,
+    ) -> NarrationResult:
+        """Narrate a career qualification check.
+
+        Falls back to template narration when no LLM is configured or
+        on LLM failure.
+        """
+        if not self.llm_configured:
+            return NarrationResult(
+                prose=self._narrator.narrate_qualification(qual_result),
+                source="template",
+            )
+
+        view = build_curated_view(state)
+        import json as _json
+        view_json = _json.dumps(view.model_dump(), indent=2)
+        outcome = "passed" if qual_result.success else "failed"
+        prompt = (
+            f"## Character State\n{view_json}\n\n"
+            f"## Qualification Event\n"
+            f"The character attempted to qualify for the "
+            f"{qual_result.career_name} career and {outcome}.\n\n"
+            f"Write 1-2 sentences of engaging second-person prose "
+            f"narrating this qualification attempt. "
+            f"Do not mention dice or game mechanics."
+        )
+        deps = ToolDeps(engine=engine, state=state)
+
+        try:
+            result = await self._agent.run(
+                prompt,
+                deps=deps,
+                usage_limits=self._usage_limits(),
+            )
+            return NarrationResult(
+                prose=result.output.prose,
+                source="llm",
+            )
+        except Exception as exc:
+            logger.warning(
+                "LLM qualification narration failed, falling back to "
+                "template: %s",
+                exc,
+            )
+            return NarrationResult(
+                prose=self._narrator.narrate_qualification(qual_result),
+                source="template",
+                llm_failed=True,
+            )
+
+    # ------------------------------------------------------------------
+    # Mustering out narration.
+    # ------------------------------------------------------------------
+
+    async def narrate_mustering_out(
+        self,
+        state: GameState,
+        engine: Engine,
+        mo_result: MusteringOutResult,
+    ) -> NarrationResult:
+        """Narrate mustering-out benefits.
+
+        Falls back to template narration when no LLM is configured or
+        on LLM failure.
+        """
+        if not self.llm_configured:
+            return NarrationResult(
+                prose=self._narrator.narrate_mustering_out(mo_result),
+                source="template",
+            )
+
+        view = build_curated_view(state)
+        import json as _json
+        view_json = _json.dumps(view.model_dump(), indent=2)
+        benefits: list[str] = []
+        if mo_result.cash_benefits:
+            benefits.append(f"Cash: {', '.join(mo_result.cash_benefits)}")
+        if mo_result.material_benefits:
+            benefits.append(
+                f"Material benefits: {', '.join(mo_result.material_benefits)}"
+            )
+        benefits_text = "\n".join(f"  - {b}" for b in benefits) or "  - No benefits"
+        prompt = (
+            f"## Character State\n{view_json}\n\n"
+            f"## Mustering Out Event\n"
+            f"The character is mustering out after "
+            f"{mo_result.terms_served} term(s) as a "
+            f"{mo_result.career_name} (rank {mo_result.final_rank}).\n"
+            f"Benefits received:\n{benefits_text}\n\n"
+            f"Write 2-3 sentences of engaging second-person prose "
+            f"narrating the mustering-out scene. "
+            f"Do not mention dice or game mechanics."
+        )
+        deps = ToolDeps(engine=engine, state=state)
+
+        try:
+            result = await self._agent.run(
+                prompt,
+                deps=deps,
+                usage_limits=self._usage_limits(),
+            )
+            return NarrationResult(
+                prose=result.output.prose,
+                source="llm",
+            )
+        except Exception as exc:
+            logger.warning(
+                "LLM mustering out narration failed, falling back to "
+                "template: %s",
+                exc,
+            )
+            return NarrationResult(
+                prose=self._narrator.narrate_mustering_out(mo_result),
                 source="template",
                 llm_failed=True,
             )
