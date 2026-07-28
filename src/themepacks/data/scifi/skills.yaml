@@ -1,0 +1,285 @@
+# CE SRD Skill Definitions
+# Each skill has an id (snake_case), a human-readable name, an optional
+# description, and an optional career association for referential integrity.
+
+gambler:
+  id: gambler
+  name: "Gambling"
+  description: "Games of chance, betting, and reading tells."
+  career: ""
+
+gunnery_turrets:
+  id: gunnery_turrets
+  name: "Gunnery (Turrets)"
+  description: "Operate ship-mounted turret weapons."
+  career: navy
+
+mechanic:
+  id: mechanic
+  name: "Mechanic"
+  description: "Repair and maintain machinery and vehicles."
+  career: ""
+
+electronics_comms:
+  id: electronics_comms
+  name: "Electronics (Comms)"
+  description: "Operate communications systems and jammers."
+  career: ""
+
+electronics_sensors:
+  id: electronics_sensors
+  name: "Electronics (Sensors)"
+  description: "Operate sensor arrays and scanning equipment."
+  career: ""
+
+electronics_remote_ops:
+  id: electronics_remote_ops
+  name: "Electronics (Remote Ops)"
+  description: "Operate remote drones and robotic systems."
+  career: drifter
+
+pilot_small_craft:
+  id: pilot_small_craft
+  name: "Pilot (Small Craft)"
+  description: "Fly shuttles, fighters, and other small vessels."
+  career: navy
+
+pilot_capital_ship:
+  id: pilot_capital_ship
+  name: "Pilot (Capital Ship)"
+  description: "Navigate and pilot large military or commercial vessels."
+  career: navy
+
+astrogation:
+  id: astrogation
+  name: "Astrogation"
+  description: "Plot jump courses and calculate interstellar routes."
+  career: navy
+
+sensor_ops:
+  id: sensor_ops
+  name: "Sensor Ops"
+  description: "Advanced sensor operation and interpretation."
+  career: navy
+
+engineer:
+  id: engineer
+  name: "Engineer"
+  description: "Operate and repair starship power and drive systems."
+  career: navy
+
+medic:
+  id: medic
+  name: "Medic"
+  description: "Treat injuries, diagnose illness, and perform surgery."
+  career: ""
+
+leadership:
+  id: leadership
+  name: "Leadership"
+  description: "Command, inspire, and coordinate personnel."
+  career: ""
+
+tactics_naval:
+  id: tactics_naval
+  name: "Tactics (Naval)"
+  description: "Naval combat strategy and fleet coordination."
+  career: navy
+
+tactics_ground:
+  id: tactics_ground
+  name: "Tactics (Ground)"
+  description: "Ground combat strategy and small-unit tactics."
+  career: army
+
+tactics_military:
+  id: tactics_military
+  name: "Tactics (Military)"
+  description: "Combined arms and operational-level military planning."
+  career: marines
+
+computers:
+  id: computers
+  name: "Computers"
+  description: "Programming, hacking, and computer system operation."
+  career: ""
+
+drive_ground_vehicle:
+  id: drive_ground_vehicle
+  name: "Drive (Ground Vehicle)"
+  description: "Operate wheeled and tracked ground vehicles."
+  career: army
+
+drive_hovercraft:
+  id: drive_hovercraft
+  name: "Drive (Hovercraft)"
+  description: "Operate hover and air-cushion vehicles."
+  career: army
+
+heavy_wpn_vehicle:
+  id: heavy_wpn_vehicle
+  name: "Heavy Weapons (Vehicle)"
+  description: "Operate vehicle-mounted heavy weapons systems."
+  career: marines
+
+heavy_wpn_man_portable:
+  id: heavy_wpn_man_portable
+  name: "Heavy Weapons (Man-Portable)"
+  description: "Operate man-portable heavy weapons and missile launchers."
+  career: marines
+
+gun_combat_slug_rifle:
+  id: gun_combat_slug_rifle
+  name: "Gun Combat (Slug Rifle)"
+  description: "Use projectile rifles and carbines."
+  career: marines
+
+gun_combat_slug_pistol:
+  id: gun_combat_slug_pistol
+  name: "Gun Combat (Slug Pistol)"
+  description: "Use projectile sidearms and pistols."
+  career: marines
+
+gun_combat_energy_rifle:
+  id: gun_combat_energy_rifle
+  name: "Gun Combat (Energy Rifle)"
+  description: "Use laser and plasma rifles."
+  career: marines
+
+explosives:
+  id: explosives
+  name: "Explosives"
+  description: "Handle, set, and defuse explosive devices."
+  career: marines
+
+melee_unarmed:
+  id: melee_unarmed
+  name: "Melee (Unarmed)"
+  description: "Brawling, grappling, and unarmed combat."
+  career: marines
+
+melee_blade:
+  id: melee_blade
+  name: "Melee (Blade)"
+  description: "Fight with knives, swords, and bladed weapons."
+  career: marines
+
+admin:
+  id: admin
+  name: "Admin"
+  description: "Bureaucracy, organization, and paperwork."
+  career: noble
+
+advocate:
+  id: advocate
+  name: "Advocate"
+  description: "Law, legal procedure, and courtroom advocacy."
+  career: noble
+
+steward:
+  id: steward
+  name: "Steward"
+  description: "Manage passenger comfort and shipboard services."
+  career: merchant
+
+diplomat:
+  id: diplomat
+  name: "Diplomacy"
+  description: "Negotiate treaties, mediate disputes, and conduct diplomacy."
+  career: noble
+
+broker:
+  id: broker
+  name: "Broker"
+  description: "Trade, appraise goods, and negotiate commercial deals."
+  career: merchant
+
+persuade:
+  id: persuade
+  name: "Persuade"
+  description: "Convince, influence, and persuade others."
+  career: noble
+
+carousing:
+  id: carousing
+  name: "Carousing"
+  description: "Socializing, networking, and entertainment."
+  career: noble
+
+streetwise:
+  id: streetwise
+  name: "Streetwise"
+  description: "Navigate criminal underworlds, find fences, and gather rumors."
+  career: agent
+
+investigate:
+  id: investigate
+  name: "Investigate"
+  description: "Gather evidence, conduct surveillance, and solve crimes."
+  career: agent
+
+deception:
+  id: deception
+  name: "Deception"
+  description: "Lie, bluff, disguise, and misdirect."
+  career: agent
+
+recon:
+  id: recon
+  name: "Recon"
+  description: "Scout terrain, spot threats, and gather intelligence."
+  career: scout
+
+athletics:
+  id: athletics
+  name: "Athletics"
+  description: "Running, jumping, climbing, and physical exertion."
+  career: ""
+
+survival:
+  id: survival
+  name: "Survival"
+  description: "Endure in hostile environments and find sustenance."
+  career: scout
+
+stealth:
+  id: stealth
+  name: "Stealth"
+  description: "Move silently, hide, and avoid detection."
+  career: scout
+
+science_physics:
+  id: science_physics
+  name: "Science (Physics)"
+  description: "Understand physical laws, energy, and matter."
+  career: scout
+
+science_xenobiology:
+  id: science_xenobiology
+  name: "Science (Xenobiology)"
+  description: "Study alien life forms and ecosystems."
+  career: scout
+
+science_planetology:
+  id: science_planetology
+  name: "Science (Planetology)"
+  description: "Classify and analyze planetary bodies and environments."
+  career: scout
+
+science_history:
+  id: science_history
+  name: "Science (History)"
+  description: "Knowledge of historical events, cultures, and civilizations."
+  career: noble
+
+animals_handling:
+  id: animals_handling
+  name: "Animals (Handling)"
+  description: "Train, ride, and care for animals."
+  career: drifter
+
+flyer_rotor:
+  id: flyer_rotor
+  name: "Flyer (Rotor)"
+  description: "Pilot rotorcraft and helicopter equivalents."
+  career: drifter
