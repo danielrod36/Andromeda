@@ -250,8 +250,14 @@ class TestProviderConfigs:
     def test_models_endpoint_empty_for_no_base_url(self):
         from src.tui.providers import models_endpoint
 
-        url = models_endpoint("xiaomi_mimo")  # No default base URL
+        url = models_endpoint("custom")  # Custom has no default base URL
         assert url == ""
+
+    def test_models_endpoint_xiaomi_mimo(self):
+        from src.tui.providers import models_endpoint
+
+        url = models_endpoint("xiaomi_mimo")
+        assert url == "https://api.xiaomimimo.com/v1/models"
 
     def test_provider_labels_for_dropdown(self):
         from src.tui.providers import provider_labels
@@ -323,7 +329,7 @@ class TestFetchAvailableModels:
         from src.tui.providers import fetch_available_models
 
         with pytest.raises(RuntimeError, match="base URL"):
-            await fetch_available_models("xiaomi_mimo", "key")
+            await fetch_available_models("custom", "key")
 
     @pytest.mark.asyncio
     async def test_fetch_raises_on_empty_response(self):

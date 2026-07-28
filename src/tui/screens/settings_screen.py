@@ -44,7 +44,8 @@ class SettingsScreen(Screen):
         align: center middle;
     }
     #settings-container {
-        width: 76;
+        width: 100%;
+        max-width: 76;
         height: auto;
         max-height: 85%;
         padding: 1 2;

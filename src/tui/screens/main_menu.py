@@ -31,7 +31,8 @@ class MainMenuScreen(Screen):
         align: center middle;
     }
     #menu-container {
-        width: 60;
+        width: 100%;
+        max-width: 60;
         height: auto;
         padding: 2 4;
     }

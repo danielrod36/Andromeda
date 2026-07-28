@@ -20,7 +20,6 @@ class CharacterSheetWidget(Static):
 
     DEFAULT_CSS = """
     CharacterSheetWidget {
-        width: 28;
         height: 1fr;
         border: round $primary;
         padding: 0 1;

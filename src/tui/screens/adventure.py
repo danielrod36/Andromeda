@@ -88,11 +88,17 @@ class AdventureScreen(Screen):
     #adv-choice-menu {
         height: 9;
     }
+    AdventureScreen.narrow #adv-char-sheet { display: none; }
+    AdventureScreen.narrow.show-sheet #adv-char-sheet { display: block; width: 100%; height: 40%; }
+    AdventureScreen.narrow.show-sheet #adv-content-area { height: 1fr; }
+    AdventureScreen.narrow.show-sheet #adv-main-area { layout: vertical; }
+    AdventureScreen.short #adv-choice-menu { height: 6; }
     """
 
     BINDINGS = [
         Binding("tab", "focus_next", "Next panel"),
         Binding("shift+tab", "focus_previous", "Prev panel"),
+        Binding("c", "toggle_sheet", "Char sheet"),
         Binding("pageup", "scroll_log_up", "Log up", show=False),
         Binding("pagedown", "scroll_log_down", "Log down", show=False),
         Binding("home", "scroll_log_home", "Log top", show=False),
@@ -101,6 +107,7 @@ class AdventureScreen(Screen):
 
     #: Phase state machine — always_update so refreshes happen on re-entry.
     phase = reactive("init", always_update=True)
+    _mounted = False
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="adv-main-area"):
@@ -126,6 +133,31 @@ class AdventureScreen(Screen):
         self.phase = self._determine_phase()
         # Focus the choice menu for immediate interaction.
         self.query_one(ChoiceMenuWidget).option_list.focus()
+        self._mounted = True
+        self.call_after_refresh(self._apply_responsive_layout)
+
+    def on_resize(self, event) -> None:
+        """Re-evaluate layout when terminal is resized."""
+        if self._mounted:
+            self._apply_responsive_layout()
+
+    def _apply_responsive_layout(self) -> None:
+        """Toggle CSS classes based on terminal dimensions."""
+        w, h = self.size.width, self.size.height
+        if w < 100:
+            self.add_class("narrow")
+        else:
+            self.remove_class("narrow")
+            self.remove_class("show-sheet")
+        if h < 24:
+            self.add_class("short")
+        else:
+            self.remove_class("short")
+
+    def action_toggle_sheet(self) -> None:
+        """Toggle the character sheet on narrow terminals."""
+        if self.has_class("narrow"):
+            self.toggle_class("show-sheet")
 
     def _reconstruct_mission_if_needed(self) -> None:
         """Reconstruct ``_current_mission`` from ``state.active_mission`` on resume.

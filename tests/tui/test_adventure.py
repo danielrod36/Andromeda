@@ -333,19 +333,25 @@ class TestFreeTextInput:
 
 
 class TestAdventureResponsive:
-    """Adventure screen is usable at 80x24."""
+    """Adventure screen adapts to narrow/short terminal sizes."""
 
     async def test_panels_render_at_80x24(self, adventure_app: CepheusApp):
-        """All panels render at minimum terminal size."""
+        """At 80x24: char sheet hidden, log and menu visible."""
         app = adventure_app
         async with app.run_test(size=(80, 24)) as pilot:
             await push_adventure(app, pilot)
+            await pilot.pause()
 
-            sheet = app.screen.query_one(CharacterSheetWidget)
-            log = app.screen.query_one(NarrativeLogWidget)
-            menu = app.screen.query_one(ChoiceMenuWidget)
+            screen = app.screen
+            assert screen.has_class("narrow")
 
-            assert sheet.size.height > 0
+            sheet = screen.query_one(CharacterSheetWidget)
+            log = screen.query_one(NarrativeLogWidget)
+            menu = screen.query_one(ChoiceMenuWidget)
+
+            # Char sheet hidden on narrow terminals.
+            assert sheet.styles.display == "none"
+            # Log and menu still rendered.
             assert log.size.height > 0
             assert menu.size.height > 0
 

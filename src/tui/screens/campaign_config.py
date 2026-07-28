@@ -33,8 +33,8 @@ class CampaignConfigScreen(Screen):
         padding: 1;
     }
     #config-container {
-        width: 70;
-        max-width: 100%;
+        width: 100%;
+        max-width: 70;
         padding: 1 2;
     }
     .config-label {

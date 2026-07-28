@@ -483,24 +483,50 @@ class TestSaveAndResume:
 
 
 class TestResponsiveLayout:
-    """Panels are usable at 80x24 terminal size."""
+    """Panels adapt to narrow/short terminal sizes."""
 
     async def test_panels_render_at_80x24(self, seeded_app: CepheusApp):
-        """All three panels render at the minimum terminal size."""
+        """At 80x24: char sheet hidden by default, log and menu visible."""
         app = seeded_app
         async with app.run_test(size=(80, 24)) as pilot:
             await push_lifepath(app, pilot)
+            await pilot.pause()
+            await pilot.pause()  # Let call_after_refresh fire.
 
-            sheet = app.screen.query_one(CharacterSheetWidget)
-            log = app.screen.query_one(NarrativeLogWidget)
-            menu = app.screen.query_one(ChoiceMenuWidget)
+            screen = app.screen
+            assert screen.has_class("narrow"), "Should be narrow at 80 cols"
+            # At exactly 24 rows, not "short" (short is < 24).
+            assert not screen.has_class("short"), "24 rows is the minimum, not short"
 
-            assert sheet.size.height > 0
-            assert sheet.size.width > 0
+            sheet = screen.query_one(CharacterSheetWidget)
+            log = screen.query_one(NarrativeLogWidget)
+            menu = screen.query_one(ChoiceMenuWidget)
+
+            # Char sheet hidden by default on narrow terminals.
+            assert sheet.styles.display == "none"
+            # Log and menu still rendered.
             assert log.size.height > 0
-            assert log.size.width > 0
             assert menu.size.height > 0
-            assert menu.size.width > 0
+
+    async def test_toggle_char_sheet_on_narrow(self, seeded_app: CepheusApp):
+        """Pressing 'c' toggles the character sheet on narrow terminals."""
+        app = seeded_app
+        async with app.run_test(size=(80, 24)) as pilot:
+            await push_lifepath(app, pilot)
+            await pilot.pause()
+
+            screen = app.screen
+            assert screen.has_class("narrow")
+
+            # Toggle sheet on.
+            await pilot.press("c")
+            await pilot.pause()
+            assert screen.has_class("show-sheet")
+
+            # Toggle sheet off.
+            await pilot.press("c")
+            await pilot.pause()
+            assert not screen.has_class("show-sheet")
 
     async def test_lifepath_playable_at_80x24(self, seeded_app: CepheusApp):
         """A full lifepath step completes at 80x24."""

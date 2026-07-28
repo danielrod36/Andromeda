@@ -80,11 +80,11 @@ PROVIDER_CONFIGS: dict[str, dict[str, Any]] = {
         "pydantic_prefix": "openai",
         "key_env": "XIAOMI_MIMO_API_KEY",
         "base_url_env": "XIAOMI_MIMO_BASE_URL",
-        "default_base_url": "",  # User must supply
-        "models_path": "/v1/models",
-        "auth_header": "Authorization",
-        "auth_prefix": "Bearer ",
-        "presets": ["mimo-7b", "mimo-8b"],
+        "default_base_url": "https://api.xiaomimimo.com/v1",
+        "models_path": "/models",
+        "auth_header": "api-key",
+        "auth_prefix": "",
+        "presets": ["mimo-v2.5-pro"],
     },
     "groq": {
         "label": "Groq",
