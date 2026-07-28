@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import re
 
+from src.engine.commands import Engine
+from src.engine.scene import RatifyFactCommand
 from src.engine.state import GameState, NarrativeFact
 
 
@@ -215,6 +217,7 @@ def ratify_fact_as_npc(
     state: GameState,
     fact: NarrativeFact,
     ruleset=None,
+    engine: Engine | None = None,
 ) -> dict:
     """Ratify a narrative fact as an NPC with mechanical stats (AE9).
 
@@ -222,10 +225,28 @@ def ratify_fact_as_npc(
     stats and marks the fact as mechanically active by updating its
     description. The engine uses the returned stats when checks target this
     NPC.
+
+    When an :class:`Engine` is provided, the description update is routed
+    through the command funnel via :class:`RatifyFactCommand`, producing an
+    audit event and **logging the ratification** (R24/AE9). Without an
+    engine (legacy/test path), the description is updated directly for
+    backward compatibility.
     """
     stats = generate_npc_stats(fact.name, ruleset)
-    # Update the description to indicate it's now mechanically active.
-    fact.description = (
-        f"{fact.description} [NPC stats: all characteristics 7, skill level 1]"
-    ).strip()
+    stats_description = (
+        f"[NPC stats: all characteristics {stats['characteristics'].get('STR', 7)}, "
+        f"skill level {stats['skill_level']}]"
+    )
+    if engine is not None:
+        engine.apply(
+            RatifyFactCommand(
+                fact_name=fact.name,
+                stats_description=stats_description,
+            )
+        )
+    else:
+        # Legacy path: update description directly.
+        fact.description = (
+            f"{fact.description} {stats_description}"
+        ).strip()
     return stats

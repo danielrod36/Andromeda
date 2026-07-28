@@ -185,6 +185,52 @@ class AddInjuryCommand(Command):
         )
 
 
+class RatifyFactCommand(Command):
+    """Ratify a narrative fact as an NPC with mechanical stats (R24, AE9).
+
+    Updates the fact's description to mark it as mechanically active, and
+    **logs the ratification event** so a replay tool can reconstruct state
+    from the event log. The fact must already exist in ``state.entities``;
+    this command finds it by name and updates its description.
+    """
+
+    command_type: ClassVar[str] = "ratify_fact"
+
+    fact_name: str
+    stats_description: str
+
+    def validate(self, state: GameState) -> None:
+        if not self.fact_name or not self.fact_name.strip():
+            raise ValueError("Fact name must be non-empty")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        fact = next(
+            (
+                e for e in state.entities
+                if isinstance(e, NarrativeFact) and e.name == self.fact_name
+            ),
+            None,
+        )
+        if fact is None:
+            raise ValueError(
+                f"Cannot ratify fact {self.fact_name!r}: not found in entities"
+            )
+        fact.description = (
+            f"{fact.description} {self.stats_description}"
+        ).strip()
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=(
+                f"Ratified narrative fact as NPC: {self.fact_name}"
+            ),
+            changes={
+                "fact_name": self.fact_name,
+                "stats_description": self.stats_description,
+            },
+        )
+
+
 # ---------------------------------------------------------------------------
 # Data structures (transient — not serialized).
 # ---------------------------------------------------------------------------
@@ -214,6 +260,7 @@ class SceneOption:
     characteristic: str
     difficulty: str
     description: str = ""
+    life_threatening: bool = False
 
 
 @dataclass
@@ -265,54 +312,54 @@ class SceneResult:
 #: Each tuple is (keyword, list of option templates).
 #: The keyword is matched against the scene_focus oracle result to determine
 #: which set of options to present. Each template provides a label, skill,
-#: characteristic, and difficulty for the pre-mapped check.
-_FOCUS_OPTION_MAP: list[tuple[str, list[tuple[str, str, str, str]]]] = [
+#: characteristic, difficulty, and life_threatening flag for the pre-mapped check.
+_FOCUS_OPTION_MAP: list[tuple[str, list[tuple[str, str, str, str, bool]]]] = [
     (
         "combat",
         [
-            ("Engage in combat", "Gun Combat", "DEX", "average"),
-            ("Use stealth to gain advantage", "Stealth", "DEX", "difficult"),
-            ("Intimidate them into backing down", "Streetwise", "SOC", "average"),
+            ("Engage in combat", "Gun Combat", "DEX", "average", True),
+            ("Use stealth to gain advantage", "Stealth", "DEX", "difficult", False),
+            ("Intimidate them into backing down", "Streetwise", "SOC", "average", False),
         ],
     ),
     (
         "social",
         [
-            ("Persuade them to cooperate", "Persuade", "SOC", "average"),
-            ("Deceive them with a cover story", "Deception", "SOC", "difficult"),
-            ("Negotiate a mutually beneficial deal", "Broker", "INT", "average"),
+            ("Persuade them to cooperate", "Persuade", "SOC", "average", False),
+            ("Deceive them with a cover story", "Deception", "SOC", "difficult", False),
+            ("Negotiate a mutually beneficial deal", "Broker", "INT", "average", False),
         ],
     ),
     (
         "exploration",
         [
-            ("Investigate the area thoroughly", "Investigate", "INT", "average"),
-            ("Scan with ship sensors", "Sensors", "EDU", "average"),
-            ("Navigate difficult terrain", "Survival", "END", "difficult"),
+            ("Investigate the area thoroughly", "Investigate", "INT", "average", False),
+            ("Scan with ship sensors", "Sensors", "EDU", "average", False),
+            ("Navigate difficult terrain", "Survival", "END", "difficult", True),
         ],
     ),
     (
         "technical",
         [
-            ("Repair or modify the system", "Mechanic", "EDU", "average"),
-            ("Hack into the computer", "Computers", "INT", "difficult"),
-            ("Apply engineering expertise", "Engineer", "EDU", "average"),
+            ("Repair or modify the system", "Mechanic", "EDU", "average", False),
+            ("Hack into the computer", "Computers", "INT", "difficult", False),
+            ("Apply engineering expertise", "Engineer", "EDU", "average", False),
         ],
     ),
     (
         "political",
         [
-            ("Use diplomacy to resolve the situation", "Diplomat", "SOC", "average"),
-            ("Leverage administrative connections", "Admin", "SOC", "difficult"),
-            ("Research the political background", "Research", "EDU", "average"),
+            ("Use diplomacy to resolve the situation", "Diplomat", "SOC", "average", False),
+            ("Leverage administrative connections", "Admin", "SOC", "difficult", False),
+            ("Research the political background", "Research", "EDU", "average", False),
         ],
     ),
     (
         "plot twist",
         [
-            ("Adapt quickly to the new situation", "Leadership", "SOC", "difficult"),
-            ("Investigate the unexpected development", "Investigate", "INT", "average"),
-            ("Negotiate from a position of strength", "Persuade", "SOC", "average"),
+            ("Adapt quickly to the new situation", "Leadership", "SOC", "difficult", False),
+            ("Investigate the unexpected development", "Investigate", "INT", "average", False),
+            ("Negotiate from a position of strength", "Persuade", "SOC", "average", False),
         ],
     ),
 ]
@@ -446,7 +493,7 @@ class SceneEngine:
         templates = self._match_focus_options(focus_lower)
 
         options: list[SceneOption] = []
-        for label, skill, char, diff in templates:
+        for label, skill, char, diff, life_threatening in templates:
             options.append(
                 SceneOption(
                     label=label,
@@ -454,6 +501,7 @@ class SceneEngine:
                     characteristic=char,
                     difficulty=diff,
                     description=f"{skill} check ({diff}) using {char}",
+                    life_threatening=life_threatening,
                 )
             )
 
@@ -466,6 +514,7 @@ class SceneEngine:
                     characteristic="DEX",
                     difficulty="average",
                     description="Direct confrontation",
+                    life_threatening=True,
                 )
             )
 

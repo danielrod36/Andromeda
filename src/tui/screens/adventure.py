@@ -29,8 +29,10 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, OptionList
 
-from src.engine.mission import MissionEnding, MissionEngine
+from src.engine.death import DefeatContext, get_death_strategy
+from src.engine.mission import Mission, MissionEnding, MissionEngine
 from src.engine.scene import SceneEngine
+from src.engine.state import Injury
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
@@ -119,10 +121,24 @@ class AdventureScreen(Screen):
     def on_mount(self) -> None:
         """Initialize: show character sheet, resume context, set phase."""
         self._update_character_sheet()
+        self._reconstruct_mission_if_needed()
         self._show_adventure_context()
         self.phase = self._determine_phase()
         # Focus the choice menu for immediate interaction.
         self.query_one(ChoiceMenuWidget).option_list.focus()
+
+    def _reconstruct_mission_if_needed(self) -> None:
+        """Reconstruct ``_current_mission`` from ``state.active_mission`` on resume.
+
+        On resume from save where ``state.active_mission`` is not None, the
+        in-memory ``_current_mission`` was never set (it is only set in
+        ``_do_accept_mission``). Without reconstruction, ``_do_resolve_mission``
+        crashes with ``AttributeError``.
+        """
+        if not hasattr(self, "_current_mission") or self._current_mission is None:
+            state = self.app.engine.state
+            if state.active_mission is not None:
+                self._current_mission = Mission.from_dict(state.active_mission)
 
     # ------------------------------------------------------------------
     # Phase determination — fully reconstructable from GameState (AE8).
@@ -235,6 +251,12 @@ class AdventureScreen(Screen):
 
     def _present_scene(self) -> None:
         """Generate and present a scene with options."""
+        # Take a checkpoint snapshot at scene start (F4 cycle) for
+        # checkpoint death mode (AE3).
+        state = self.app.engine.state
+        if state.campaign.death_mode == "checkpoint":
+            self.app.checkpoint_mgr.take_snapshot(state)
+
         scene_engine = self._get_scene_engine()
         self._current_scene = scene_engine.run_scene()
         scaffold = self._current_scene.scaffold
@@ -277,6 +299,10 @@ class AdventureScreen(Screen):
         for c in consequences:
             self._narrate(f"  -> {c}")
 
+        # Check for defeat (F5): life-threatening MISS or severe injury.
+        if self._check_and_handle_defeat(check_result, option, consequences):
+            return  # Defeat handled; phase already updated.
+
         self._post_step()
         self.phase = "scene_active"
 
@@ -299,6 +325,103 @@ class AdventureScreen(Screen):
         self._narrate("Mission complete! Looking for the next opportunity...")
         self._post_step()
         self.phase = "hook_offered"
+
+    # ------------------------------------------------------------------
+    # Defeat detection and handling (F5, R8).
+    # ------------------------------------------------------------------
+
+    def _check_and_handle_defeat(
+        self,
+        check_result,
+        option,
+        consequences: list[str],
+    ) -> bool:
+        """Detect catastrophic outcomes and invoke the death strategy (F5).
+
+        Triggers defeat when:
+        - The check result is a MISS on a life-threatening action, OR
+        - A severe injury was applied as a consequence.
+
+        When defeat is triggered, invokes the appropriate death strategy via
+        ``get_death_strategy`` and applies the result. Returns ``True`` if
+        defeat was handled (caller should skip the normal post-step).
+        """
+        from src.rulesets.base import OutcomeQuality
+
+        is_defeat = False
+        reason = ""
+
+        # Condition 1: MISS on a life-threatening check.
+        if (
+            check_result.quality == OutcomeQuality.MISS.value
+            and getattr(option, "life_threatening", False)
+        ):
+            is_defeat = True
+            reason = f"a failed life-threatening {check_result.skill} check"
+
+        # Condition 2: severe injury applied as a consequence.
+        if not is_defeat:
+            state = self.app.engine.state
+            has_severe = any(
+                isinstance(e, Injury) and e.severity == "severe"
+                for e in state.entities
+            )
+            if has_severe and check_result.quality == OutcomeQuality.MISS.value:
+                # Check if a severe injury was just added in this consequence.
+                if any("severe" in c.lower() or "serious" in c.lower() for c in consequences):
+                    is_defeat = True
+                    reason = f"accumulated severe injuries during {check_result.skill}"
+
+        if not is_defeat:
+            return False
+
+        return self._handle_defeat(reason)
+
+    def _handle_defeat(self, reason: str) -> bool:
+        """Invoke the death strategy and apply the defeat result (F5, R8).
+
+        Constructs the appropriate :class:`DeathStrategy` via
+        :func:`get_death_strategy`, routes mutations through the funnel when
+        possible, narrates the outcome, and updates the phase.
+
+        Returns ``True`` to signal the caller that defeat was handled.
+        """
+        state = self.app.engine.state
+        death_mode = state.campaign.death_mode
+
+        checkpoint_mgr = self.app.checkpoint_mgr
+        strategy = get_death_strategy(
+            death_mode,
+            checkpoint=checkpoint_mgr,
+            engine=self.app.engine,
+        )
+        context = DefeatContext(
+            reason=reason,
+            scene_label=getattr(
+                self._current_scene.scaffold, "focus", "unknown"
+            ),
+        )
+        result = strategy.handle_defeat(state, context)
+
+        self._narrate(f"=== DEFEAT ({death_mode}) ===")
+        self._narrate(result.message)
+
+        if result.restored_state is not None:
+            # Checkpoint mode: swap in the restored state.
+            self.app.engine._state = result.restored_state
+
+        if not result.play_continues:
+            # Ironman: character is dead. Offer restart via hook phase.
+            self._update_character_sheet()
+            self._post_step()
+            self.phase = "hook_offered"
+        else:
+            # Checkpoint or Narrative: play continues.
+            self._update_character_sheet()
+            self._post_step()
+            self.phase = "scene_active"
+
+        return True
 
     # ------------------------------------------------------------------
     # Free-text input handling (AE5).
@@ -379,6 +502,11 @@ class AdventureScreen(Screen):
             self._narrate(f"  -> {c}")
 
         self._pending_freetext = None
+
+        # Check for defeat (F5): life-threatening MISS or severe injury.
+        if self._check_and_handle_defeat(check_result, option, consequences):
+            return  # Defeat handled; phase already updated.
+
         self._post_step()
         self.phase = "scene_active"
 

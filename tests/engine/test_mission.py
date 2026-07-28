@@ -378,3 +378,64 @@ class TestFullMissionArc:
         # 3. Resolve.
         me.resolve_mission(mission, MissionEnding.ABANDONMENT)
         assert mission.ending == MissionEnding.ABANDONMENT
+
+
+# ---------------------------------------------------------------------------
+# Mission.from_dict — resume reconstruction (Fix #3).
+# ---------------------------------------------------------------------------
+
+
+class TestMissionFromDict:
+    """Mission.from_dict reconstructs a Mission from its serialized form (Fix #3)."""
+
+    def test_round_trip(self):
+        """to_dict -> from_dict produces an equivalent Mission."""
+        hook = MissionHook(
+            patron="Noble",
+            objective="Spy on rivals",
+            complication="Double agent",
+            reward="Political favor",
+            description="A dangerous mission.",
+        )
+        original = Mission(
+            id="mission_5",
+            hook=hook,
+            state=MissionState.ACTIVE,
+            scenes_played=3,
+            consequences=["Gained a contact.", "Lost a ship."],
+        )
+        reconstructed = Mission.from_dict(original.to_dict())
+
+        assert reconstructed.id == "mission_5"
+        assert reconstructed.hook.patron == "Noble"
+        assert reconstructed.hook.objective == "Spy on rivals"
+        assert reconstructed.state == MissionState.ACTIVE
+        assert reconstructed.scenes_played == 3
+        assert reconstructed.consequences == ["Gained a contact.", "Lost a ship."]
+        assert reconstructed.is_active
+
+    def test_from_dict_with_ending(self):
+        """from_dict handles a resolved mission with an ending."""
+        hook = MissionHook(
+            patron="Merchant", objective="Deliver", complication="None", reward="Cash"
+        )
+        original = Mission(
+            id="mission_3",
+            hook=hook,
+            state=MissionState.RESOLVED,
+            ending=MissionEnding.SUCCESS,
+        )
+        reconstructed = Mission.from_dict(original.to_dict())
+
+        assert reconstructed.state == MissionState.RESOLVED
+        assert reconstructed.ending == MissionEnding.SUCCESS
+
+    def test_from_dict_handles_missing_fields(self):
+        """from_dict handles incomplete dicts gracefully."""
+        data = {"id": "mission_1", "hook": {"patron": "Test"}}
+        mission = Mission.from_dict(data)
+
+        assert mission.id == "mission_1"
+        assert mission.hook.patron == "Test"
+        assert mission.state == MissionState.ACTIVE
+        assert mission.scenes_played == 0

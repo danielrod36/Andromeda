@@ -200,3 +200,26 @@ class SetFlagCommand(Command):
             description=f"Set flag {self.key}={self.value}",
             changes={"key": self.key, "value": self.value},
         )
+
+
+class SetCharacterDeadCommand(Command):
+    """Mark the character as dead via the command funnel (R8, AE2).
+
+    Used by the Ironman death strategy so that ``alive = False`` is routed
+    through :meth:`Engine.apply`, producing an audit event and preserving
+    replay/reconstruct guarantees.
+    """
+
+    command_type: ClassVar[str] = "set_character_dead"
+
+    reason: str = ""
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.alive = False
+        desc = f"Character died: {self.reason}" if self.reason else "Character died."
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=desc,
+            changes={"alive": False, "reason": self.reason},
+        )

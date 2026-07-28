@@ -17,7 +17,7 @@ from src.engine.retrieval import (
     generate_npc_stats,
     ratify_fact_as_npc,
 )
-from src.engine.scene import RegisterFactCommand
+from src.engine.scene import RatifyFactCommand, RegisterFactCommand
 from src.engine.state import CampaignConfig, GameState, NarrativeFact
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import get_pack
@@ -292,3 +292,78 @@ class TestNpcStatGeneration:
         rs = CepheusRuleSet()
         stats = ratify_fact_as_npc(state, fact, ruleset=rs)
         assert stats["name"] == "Custom NPC"
+
+
+# ---------------------------------------------------------------------------
+# Funnel-routed ratification (Fix #2B).
+# ---------------------------------------------------------------------------
+
+
+class TestRatifyFactFunnel:
+    """ratify_fact_as_npc routes through the funnel when given an Engine (Fix #2B)."""
+
+    def test_ratify_with_engine_logs_event(self):
+        """Ratifying with an engine produces a ratify_fact audit event."""
+        state = make_state()
+        engine = Engine(state, roller=ForcedRoller([]))
+        engine.apply(
+            RegisterFactCommand(name="Bounty Hunter", description="Dangerous.")
+        )
+        fact = next(
+            e for e in state.entities
+            if isinstance(e, NarrativeFact) and e.name == "Bounty Hunter"
+        )
+        initial_events = len(state.events)
+
+        stats = ratify_fact_as_npc(state, fact, engine=engine)
+
+        assert len(state.events) == initial_events + 1
+        event = state.events[-1]
+        assert event.command_type == "ratify_fact"
+        assert "NPC stats" in fact.description
+        assert stats["skill_level"] >= 0
+
+    def test_ratify_without_engine_legacy_path(self):
+        """Ratifying without engine still works (backward-compatible direct mutation)."""
+        state = make_state()
+        add_fact(state, "Old NPC", "A test.")
+        fact = next(
+            e for e in state.entities if isinstance(e, NarrativeFact)
+        )
+        stats = ratify_fact_as_npc(state, fact)
+        assert "NPC stats" in fact.description
+        assert stats["name"] == "Old NPC"
+
+    def test_ratify_command_directly(self):
+        """RatifyFactCommand can be applied directly through the funnel."""
+        state = make_state()
+        engine = Engine(state, roller=ForcedRoller([]))
+        engine.apply(
+            RegisterFactCommand(name="Test NPC", description="Base desc.")
+        )
+
+        engine.apply(
+            RatifyFactCommand(
+                fact_name="Test NPC",
+                stats_description="[NPC stats: all 7, skill 1]",
+            )
+        )
+
+        fact = next(
+            e for e in state.entities
+            if isinstance(e, NarrativeFact) and e.name == "Test NPC"
+        )
+        assert "[NPC stats:" in fact.description
+        last_event = state.events[-1]
+        assert last_event.command_type == "ratify_fact"
+        assert last_event.changes["fact_name"] == "Test NPC"
+
+    def test_ratify_command_validates_empty_name(self):
+        """RatifyFactCommand rejects empty fact names."""
+        state = make_state()
+        engine = Engine(state, roller=ForcedRoller([]))
+        import pytest
+        with pytest.raises(ValueError, match="non-empty"):
+            engine.apply(
+                RatifyFactCommand(fact_name="", stats_description="x")
+            )

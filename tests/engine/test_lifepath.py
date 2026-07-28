@@ -12,6 +12,7 @@ from src.engine.audit import EventKind, audit_rolls
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.lifepath import (
+    AdvanceTermCommand,
     LifepathResult,
     LifepathRunner,
     apply_skill_result,
@@ -555,3 +556,72 @@ class TestDeterminism:
             engine_a.state.model_dump_json()
             == engine_b.state.model_dump_json()
         )
+
+
+# ---------------------------------------------------------------------------
+# AdvanceTermCommand — funnel-routed age/terms advancement (Fix #2C).
+# ---------------------------------------------------------------------------
+
+
+class TestAdvanceTermCommand:
+    """Age and terms advance through the command funnel (Fix #2C)."""
+
+    def test_advance_term_bumps_age_and_terms(self):
+        """AdvanceTermCommand increments age by 4 and terms by 1."""
+        state = GameState.new(seed=99)
+        state.character.age = 22
+        state.character.terms = 1
+        engine = Engine(state, roller=ForcedRoller([]))
+
+        event = engine.apply(AdvanceTermCommand())
+
+        assert state.character.age == 26
+        assert state.character.terms == 2
+        assert event.command_type == "lifepath_advance_term"
+        assert event.changes["age_before"] == 22
+        assert event.changes["age_after"] == 26
+        assert event.changes["terms_before"] == 1
+        assert event.changes["terms_after"] == 2
+
+    def test_advance_term_produces_audit_event(self):
+        """The term advancement is recorded in the event log."""
+        state = GameState.new(seed=99)
+        state.character.age = 18
+        state.character.terms = 0
+        engine = Engine(state, roller=ForcedRoller([]))
+        initial_events = len(state.events)
+
+        engine.apply(AdvanceTermCommand())
+
+        assert len(state.events) == initial_events + 1
+        event = state.events[-1]
+        assert event.kind == EventKind.STATE_CHANGE
+        assert "age 18 -> 22" in event.description
+        assert "terms 0 -> 1" in event.description
+
+    def test_run_term_uses_funnel_for_advancement(self, pack):
+        """run_term routes age/terms advancement through the funnel."""
+        # Set up a character that has already qualified for navy.
+        state = GameState.new(seed=42)
+        state.campaign = CampaignConfig(death_mode="narrative")
+        state.character.characteristics = {
+            "STR": 7, "DEX": 9, "END": 8,
+            "INT": 8, "EDU": 10, "SOC": 5,
+        }
+        state.character.career = "navy"
+        # Queue: survival roll (low roll -> mishap, returns early after advance).
+        queue = [[1, 1]]  # END 8 -> DM 1, roll 2+1=3 < 5 -> mishap
+        engine = Engine(state, roller=ForcedRoller(queue))
+        runner = LifepathRunner(engine, pack)
+
+        initial_events = len(engine.state.events)
+        runner.run_term("navy", term_number=1)
+
+        # The advance_term event should be in the log.
+        advance_events = [
+            e for e in engine.state.events[initial_events:]
+            if e.command_type == "lifepath_advance_term"
+        ]
+        assert len(advance_events) == 1
+        assert engine.state.character.age == 22  # 18 + 4
+        assert engine.state.character.terms == 1

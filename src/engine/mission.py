@@ -108,6 +108,44 @@ class Mission:
             "consequences": list(self.consequences),
         }
 
+    @classmethod
+    def from_dict(cls, data: dict) -> Mission:
+        """Reconstruct a Mission from its serialized dict form.
+
+        Used on resume from save to restore the in-memory ``_current_mission``
+        from ``state.active_mission``.
+        """
+        hook_data = data.get("hook", {})
+        hook = MissionHook(
+            patron=hook_data.get("patron", ""),
+            objective=hook_data.get("objective", ""),
+            complication=hook_data.get("complication", ""),
+            reward=hook_data.get("reward", ""),
+            description=hook_data.get("description", ""),
+        )
+        state_str = data.get("state", "active")
+        try:
+            mission_state = MissionState(state_str)
+        except ValueError:
+            mission_state = MissionState.ACTIVE
+
+        ending = None
+        ending_str = data.get("ending")
+        if ending_str:
+            try:
+                ending = MissionEnding(ending_str)
+            except ValueError:
+                ending = None
+
+        return cls(
+            id=data.get("id", ""),
+            hook=hook,
+            state=mission_state,
+            scenes_played=data.get("scenes_played", 0),
+            ending=ending,
+            consequences=list(data.get("consequences", [])),
+        )
+
 
 # ---------------------------------------------------------------------------
 # Commands.

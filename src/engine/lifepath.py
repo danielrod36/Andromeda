@@ -411,6 +411,38 @@ class BenefitRollCommand(Command):
         )
 
 
+class AdvanceTermCommand(Command):
+    """Advance the character's age and term count via the funnel (R9, R10).
+
+    Bumps ``character.age`` by 4 (one CE SRD term) and increments
+    ``character.terms``. Routed through the funnel so the event log captures
+    these changes, allowing a replay tool to reconstruct state.
+    """
+
+    command_type: ClassVar[str] = "lifepath_advance_term"
+    years_per_term: int = 4
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        old_age = state.character.age
+        old_terms = state.character.terms
+        state.character.age = old_age + self.years_per_term
+        state.character.terms = old_terms + 1
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=(
+                f"Term advanced: age {old_age} -> {state.character.age}, "
+                f"terms {old_terms} -> {state.character.terms}"
+            ),
+            changes={
+                "age_before": old_age,
+                "age_after": state.character.age,
+                "terms_before": old_terms,
+                "terms_after": state.character.terms,
+            },
+        )
+
+
 # ---------------------------------------------------------------------------
 # LifepathRunner — orchestrates the full chargen flow.
 # ---------------------------------------------------------------------------
@@ -530,9 +562,9 @@ class LifepathRunner:
         result.mishap = sc.get("mishap", False)
 
         # Age always advances, even on death/mishap.
-        state.character.age = age_before + 4
-        state.character.terms += 1
-        result.age_after = state.character.age
+        advance_event = self.engine.apply(AdvanceTermCommand())
+        ac = advance_event.changes
+        result.age_after = ac["age_after"]
         result.rank_after = rank_before
 
         if result.died or result.mishap:

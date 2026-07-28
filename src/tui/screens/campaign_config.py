@@ -1,6 +1,8 @@
 """Campaign configuration screen — rule-set, theme pack, profile, death mode (R16)."""
 from __future__ import annotations
 
+import hashlib
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -157,8 +159,10 @@ class CampaignConfigScreen(Screen):
         if seed_text.isdigit():
             seed = int(seed_text)
         elif seed_text:
-            # Hash non-numeric seeds for determinism.
-            seed = abs(hash(seed_text)) % (2**31)
+            # Stable hash for non-numeric seeds — hashlib, not hash(), which is
+            # salted per-process via PYTHONHASHSEED and breaks determinism.
+            digest = hashlib.sha256(seed_text.encode()).digest()
+            seed = int.from_bytes(digest[:4], "big") % (2**31)
         else:
             seed = self.app.generate_seed()
 

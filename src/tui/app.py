@@ -18,6 +18,7 @@ from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import Footer, Header
 
+from src.engine.checkpoint import CheckpointManager
 from src.engine.commands import Engine
 from src.engine.lifepath import LifepathRunner
 from src.engine.narration import Narrator
@@ -93,6 +94,7 @@ class CepheusApp(App):
         self.pack = None
         self.campaign_name: str = ""
         self.target_terms: int = 4
+        self.checkpoint_mgr: CheckpointManager = CheckpointManager()
 
     # ------------------------------------------------------------------
     # Lifecycle.
@@ -144,6 +146,10 @@ class CepheusApp(App):
         self.campaign_name = Path(save_path).stem
         self.target_terms = 4  # v0.1 default; could be stored in save metadata
 
+        # Load checkpoint snapshot for checkpoint death mode (AE3).
+        if state.campaign.death_mode == "checkpoint":
+            self.checkpoint_mgr.load_snapshot(save_path)
+
         self.push_screen(LifepathScreen())
 
     def return_to_main_menu(self) -> None:
@@ -171,6 +177,11 @@ class CepheusApp(App):
         )
         path = self.saves_dir / f"{safe_name}.json"
         save(self.engine.state, path)
+
+        # Persist checkpoint snapshot for checkpoint death mode (AE3).
+        if self.engine.state.campaign.death_mode == "checkpoint":
+            self.checkpoint_mgr.save_snapshot(path)
+
         return path
 
     def list_saves(self) -> list[SaveInfo]:

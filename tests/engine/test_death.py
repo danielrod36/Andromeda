@@ -12,6 +12,8 @@ from __future__ import annotations
 import pytest
 
 from src.engine.checkpoint import CheckpointManager
+from src.engine.commands import Engine, SetCharacterDeadCommand
+from src.engine.dice import ForcedRoller
 from src.engine.death import (
     DEATH_MODES,
     CheckpointStrategy,
@@ -373,3 +375,76 @@ class TestStrategyProtocol:
             assert isinstance(result, DefeatResult)
             assert result.mode == mode
             assert len(result.message) > 0
+
+
+# ---------------------------------------------------------------------------
+# Funnel-routed mutations (Fix #2A).
+# ---------------------------------------------------------------------------
+
+
+class TestFunnelRoutedDeathStrategies:
+    """Death strategies route mutations through Engine.apply when given an engine."""
+
+    def test_ironman_with_engine_logs_event(self):
+        """Ironman defeat via funnel produces an audit event."""
+        state = make_state(death_mode="ironman")
+        engine = Engine(state, roller=ForcedRoller([]))
+        initial_events = len(state.events)
+
+        strategy = IronmanStrategy(engine=engine)
+        strategy.handle_defeat(state, DefeatContext(reason="pirate ambush"))
+
+        assert state.character.alive is False
+        assert len(state.events) == initial_events + 1
+        event = state.events[-1]
+        assert event.command_type == "set_character_dead"
+        assert event.changes["alive"] is False
+
+    def test_ironman_without_engine_legacy_path(self):
+        """Ironman without engine still works (backward-compatible direct mutation)."""
+        state = make_state(death_mode="ironman")
+        strategy = IronmanStrategy()
+        strategy.handle_defeat(state, DefeatContext(reason="test"))
+
+        assert state.character.alive is False
+
+    def test_narrative_with_engine_logs_event(self):
+        """Narrative defeat via funnel produces an audit event."""
+        from src.engine.state import Injury
+
+        state = make_state(death_mode="narrative")
+        engine = Engine(state, roller=ForcedRoller([]))
+        initial_events = len(state.events)
+
+        strategy = NarrativeStrategy(engine=engine)
+        strategy.handle_defeat(state, DefeatContext(reason="a duel"))
+
+        assert len(state.events) == initial_events + 1
+        event = state.events[-1]
+        assert event.command_type == "add_injury"
+        injury = state.entities[-1]
+        assert isinstance(injury, Injury)
+        assert "duel" in injury.name
+
+    def test_narrative_without_engine_legacy_path(self):
+        """Narrative without engine still works (backward-compatible)."""
+        state = make_state(death_mode="narrative")
+        strategy = NarrativeStrategy()
+        strategy.handle_defeat(state, DefeatContext(reason="test"))
+
+        from src.engine.state import Injury
+        assert any(isinstance(e, Injury) for e in state.entities)
+
+    def test_factory_passes_engine_to_ironman(self):
+        """get_death_strategy passes engine to IronmanStrategy."""
+        state = make_state(death_mode="ironman")
+        engine = Engine(state, roller=ForcedRoller([]))
+        strategy = get_death_strategy("ironman", engine=engine)
+        assert strategy._engine is engine
+
+    def test_factory_passes_engine_to_narrative(self):
+        """get_death_strategy passes engine to NarrativeStrategy."""
+        state = make_state(death_mode="narrative")
+        engine = Engine(state, roller=ForcedRoller([]))
+        strategy = get_death_strategy("narrative", engine=engine)
+        assert strategy._engine is engine
