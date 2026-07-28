@@ -7,9 +7,11 @@ adapter. Keys are never written to the engine state or save files.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+from urllib.parse import urlparse
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class LLMSettings(BaseModel):
@@ -32,6 +34,21 @@ class LLMSettings(BaseModel):
     api_key: str = ""
     base_url: str = ""
     max_retries: int = 3
+
+    @field_validator("base_url")
+    @classmethod
+    def base_url_must_be_http_or_https(cls, v: str) -> str:
+        """Reject non-http(s) schemes to prevent SSRF via the base URL field."""
+        if not v:
+            return v
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"Base URL must use http or https scheme, got '{parsed.scheme}'"
+            )
+        if not parsed.netloc:
+            raise ValueError("Base URL must include a host")
+        return v
 
     @property
     def is_configured(self) -> bool:
@@ -97,7 +114,13 @@ def load_settings(settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> LLMSetting
 def save_settings(
     settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR
 ) -> Path:
-    """Persist LLM settings to disk atomically."""
+    """Persist LLM settings to disk atomically.
+
+    The file is given restrictive permissions (0600) because it contains the
+    API key in plaintext. For stronger protection, consider integrating the
+    system keyring — but for a single-player local game, file permissions are
+    the pragmatic baseline.
+    """
     path = settings_path(settings_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
@@ -106,6 +129,8 @@ def save_settings(
         encoding="utf-8",
     )
     tmp.replace(path)
+    # Restrict to owner-only — the file contains an API key.
+    os.chmod(path, 0o600)
     return path
 
 

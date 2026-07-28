@@ -74,6 +74,26 @@ class TestLLMSettings:
         s = LLMSettings()
         assert s.env_overrides() == {}
 
+    def test_base_url_rejects_non_http_scheme(self):
+        with pytest.raises(ValueError, match="http or https"):
+            LLMSettings(base_url="file:///etc/passwd")
+
+    def test_base_url_rejects_missing_host(self):
+        with pytest.raises(ValueError, match="host"):
+            LLMSettings(base_url="https://")
+
+    def test_base_url_accepts_https(self):
+        s = LLMSettings(base_url="https://proxy.example.com/v1")
+        assert s.base_url == "https://proxy.example.com/v1"
+
+    def test_base_url_accepts_localhost_http(self):
+        s = LLMSettings(base_url="http://localhost:8080")
+        assert s.base_url == "http://localhost:8080"
+
+    def test_base_url_empty_is_valid(self):
+        s = LLMSettings()
+        assert s.base_url == ""
+
 
 # ---------------------------------------------------------------------------
 # Persistence tests.
@@ -117,6 +137,17 @@ class TestSettingsPersistence:
         save_settings(s, tmp_path)
         assert not (tmp_path / "llm.json.tmp").exists()
         assert (tmp_path / "llm.json").exists()
+
+    def test_save_sets_restrictive_permissions(self, tmp_path):
+        """Settings file must be owner-only (0600) — it contains an API key."""
+        import stat
+
+        s = LLMSettings(model="test", api_key="sk-secret")
+        save_settings(s, tmp_path)
+        mode = settings_path(tmp_path).stat().st_mode
+        # Extract just the permission bits (lower 9).
+        perms = stat.S_IMODE(mode)
+        assert perms == 0o600, f"Expected 0600, got {oct(perms)}"
 
     def test_save_file_contains_expected_fields(self, tmp_path):
         s = LLMSettings(
