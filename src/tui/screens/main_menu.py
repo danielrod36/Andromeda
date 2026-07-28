@@ -52,6 +52,10 @@ class MainMenuScreen(Screen):
         margin: 1 0;
         width: 100%;
     }
+    #settings-btn {
+        margin: 0 0 1 0;
+        width: 100%;
+    }
     #quit-btn {
         margin-top: 1;
         width: 100%;
@@ -79,6 +83,7 @@ class MainMenuScreen(Screen):
             yield Button(
                 "New Campaign", id="new-campaign", variant="primary"
             )
+            yield Button("LLM Settings", id="settings-btn", variant="default")
             yield Label("Saved Campaigns:", classes="section-label")
             yield OptionList(id="save-list")
             yield Button("Quit", id="quit-btn", variant="error")
@@ -127,6 +132,10 @@ class MainMenuScreen(Screen):
             from src.tui.screens.campaign_config import CampaignConfigScreen
 
             self.app.push_screen(CampaignConfigScreen())
+        elif event.button.id == "settings-btn":
+            from src.tui.screens.settings_screen import SettingsScreen
+
+            self.app.push_screen(SettingsScreen())
         elif event.button.id == "quit-btn":
             self.app.exit()
 

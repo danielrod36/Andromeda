@@ -28,6 +28,9 @@ Thumbs.db
 # Game saves
 saves/
 
+# Settings (contains API keys)
+settings/
+
 # Environment
 .env
 .env.local
