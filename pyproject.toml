@@ -20,6 +20,9 @@ dev = [
     "pytest-asyncio>=0.23",
 ]
 
+[project.scripts]
+cepheus-adventure = "src.tui.__main__:main"
+
 [tool.setuptools]
 packages = []
 

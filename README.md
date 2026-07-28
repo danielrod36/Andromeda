@@ -13,6 +13,14 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
+## Play
+
+```bash
+source .venv/bin/activate
+python -m src.tui
+# or: cepheus-adventure
+```
+
 ## Architecture
 
 - **Engine** (`src/engine/`) — deterministic command funnel, append-only event log, seeded RNG, Pydantic state models, JSON persistence
