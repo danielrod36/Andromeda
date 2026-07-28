@@ -14,7 +14,11 @@ class NarrativeLogWidget(RichLog):
 
     Supports PageUp/PageDown and Home/End for scrolling (inherited from
     RichLog's scroll actions, also bound at the screen level).
+    Rich markup ([bold], [dim], [green], etc.) is enabled so formatted
+    text renders correctly.
     """
+
+    markup = True
 
     DEFAULT_CSS = """
     NarrativeLogWidget {
