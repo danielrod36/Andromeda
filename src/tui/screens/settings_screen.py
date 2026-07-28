@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal, VerticalScroll
 from textual.screen import Screen
 from textual.widgets import (
     Button,
@@ -46,9 +46,10 @@ class SettingsScreen(Screen):
     #settings-container {
         width: 100%;
         max-width: 76;
-        height: auto;
-        max-height: 85%;
+        height: 100%;
+        max-height: 90%;
         padding: 1 2;
+        overflow-y: auto;
     }
     #settings-title {
         text-align: center;
@@ -104,6 +105,7 @@ class SettingsScreen(Screen):
 
     BINDINGS = [
         Binding("escape", "app.pop_screen", "Back"),
+        Binding("ctrl+s", "save_settings", "Save"),
     ]
 
     def __init__(self) -> None:
@@ -114,7 +116,7 @@ class SettingsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        with Vertical(id="settings-container"):
+        with VerticalScroll(id="settings-container"):
             yield Static("LLM Settings", id="settings-title")
 
             # --- Provider ---
@@ -288,13 +290,21 @@ class SettingsScreen(Screen):
         if event.button.id == "fetch-btn":
             self._do_fetch_models()
         elif event.button.id == "save-btn":
-            self._settings = self._collect_settings()
-            save_settings(self._settings, self.app.settings_dir)
-            self.app.apply_llm_settings(self._settings)
-            self._update_status()
-            self.app.notify("Settings saved.", timeout=3)
+            self._do_save()
         elif event.button.id == "back-btn":
             self.app.pop_screen()
+
+    def action_save_settings(self) -> None:
+        """Ctrl+S keyboard shortcut to save settings."""
+        self._do_save()
+
+    def _do_save(self) -> None:
+        """Persist current settings to disk and apply them."""
+        self._settings = self._collect_settings()
+        save_settings(self._settings, self.app.settings_dir)
+        self.app.apply_llm_settings(self._settings)
+        self._update_status()
+        self.app.notify("Settings saved.", timeout=3)
 
     # ------------------------------------------------------------------
     # Model fetching.
