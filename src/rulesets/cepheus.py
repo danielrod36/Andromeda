@@ -6,7 +6,7 @@ data: six characteristics (STR/DEX/END/INT/EDU/SOC), the six-step difficulty
 ladder (Routine +2 through Formidable -6), classic resolution (2D6+DM >= 8),
 and the narrative resolution profile (strong hit / weak hit / miss tiers).
 
-The characteristic DM ladder maps raw stat values (0-15+) to dice modifiers
+The characteristic DM ladder maps raw stat values (0-24+) to dice modifiers
 per the CE SRD.
 """
 from __future__ import annotations
@@ -29,24 +29,26 @@ class CepheusRuleSet:
     Difficulty ladder (DM applied to 2D6 roll):
 
     ==============  ===
+    Easy            +4
     Routine         +2
-    Easy            +1
     Average          0
-    Difficult       -1
-    Very Difficult  -2
+    Difficult       -2
+    Very Difficult  -4
     Formidable      -6
     ==============  ===
 
     Characteristic DM ladder:
 
     ========  ===
-    0         -3
-    1–2       -2
+    0–2       -2
     3–5       -1
     6–8        0
     9–11      +1
     12–14     +2
-    15+       +3
+    15–17     +3
+    18–20     +4
+    21–23     +5
+    24+       +6
     ========  ===
     """
 
@@ -56,11 +58,11 @@ class CepheusRuleSet:
     _characteristics: tuple[str, ...] = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 
     _difficulty_ladder: dict[str, int] = {
+        "easy": 4,
         "routine": 2,
-        "easy": 1,
         "average": 0,
-        "difficult": -1,
-        "very_difficult": -2,
+        "difficult": -2,
+        "very_difficult": -4,
         "formidable": -6,
     }
 
@@ -126,11 +128,10 @@ class CepheusRuleSet:
         """Return the characteristic dice modifier for a raw stat value.
 
         Uses the CE SRD ladder:
-        0: -3, 1–2: -2, 3–5: -1, 6–8: 0, 9–11: +1, 12–14: +2, 15+: +3.
+        0–2: -2, 3–5: -1, 6–8: 0, 9–11: +1, 12–14: +2, 15–17: +3,
+        18–20: +4, 21–23: +5, 24+: +6.
         """
-        if value <= 0:
-            return -3
-        elif value <= 2:
+        if value <= 2:
             return -2
         elif value <= 5:
             return -1
@@ -140,8 +141,14 @@ class CepheusRuleSet:
             return 1
         elif value <= 14:
             return 2
-        else:
+        elif value <= 17:
             return 3
+        elif value <= 20:
+            return 4
+        elif value <= 23:
+            return 5
+        else:
+            return 6
 
     def resolve_check(
         self,

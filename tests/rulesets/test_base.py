@@ -50,11 +50,11 @@ def test_cepheus_ruleset_name_mentions_cepheus():
 def test_difficulty_ladder_modifiers_match_ce_srd():
     """All six difficulty modifiers match the CE SRD specification."""
     rs = CepheusRuleSet()
+    assert rs.difficulty_modifier("easy") == 4
     assert rs.difficulty_modifier("routine") == 2
-    assert rs.difficulty_modifier("easy") == 1
     assert rs.difficulty_modifier("average") == 0
-    assert rs.difficulty_modifier("difficult") == -1
-    assert rs.difficulty_modifier("very_difficult") == -2
+    assert rs.difficulty_modifier("difficult") == -2
+    assert rs.difficulty_modifier("very_difficult") == -4
     assert rs.difficulty_modifier("formidable") == -6
 
 
@@ -67,11 +67,11 @@ def test_difficulty_ladder_has_exactly_six_entries():
 def test_difficulty_ladder_values():
     rs = CepheusRuleSet()
     assert rs.difficulty_ladder == {
+        "easy": 4,
         "routine": 2,
-        "easy": 1,
         "average": 0,
-        "difficult": -1,
-        "very_difficult": -2,
+        "difficult": -2,
+        "very_difficult": -4,
         "formidable": -6,
     }
 
@@ -185,7 +185,7 @@ def test_default_profile_is_classic():
 
 def test_characteristic_dm_ladder():
     rs = CepheusRuleSet()
-    assert rs.characteristic_dm(0) == -3
+    assert rs.characteristic_dm(0) == -2
     assert rs.characteristic_dm(1) == -2
     assert rs.characteristic_dm(2) == -2
     assert rs.characteristic_dm(3) == -1
@@ -197,6 +197,13 @@ def test_characteristic_dm_ladder():
     assert rs.characteristic_dm(12) == 2
     assert rs.characteristic_dm(14) == 2
     assert rs.characteristic_dm(15) == 3
+    assert rs.characteristic_dm(17) == 3
+    assert rs.characteristic_dm(18) == 4
+    assert rs.characteristic_dm(20) == 4
+    assert rs.characteristic_dm(21) == 5
+    assert rs.characteristic_dm(23) == 5
+    assert rs.characteristic_dm(24) == 6
+    assert rs.characteristic_dm(26) == 6
 
 
 # ---------------------------------------------------------------------------
