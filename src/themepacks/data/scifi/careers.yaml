@@ -1,0 +1,677 @@
+# Open Game Content (Cepheus Engine SRD-derived). Licensed under OGL 1.0a — see LICENSE.OGL.
+# CE SRD Starter Careers — 8 careers with full table data.
+# Each career has qualification, survival, advancement, three skill tables
+# (Personal Development, Service Skills, Advanced Education), optional ranks,
+# and mustering-out benefit tables (cash and material).
+
+navy:
+  id: navy
+  name: "Navy"
+  description: >
+    The interstellar Navy operates capital warships across the stars. Officers
+    and crew serve in ship-to-ship combat, exploration patrols, and system
+    defense. Navy characters are well-trained in technical skills and
+    leadership.
+  qualification:
+    characteristic: INT
+    target: 5
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: EDU
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "gunnery_turrets"}
+          - {min: 3, max: 3, result: "mechanic"}
+          - {min: 4, max: 5, result: "electronics_comms"}
+          - {min: 6, max: 6, result: "electronics_sensors"}
+          - {min: 7, max: 7, result: "pilot_small_craft"}
+          - {min: 8, max: 9, result: "astrogation"}
+          - {min: 10, max: 11, result: "sensor_ops"}
+          - {min: 12, max: 12, result: "engineer"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "medic"}
+          - {min: 4, max: 5, result: "leadership"}
+          - {min: 6, max: 7, result: "tactics_naval"}
+          - {min: 8, max: 9, result: "astrogation"}
+          - {min: 10, max: 11, result: "engineer"}
+          - {min: 12, max: 12, result: "computers"}
+  ranks:
+    - {rank: 1, title: "Ensign"}
+    - {rank: 2, title: "Lieutenant"}
+    - {rank: 3, title: "Lieutenant Commander"}
+    - {rank: 4, title: "Commander"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Admiral"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    dm_per_rank: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "5,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "30,000 Cr"}
+        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "Middle Passage"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Ship Share"}
+        - {min: 6, max: 6, result: "TAS Membership"}
+
+army:
+  id: army
+  name: "Army"
+  description: >
+    Planetary ground forces defending worlds across the sector. Army soldiers
+    train in combat, tactics, and vehicle operations. They are tough,
+    disciplined, and well-versed in ground warfare.
+  qualification:
+    characteristic: STR
+    target: 5
+  survival:
+    characteristic: END
+    target: 4
+  advancement:
+    characteristic: EDU
+    target: 6
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "drive_ground_vehicle"}
+          - {min: 3, max: 3, result: "drive_hovercraft"}
+          - {min: 4, max: 5, result: "heavy_wpn_vehicle"}
+          - {min: 6, max: 6, result: "heavy_wpn_man_portable"}
+          - {min: 7, max: 7, result: "gun_combat_slug_rifle"}
+          - {min: 8, max: 9, result: "gun_combat_slug_pistol"}
+          - {min: 10, max: 11, result: "explosives"}
+          - {min: 12, max: 12, result: "melee_unarmed"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "electronics_comms"}
+          - {min: 4, max: 5, result: "medic"}
+          - {min: 6, max: 7, result: "leadership"}
+          - {min: 8, max: 9, result: "tactics_ground"}
+          - {min: 10, max: 11, result: "admin"}
+          - {min: 12, max: 12, result: "advocate"}
+  ranks:
+    - {rank: 1, title: "Private"}
+    - {rank: 2, title: "Corporal"}
+    - {rank: 3, title: "Sergeant"}
+    - {rank: 4, title: "Lieutenant"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Major"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "5,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "30,000 Cr"}
+        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "Combat Armor"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Ship Share"}
+        - {min: 6, max: 6, result: "TAS Membership"}
+
+marines:
+  id: marines
+  name: "Marines"
+  description: >
+    Elite orbital assault troops deployed from Navy ships to planetary
+    surfaces. Marines are the sharpest combatants in the service, trained
+    in boarding actions, planetary landings, and heavy weapons.
+  qualification:
+    characteristic: END
+    target: 6
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: EDU
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 8, result: "athletics"}
+          - {min: 9, max: 10, result: "recon"}
+          - {min: 11, max: 12, result: "stealth"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "gun_combat_energy_rifle"}
+          - {min: 4, max: 5, result: "heavy_wpn_vehicle"}
+          - {min: 6, max: 6, result: "heavy_wpn_man_portable"}
+          - {min: 7, max: 7, result: "melee_blade"}
+          - {min: 8, max: 9, result: "melee_unarmed"}
+          - {min: 10, max: 11, result: "explosives"}
+          - {min: 12, max: 12, result: "tactics_ground"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "electronics_comms"}
+          - {min: 4, max: 5, result: "medic"}
+          - {min: 6, max: 7, result: "leadership"}
+          - {min: 8, max: 9, result: "tactics_military"}
+          - {min: 10, max: 11, result: "admin"}
+          - {min: 12, max: 12, result: "advocate"}
+  ranks:
+    - {rank: 1, title: "Private"}
+    - {rank: 2, title: "Corporal"}
+    - {rank: 3, title: "Sergeant"}
+    - {rank: 4, title: "Lieutenant"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Colonel"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "5,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "30,000 Cr"}
+        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "Battle Dress"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Ship Share"}
+        - {min: 6, max: 6, result: "TAS Membership"}
+
+merchant:
+  id: merchant
+  name: "Merchant"
+  description: >
+    Free traders and merchant fleet crew who ply the star lanes hauling cargo
+    and passengers between worlds. Merchants are versatile, practical, and
+    comfortable haggling in any port.
+  qualification:
+    characteristic: INT
+    target: 4
+  survival:
+    characteristic: INT
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 6
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "diplomat"}
+          - {min: 8, max: 9, result: "broker"}
+          - {min: 10, max: 12, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "pilot_small_craft"}
+          - {min: 3, max: 3, result: "pilot_capital_ship"}
+          - {min: 4, max: 5, result: "astrogation"}
+          - {min: 6, max: 6, result: "engineer"}
+          - {min: 7, max: 7, result: "mechanic"}
+          - {min: 8, max: 9, result: "steward"}
+          - {min: 10, max: 11, result: "electronics_sensors"}
+          - {min: 12, max: 12, result: "electronics_comms"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "medic"}
+          - {min: 4, max: 5, result: "leadership"}
+          - {min: 6, max: 7, result: "broker"}
+          - {min: 8, max: 9, result: "admin"}
+          - {min: 10, max: 11, result: "advocate"}
+          - {min: 12, max: 12, result: "computers"}
+  ranks:
+    - {rank: 1, title: "4th Officer"}
+    - {rank: 2, title: "3rd Officer"}
+    - {rank: 3, title: "2nd Officer"}
+    - {rank: 4, title: "1st Officer"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Owner"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    dm_per_rank: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "5,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "30,000 Cr"}
+        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "Middle Passage"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Ship Share"}
+        - {min: 6, max: 6, result: "Ship Shares x2"}
+
+scout:
+  id: scout
+  name: "Scout"
+  description: >
+    The Interstellar Scout Service explores uncharted systems, surveys new
+    worlds, and maintains the communications relay network. Scouts are
+    independent, resourceful, and at home in the wilderness of space.
+  qualification:
+    characteristic: INT
+    target: 6
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "athletics"}
+          - {min: 8, max: 9, result: "recon"}
+          - {min: 10, max: 12, result: "survival"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "pilot_small_craft"}
+          - {min: 3, max: 3, result: "astrogation"}
+          - {min: 4, max: 5, result: "electronics_sensors"}
+          - {min: 6, max: 6, result: "electronics_comms"}
+          - {min: 7, max: 7, result: "mechanic"}
+          - {min: 8, max: 9, result: "survival"}
+          - {min: 10, max: 11, result: "explosives"}
+          - {min: 12, max: 12, result: "stealth"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "medic"}
+          - {min: 4, max: 5, result: "science_physics"}
+          - {min: 6, max: 7, result: "science_xenobiology"}
+          - {min: 8, max: 9, result: "science_planetology"}
+          - {min: 10, max: 11, result: "computers"}
+          - {min: 12, max: 12, result: "engineer"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "5,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "30,000 Cr"}
+        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "Exploration Suit"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Ship Share"}
+        - {min: 6, max: 6, result: "Scout Ship"}
+
+agent:
+  id: agent
+  name: "Agent"
+  description: >
+    Covert operatives, law enforcement officers, intelligence analysts, and
+    corporate enforcers. Agents work in the shadows and in the light, skilled
+    at investigation, deception, and the social arts.
+  qualification:
+    characteristic: INT
+    target: 5
+  survival:
+    characteristic: INT
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "athletics"}
+          - {min: 8, max: 9, result: "melee_unarmed"}
+          - {min: 10, max: 12, result: "stealth"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "streetwise"}
+          - {min: 3, max: 3, result: "investigate"}
+          - {min: 4, max: 5, result: "deception"}
+          - {min: 6, max: 6, result: "persuade"}
+          - {min: 7, max: 7, result: "recon"}
+          - {min: 8, max: 9, result: "electronics_comms"}
+          - {min: 10, max: 11, result: "electronics_sensors"}
+          - {min: 12, max: 12, result: "computers"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "advocate"}
+          - {min: 4, max: 5, result: "admin"}
+          - {min: 6, max: 7, result: "broker"}
+          - {min: 8, max: 9, result: "diplomat"}
+          - {min: 10, max: 11, result: "leadership"}
+          - {min: 12, max: 12, result: "explosives"}
+  ranks:
+    - {rank: 1, title: "Field Agent"}
+    - {rank: 2, title: "Senior Agent"}
+    - {rank: 3, title: "Section Chief"}
+    - {rank: 4, title: "Station Chief"}
+    - {rank: 5, title: "Regional Director"}
+    - {rank: 6, title: "Director"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "5,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "30,000 Cr"}
+        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "False Identity"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Contact"}
+        - {min: 6, max: 6, result: "TAS Membership"}
+
+noble:
+  id: noble
+  name: "Noble"
+  description: >
+    Born to wealth, privilege, and political power. Nobles move in the highest
+    circles of interstellar society, wielding influence and social graces
+    where others rely on blasters.
+  qualification:
+    characteristic: SOC
+    target: 9
+  survival:
+    characteristic: SOC
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "+1 INT"}
+          - {min: 8, max: 9, result: "+1 EDU"}
+          - {min: 10, max: 12, result: "+1 SOC"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "diplomat"}
+          - {min: 3, max: 3, result: "admin"}
+          - {min: 4, max: 5, result: "advocate"}
+          - {min: 6, max: 6, result: "leadership"}
+          - {min: 7, max: 7, result: "broker"}
+          - {min: 8, max: 9, result: "persuade"}
+          - {min: 10, max: 11, result: "carousing"}
+          - {min: 12, max: 12, result: "streetwise"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "admin"}
+          - {min: 4, max: 5, result: "advocate"}
+          - {min: 6, max: 7, result: "diplomat"}
+          - {min: 8, max: 9, result: "broker"}
+          - {min: 10, max: 11, result: "science_history"}
+          - {min: 12, max: 12, result: "computers"}
+  ranks:
+    - {rank: 1, title: "Knight"}
+    - {rank: 2, title: "Baron"}
+    - {rank: 3, title: "Marquis"}
+    - {rank: 4, title: "Count"}
+    - {rank: 5, title: "Duke"}
+    - {rank: 6, title: "Archduke"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    dm_per_rank: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "10,000 Cr"}
+        - {min: 2, max: 2, result: "20,000 Cr"}
+        - {min: 3, max: 3, result: "30,000 Cr"}
+        - {min: 4, max: 4, result: "50,000 Cr"}
+        - {min: 5, max: 5, result: "80,000 Cr"}
+        - {min: 6, max: 6, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "High Passage"}
+        - {min: 3, max: 3, result: "Estate"}
+        - {min: 4, max: 4, result: "High Passage x2"}
+        - {min: 5, max: 5, result: "TAS Membership"}
+        - {min: 6, max: 6, result: "Retainer"}
+
+drifter:
+  id: drifter
+  name: "Drifter"
+  description: >
+    Wanderers, hitchhikers, and vagabonds who drift from world to world taking
+    odd jobs and living by their wits. Drifters have no advancement path, but
+    they are survivors.
+  qualification:
+    characteristic: END
+    target: 3
+  survival:
+    characteristic: END
+    target: 5
+  advancement:
+    characteristic: END
+    target: 7
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "+1 STR"}
+          - {min: 4, max: 5, result: "+1 DEX"}
+          - {min: 6, max: 6, result: "+1 END"}
+          - {min: 7, max: 7, result: "athletics"}
+          - {min: 8, max: 9, result: "melee_unarmed"}
+          - {min: 10, max: 12, result: "streetwise"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 2, result: "athletics"}
+          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 4, max: 5, result: "melee_blade"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 7, max: 7, result: "streetwise"}
+          - {min: 8, max: 9, result: "survival"}
+          - {min: 10, max: 11, result: "recon"}
+          - {min: 12, max: 12, result: "stealth"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 2
+        die_size: 6
+        entries:
+          - {min: 2, max: 3, result: "animals_handling"}
+          - {min: 4, max: 5, result: "electronics_remote_ops"}
+          - {min: 6, max: 7, result: "mechanic"}
+          - {min: 8, max: 9, result: "medic"}
+          - {min: 10, max: 11, result: "drive_ground_vehicle"}
+          - {min: 12, max: 12, result: "flyer_rotor"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    dm_per_term: 1
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "2,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "15,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "30,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      entries:
+        - {min: 1, max: 1, result: "Weapon"}
+        - {min: 2, max: 2, result: "Low Passage"}
+        - {min: 3, max: 3, result: "Trade Tools"}
+        - {min: 4, max: 4, result: "Middle Passage"}
+        - {min: 5, max: 5, result: "Low Passage x2"}
+        - {min: 6, max: 6, result: "Ship Share"}

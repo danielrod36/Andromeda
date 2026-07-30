@@ -1,0 +1,70 @@
+# Open Game Content (Cepheus Engine SRD-derived). Licensed under OGL 1.0a — see LICENSE.OGL.
+# Oracle tables for scene scaffolding and solo play prompts.
+# Each table covers 2D6 (2-12) contiguously.
+
+- id: action_outcome
+  name: "Action Outcome"
+  description: >-
+    General outcome oracle for when the player attempts an action without a
+    specific skill check. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Disaster — the attempt backfires spectacularly with lasting consequences."}
+      - {min: 3, max: 4, result: "Failure — the attempt fails, and a complication arises."}
+      - {min: 5, max: 6, result: "Setback — partial success at a cost; choose to succeed with a complication or fail."}
+      - {min: 7, max: 7, result: "Tension — success but the situation grows more dangerous."}
+      - {min: 8, max: 9, result: "Success — the attempt works as intended."}
+      - {min: 10, max: 11, result: "Strong success — the attempt succeeds with an unexpected advantage."}
+      - {min: 12, max: 12, result: "Triumph — flawless success that creates a lasting opportunity."}
+
+- id: npc_reaction
+  name: "NPC Reaction"
+  description: >-
+    Determine how a newly encountered NPC reacts to the character.
+    Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Hostile — immediate attack or aggressive confrontation."}
+      - {min: 3, max: 4, result: "Unfriendly — cold, suspicious, and unhelpful."}
+      - {min: 5, max: 6, result: "Wary — cautious and guarded, may help for a price."}
+      - {min: 7, max: 8, result: "Neutral — neither friendly nor hostile, transactional."}
+      - {min: 9, max: 10, result: "Friendly — warm and cooperative, offers what help they can."}
+      - {min: 11, max: 11, result: "Helpful —eager to assist and may volunteer extra information."}
+      - {min: 12, max: 12, result: "Devoted — becomes a loyal ally or contact."}
+
+- id: scene_focus
+  name: "Scene Focus"
+  description: >-
+    Determine what aspect of the story the current scene centers on.
+    Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 3, result: "Combat — the scene is dominated by a fight or battle."}
+      - {min: 4, max: 5, result: "Social — the scene centers on interaction, persuasion, or negotiation."}
+      - {min: 6, max: 7, result: "Exploration — the scene focuses on discovering or investigating something new."}
+      - {min: 8, max: 9, result: "Technical — the scene involves repair, hacking, or operating complex systems."}
+      - {min: 10, max: 11, result: "Political — the scene centers on faction politics, law, or authority."}
+      - {min: 12, max: 12, result: "Plot twist — introduce an unexpected development that changes the direction of the story."}
+
+- id: environment_hazard
+  name: "Environmental Hazard"
+  description: >-
+    Generate an environmental challenge for a wilderness or unexplored area.
+    Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Extreme weather — dangerous storm or atmospheric anomaly."}
+      - {min: 3, max: 4, result: "Difficult terrain — hazardous ground that slows progress."}
+      - {min: 5, max: 6, result: "Predator — a dangerous native creature stalks the party."}
+      - {min: 7, max: 8, result: "Scarce resources — food, water, or fuel is running low."}
+      - {min: 9, max: 10, result: "Ancient ruins — signs of a prior civilization, possibly with salvage."}
+      - {min: 11, max: 11, result: "Natural shelter — a defensible position or safe haven."}
+      - {min: 12, max: 12, result: "Rich discovery — valuable minerals, biological specimens, or a cache."}

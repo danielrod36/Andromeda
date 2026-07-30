@@ -1,0 +1,9 @@
+# CE SRD Sci-Fi Theme Pack Manifest
+id: scifi
+name: "Cepheus Engine Sci-Fi"
+# Open Game Content — derived from the Cepheus Engine SRD. See LICENSE.OGL.
+license: "OGL-1.0a"
+description: >
+  Cepheus Engine SRD science-fiction content: 8 starter careers, skill
+  definitions, oracle tables for scene scaffolding, complication tables for
+  Narrative-profile weak hits, and mission hook tables.

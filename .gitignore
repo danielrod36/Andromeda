@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Game saves
+saves/
+
+# Settings (contains API keys)
+settings/
+
+# Environment
+.env
+.env.local
+
+# Serena (already has its own .gitignore)
+.serena/
+
+# Internal design/plans/research (not part of the public release)
+docs/
+
+# Tool caches
+.ruff_cache/
+
+# Internal agent scratch (briefs/reports/diffs — not part of the public release)
+.superpowers/

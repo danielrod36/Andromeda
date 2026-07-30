@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "andromeda"
+version = "0.1.0"
+description = "A deterministic-rules CYOA RPG where the engine owns mechanics and the LLM only narrates."
+license = { text = "MIT" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3 :: Only",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-ai>=0.0.1",
+    "textual>=0.80",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+andromeda = "src.tui.__main__:main"
+
+[tool.setuptools.packages.find]
+# The package is literally named ``src`` (entry point: src.tui.__main__:main).
+# Without this, setuptools installs zero packages and the console script
+# documented in the README fails with ModuleNotFoundError outside the repo.
+where = ["."]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.pytest.ini_options.markers]
+slow = "marks tests as slow"
+
+# ---------------------------------------------------------------------------
+# Ruff — lint + format. Gate runs `ruff check` and `ruff format --check`.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Broad-but-pragmatic rule set. BLE001 is globally ignored: the LLM adapter
+# intentionally catches broad Exception for template-fallback guarantees.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PIE", "ISC", "RUF"]
+ignore = [
+    "BLE001",  # blind-except: deliberate in the narration fallback path
+    "E501",    # line length is enforced by the formatter, not the linter
+    "RUF002",  # ambiguous unicode in docstrings: intentional em-dashes/arrows
+    "UP042",   # str+Enum → StrEnum: changes str() semantics, defer deliberately
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = []
+
+[tool.ruff.format]
+quote-style = "double"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.16.0",
+]

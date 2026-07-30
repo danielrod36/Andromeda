@@ -1,0 +1,71 @@
+# Complication tables for Narrative-profile weak hits in a fantasy setting.
+# When a check succeeds with a weak hit (effect 0-3 in Narrative profile),
+# roll on the appropriate complication table to add a cost or twist.
+
+- id: combat_complication
+  name: "Combat Complication"
+  description: >-
+    Roll when a combat check results in a weak hit. The blow lands, but
+    something goes wrong on the battlefield.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Your weapon shatters on the enemy's armour; fight at disadvantage until you find a new sword."}
+      - {min: 3, max: 4, result: "A companion is caught in the melee and takes a wound from the exchange."}
+      - {min: 5, max: 6, result: "The enemy retreats deeper into the dungeon, alerting other foes and beasts."}
+      - {min: 7, max: 8, result: "You are pinned behind cover and cannot advance until you break free."}
+      - {min: 9, max: 10, result: "The clash of steel draws the attention of a guard patrol or hungry monster."}
+      - {min: 11, max: 11, result: "You sustain a wound in the exchange; lose 1d6 endurance."}
+      - {min: 12, max: 12, result: "Your shield or bow string snaps in the fight; the gear needs repair."}
+
+- id: social_complication
+  name: "Social Complication"
+  description: >-
+    Roll when a social check results in a weak hit. You get what you want,
+    but at a social cost in the tavern, court, or guild hall.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "You owe a favor to a guild master or noble, and they will call it in."}
+      - {min: 3, max: 4, result: "Word of your dealings reaches the wrong ears; you gain a rival at court."}
+      - {min: 5, max: 6, result: "The NPC agrees but demands double the gold or a magical trinket as payment."}
+      - {min: 7, max: 8, result: "You must swear an oath or reveal a secret you wanted to keep hidden."}
+      - {min: 9, max: 10, result: "The NPC's cooperation is grudging; they will not help you again without further persuasion."}
+      - {min: 11, max: 11, result: "You damage your standing with a faction or guild the NPC belongs to."}
+      - {min: 12, max: 12, result: "The lord or guild master becomes suspicious and begins watching your movements."}
+
+- id: magic_complication
+  name: "Magic Complication"
+  description: >-
+    Roll when a spellcasting or arcana check results in a weak hit. The spell
+    works but produces an unintended side effect.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "The spell triggers a wild surge of arcane energy, alerting every mage and monster within a league."}
+      - {min: 3, max: 4, result: "The ritual consumes rare reagents you no longer have for future castings."}
+      - {min: 5, max: 6, result: "A rune flares and triggers a ward; the temple or tower guards are alerted."}
+      - {min: 7, max: 8, result: "The spell works but at reduced power; all future castings are at -2 DM until you rest."}
+      - {min: 9, max: 10, result: "The casting leaves an arcane residue that a sorcerer or warlock can trace back to you."}
+      - {min: 11, max: 11, result: "A bound spirit or elemental is briefly unleashed and must be contained before it causes havoc."}
+      - {min: 12, max: 12, result: "Your wand or arcane focus cracks under the strain; it needs repair before the next spell."}
+
+- id: exploration_complication
+  name: "Exploration Complication"
+  description: >-
+    Roll when a survival, tracking, or exploration check results in a weak hit.
+    You succeed but the journey through the wilderness or dungeon takes a toll.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "You become lost in the forest or dungeon labyrinth, losing a full day finding your way."}
+      - {min: 3, max: 4, result: "Rations are consumed faster than expected; halve remaining supplies and herbs."}
+      - {min: 5, max: 6, result: "You find tracks or signs of a monster or hostile patrol stalking your party."}
+      - {min: 7, max: 8, result: "Cursed ground or difficult terrain forces a long detour, extending travel time by half."}
+      - {min: 9, max: 10, result: "Gear is damaged by the environment; rope snaps or boots split, needing craft to repair."}
+      - {min: 11, max: 11, result: "A companion suffers exposure or a minor curse from the cursed land (temporarily lose 1 END)."}
+      - {min: 12, max: 12, result: "You leave a trail of broken branches and tracks that a ranger or beast can follow to find you."}

@@ -1,0 +1,67 @@
+# Open Game Content (Cepheus Engine SRD-derived). Licensed under OGL 1.0a — see LICENSE.OGL.
+# Mission hook tables for generating adventure seeds.
+# Each table covers 2D6 (2-12) contiguously.
+
+- id: patron_type
+  name: "Patron Type"
+  description: >-
+    Determine who is offering the mission. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Criminal syndicate — an underworld figure needs deniable operators."}
+      - {min: 3, max: 4, result: "Local government — a planetary official has a problem they cannot handle publicly."}
+      - {min: 5, max: 6, result: "Corporation — a megacorp representative offers a lucrative but morally gray contract."}
+      - {min: 7, max: 8, result: "Private citizen — a desperate individual needs help finding someone or something."}
+      - {min: 9, max: 10, result: "Scout Service — the Scout Service needs volunteers for a survey or relay mission."}
+      - {min: 11, max: 11, result: "Noble house — a minor noble needs discreet agents for a political errand."}
+      - {min: 12, max: 12, result: "Mysterious stranger — an anonymous patron with too much knowledge and too few answers."}
+
+- id: mission_objective
+  name: "Mission Objective"
+  description: >-
+    Determine the core task of the mission. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Extraction — rescue a prisoner, hostage, or defector from a hostile location."}
+      - {min: 3, max: 4, result: "Delivery — transport sensitive cargo or a passenger to a destination, no questions asked."}
+      - {min: 5, max: 6, result: "Retrieval — recover a stolen item, data core, or artifact from a rival."}
+      - {min: 7, max: 8, result: "Investigation — uncover the truth behind a disappearance, sabotage, or conspiracy."}
+      - {min: 9, max: 10, result: "Sabotage — infiltrate a facility and disable or destroy a target."}
+      - {min: 11, max: 11, result: "Protection — guard a VIP, cargo, or location against an expected threat."}
+      - {min: 12, max: 12, result: "First contact — make peaceful (or not) contact with an unknown alien species or isolationist faction."}
+
+- id: mission_complication
+  name: "Mission Complication"
+  description: >-
+    Add a twist to an otherwise straightforward mission. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Betrayal — the patron is setting the party up; the mission is a trap."}
+      - {min: 3, max: 4, result: "Rival team — another group is after the same objective and will compete or fight for it."}
+      - {min: 5, max: 6, result: "Time pressure — the mission must be completed within a tight deadline before the opportunity vanishes."}
+      - {min: 7, max: 8, result: "False intel — key details about the mission are wrong; the situation is different than described."}
+      - {min: 9, max: 10, result: "Moral dilemma — the objective requires an ethically difficult choice with lasting consequences."}
+      - {min: 11, max: 11, result: "Hidden agenda — the patron has a secondary objective they did not reveal; success for them means trouble for the party."}
+      - {min: 12, max: 12, result: "Unexpected variable — a third party with their own agenda intervenes in the mission."}
+
+- id: mission_reward
+  name: "Mission Reward"
+  description: >-
+    Determine the payment for completing the mission. Roll 2D6 and consult.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Modest — 20,000 Cr, barely enough to cover fuel and maintenance."}
+      - {min: 3, max: 4, result: "Standard — 50,000 Cr plus standard expenses."}
+      - {min: 5, max: 6, result: "Good — 80,000 Cr plus a useful piece of equipment or favor."}
+      - {min: 7, max: 8, result: "Generous — 120,000 Cr plus a Ship Share or equivalent asset."}
+      - {min: 9, max: 10, result: "Excellent — 200,000 Cr plus a valuable contact or rare item."}
+      - {min: 11, max: 11, result: "Exceptional — 350,000 Cr plus access to restricted technology or a powerful ally."}
+      - {min: 12, max: 12, result: "Fortune — 500,000 Cr plus something beyond money: a title, a ship, or a life-changing opportunity."}

@@ -1,0 +1,72 @@
+# Open Game Content (Cepheus Engine SRD-derived). Licensed under OGL 1.0a — see LICENSE.OGL.
+# Complication tables for Narrative-profile weak hits.
+# When a check succeeds with a weak hit (effect 0-3 in Narrative profile),
+# roll on the appropriate complication table to add a cost or twist.
+
+- id: combat_complication
+  name: "Combat Complication"
+  description: >-
+    Roll when a combat check results in a weak hit. The attack lands, but
+    something goes wrong.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "Your weapon malfunctions; it needs a repair check before it can be used again."}
+      - {min: 3, max: 4, result: "An ally is caught in the crossfire and takes damage."}
+      - {min: 5, max: 6, result: "The enemy retreats to a more defensible position, extending the fight."}
+      - {min: 7, max: 8, result: "You are pinned down and cannot advance next round."}
+      - {min: 9, max: 10, result: "Your attack attracts unwanted attention from reinforcements."}
+      - {min: 11, max: 11, result: "You sustain a minor injury in the exchange (1d6 damage)."}
+      - {min: 12, max: 12, result: "Your gear is damaged in the fight; lose one piece of equipment."}
+
+- id: social_complication
+  name: "Social Complication"
+  description: >-
+    Roll when a social check results in a weak hit. You get what you want,
+    but at a social cost.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "You owe a favor to someone powerful and they will call it in."}
+      - {min: 3, max: 4, result: "Word of your dealings reaches the wrong ears; gain a rival."}
+      - {min: 5, max: 6, result: "The NPC agrees but demands double the original price."}
+      - {min: 7, max: 8, result: "You must reveal a secret or piece of information you wanted to keep hidden."}
+      - {min: 9, max: 10, result: "The NPC's cooperation is grudging and unreliable in future."}
+      - {min: 11, max: 11, result: "You damage your reputation with a faction the NPC belongs to."}
+      - {min: 12, max: 12, result: "The NPC becomes suspicious of your motives and starts watching you."}
+
+- id: technical_complication
+  name: "Technical Complication"
+  description: >-
+    Roll when a technical or repair check results in a weak hit. The task
+    succeeds but causes a secondary problem.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "The system you repaired fails again at the worst possible moment."}
+      - {min: 3, max: 4, result: "The fix consumes spare parts you no longer have for future repairs."}
+      - {min: 5, max: 6, result: "The repair triggers an alert; security is now aware of your position."}
+      - {min: 7, max: 8, result: "The system works but at reduced capacity (-2 DM to future uses)."}
+      - {min: 9, max: 10, result: "You leave forensic evidence of tampering for anyone who looks."}
+      - {min: 11, max: 11, result: "A related system takes damage in the process."}
+      - {min: 12, max: 12, result: "The repair burns out your tools; they need replacement."}
+
+- id: exploration_complication
+  name: "Exploration Complication"
+  description: >-
+    Roll when an exploration or survival check results in a weak hit. You
+    succeed but the journey takes a toll.
+  entries:
+    num_dice: 2
+    die_size: 6
+    entries:
+      - {min: 2, max: 2, result: "You become lost and lose a day finding your way back on course."}
+      - {min: 3, max: 4, result: "Supplies are consumed faster than expected; halve remaining rations."}
+      - {min: 5, max: 6, result: "You encounter signs of a predator or hostile force in the area."}
+      - {min: 7, max: 8, result: "Difficult terrain forces a detour, extending travel time by 50%."}
+      - {min: 9, max: 10, result: "Equipment is damaged by the environment; make a repair check."}
+      - {min: 11, max: 11, result: "A member of the party suffers exposure (lose 1 END temporarily)."}
+      - {min: 12, max: 12, result: "You leave a trail that others can follow to track you."}
