@@ -506,6 +506,40 @@ class TestSaveAndResume:
         assert saves[0].name == "TestHero"
         assert saves[0].theme_pack == "scifi"
 
+    async def test_save_picker_excludes_checkpoint_sidecars(
+        self, seeded_app: CepheusApp
+    ):
+        """list_saves excludes *.checkpoint.json sidecar files.
+
+        Before the fix, the ``*.json`` glob matched ``Name.json.checkpoint.json``
+        sidecars, listing them as loadable campaigns.
+        """
+        from src.engine.state import CampaignConfig
+
+        app = seeded_app
+        async with app.run_test() as pilot:
+            await push_lifepath(app, pilot)
+
+            # Create a save in checkpoint mode so a sidecar is produced.
+            app.engine.state.campaign = CampaignConfig(
+                theme_pack="scifi", death_mode="checkpoint"
+            )
+            app.checkpoint_mgr.take_snapshot(app.engine.state)
+            app.save_game()
+
+        # Both the campaign save and the checkpoint sidecar should exist.
+        campaign_save = app.saves_dir / "TestHero.json"
+        sidecar = app.saves_dir / "TestHero.json.checkpoint.json"
+        assert campaign_save.exists()
+        assert sidecar.exists()
+
+        # list_saves should return only the campaign save, not the sidecar.
+        app2 = CepheusApp(saves_dir=app.saves_dir)
+        saves = app2.list_saves()
+        names = [s.name for s in saves]
+        assert "TestHero" in names
+        assert not any("checkpoint" in n for n in names)
+
 
 # ---------------------------------------------------------------------------
 # 6. Responsive layout at 80x24.

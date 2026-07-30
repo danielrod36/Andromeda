@@ -597,3 +597,177 @@ class TestDefeatDetection:
             # the character should be dead in ironman mode.
             if first_option.life_threatening:
                 assert app.engine.state.character.alive is False
+
+
+# ---------------------------------------------------------------------------
+# 9. Regression: refuse generates exactly one replacement hook (no double-roll).
+# ---------------------------------------------------------------------------
+
+
+class TestRefuseHookNoDouble:
+    """Refusing a hook must generate exactly one replacement, not two.
+
+    Before the fix, ``_do_refuse_mission`` called ``refuse_mission()`` (which
+    internally generates a hook), then setting ``phase = "hook_offered"``
+    triggered the ``always_update`` watcher → ``_offer_hook`` which called
+    ``generate_hook()`` again — burning RNG and discarding the first hook.
+    """
+
+    async def test_refuse_generates_single_hook(self, adventure_app):
+        app = adventure_app
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            first_hook = screen._current_hook
+            assert first_hook is not None
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Select "Refuse" (option 1).
+            cm.option_list.highlighted = 1
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Exactly one replacement hook should exist — the live hook.
+            assert screen._current_hook is not None
+            # The hook should differ from the first (it's a new roll).
+            assert screen._current_hook is not first_hook
+
+    async def test_offer_hook_does_not_regenerate_when_live(self, adventure_app):
+        """_offer_hook skips generation when _current_hook already exists."""
+        app = adventure_app
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            live_hook = screen._current_hook
+
+            # Re-trigger hook_offered phase — should NOT replace the hook.
+            screen.phase = "hook_offered"
+            await pilot.pause()
+
+            assert screen._current_hook is live_hook
+
+
+# ---------------------------------------------------------------------------
+# 10. Regression: rejecting free-text keeps the same scene.
+# ---------------------------------------------------------------------------
+
+
+class TestRejectFreetextKeepsScene:
+    """Rejecting a free-text interpretation returns to the SAME scene.
+
+    Before the fix, ``_do_reject_freetext`` set ``phase = "scene_active"``
+    which re-triggered ``_present_scene`` → ``run_scene()``, discarding the
+    live scene and generating a replacement (plus a new checkpoint snapshot).
+    """
+
+    async def test_reject_keeps_same_scene_object(self, adventure_app):
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4]])
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            assert screen.phase == "scene_active"
+
+            scene_before = screen._current_scene
+
+            # Type and submit free-text (must focus input first).
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "I bribe the dock officer"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # Should now show accept/reject choices (not scene options).
+            assert cm.option_list.option_count == 2
+
+            # Reject the interpretation.
+            cm.option_list.highlighted = 1  # "Reject"
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # The same scene object should still be live.
+            assert screen._current_scene is scene_before
+
+
+# ---------------------------------------------------------------------------
+# 11. Regression: user free-text with Rich markup chars does not crash.
+# ---------------------------------------------------------------------------
+
+
+class TestFreetextMarkupEscaping:
+    """Raw user text echoed to a markup-enabled RichLog is escaped.
+
+    Typing ``[/]`` would crash with ``MarkupError`` before the fix.
+    """
+
+    async def test_markup_chars_in_freetext_no_crash(self, adventure_app):
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            assert screen.phase == "scene_active"
+
+            # Type uninterpretable text with markup-breaking chars.
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "[/] nothing matches"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # Screen should still be alive — no crash.
+            assert screen.phase == "scene_active"
+
+
+# ---------------------------------------------------------------------------
+# 12. Regression: checkpoint restore rebinds the engine roller (AE3).
+# ---------------------------------------------------------------------------
+
+
+class TestCheckpointRestoreRebindsRoller:
+    """After checkpoint rewind via swap_state, rolls use the restored RNG."""
+
+    async def test_restore_advances_restored_rng(self, tmp_path: Path):
+        """Post-rewind oracle roll matches scene-start sequence, not abandoned."""
+        from src.engine.checkpoint import CheckpointManager
+
+        app = CepheusApp(saves_dir=tmp_path)
+        queue = [
+            [3, 4], [5, 5], [3, 3], [4, 4],  # mission hook
+            [5, 5], [4, 4],                    # scene oracle
+            [1, 1],                             # scene check (severe miss)
+            [5, 5], [4, 4],                    # second scene oracle
+        ]
+        app.engine = make_seeded_engine(queue)
+        app.engine.state.campaign = CampaignConfig(
+            resolution_profile="narrative",
+            death_mode="checkpoint",
+        )
+        app.pack = load_scifi_pack()
+        app.campaign_name = "RewindTest"
+
+        # Snapshot the scene-start state, then advance the RNG (abandoned branch).
+        state = app.engine.state
+        mgr = app.checkpoint_mgr
+        mgr.take_snapshot(state)
+        abandoned_roll = state.rng.roll("oracle", 2, 6).total
+
+        restored = mgr.restore(state)
+        app.engine.swap_state(restored)
+
+        # The restored state's next oracle roll should NOT continue the
+        # abandoned sequence — it reverts to scene start.
+        reference = GameState.new(seed=42)
+        expected = reference.rng.roll("oracle", 2, 6).total
+        actual = app.engine.state.rng.roll("oracle", 2, 6).total
+        assert actual == expected

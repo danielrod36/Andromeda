@@ -400,3 +400,41 @@ class TestAppLLMIntegration:
             else:
                 os.environ.pop("ANTHROPIC_API_KEY", None)
                 os.environ.pop("ANTHROPIC_BASE_URL", None)
+
+
+# ---------------------------------------------------------------------------
+# Regression: saving settings with an invalid base_url doesn't crash.
+# ---------------------------------------------------------------------------
+
+
+class TestSettingsScreenSaveValidation:
+    """_do_save catches ValidationError instead of crashing the screen.
+
+    Before the fix, entering a non-http(s) base_url and pressing Ctrl+S
+    raised an uncaught pydantic ValidationError.
+    """
+
+    async def test_invalid_base_url_does_not_crash(self, tmp_path):
+        """Saving with a bad base_url shows an error, not a crash."""
+        from src.tui.app import CepheusApp
+        from src.tui.screens.settings_screen import SettingsScreen
+        from textual.widgets import Input, Select
+
+        app = CepheusApp(saves_dir=tmp_path / "saves",
+                         settings_dir=tmp_path / "settings")
+        async with app.run_test() as pilot:
+            app.push_screen(SettingsScreen())
+            await pilot.pause()
+
+            screen = app.screen
+            # Enter a bad base URL (ftp scheme is rejected by the validator).
+            base_url_input = screen.query_one("#base-url-input", Input)
+            base_url_input.value = "ftp://bad.example.com"
+            await pilot.pause()
+
+            # Trigger save — should not raise.
+            screen._do_save()
+            await pilot.pause()
+
+            # App should still be running (no crash).
+            assert app._exit is False

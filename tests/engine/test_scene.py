@@ -330,6 +330,32 @@ class TestFreeTextClassification:
         assert result.skill == "Broker"
         assert result.raw_roll == 10
 
+    def test_freetext_combat_sets_life_threatening(self, pack):
+        """Combat keywords set life_threatening so free-text can trigger defeat (F5)."""
+        engine = make_engine([[3, 4], [4, 4]])
+        se = SceneEngine(engine, pack)
+        scaffold = se.generate_scaffold()
+
+        for keyword in ("fight", "attack", "shoot"):
+            classification = se.classify_freetext(
+                f"I {keyword} the guard", scaffold
+            )
+            assert classification is not None
+            assert classification.interpreted_check.life_threatening is True
+
+    def test_freetext_noncombat_not_life_threatening(self, pack):
+        """Non-combat keywords do not set life_threatening."""
+        engine = make_engine([[3, 4], [4, 4]])
+        se = SceneEngine(engine, pack)
+        scaffold = se.generate_scaffold()
+
+        for keyword in ("bribe", "persuade", "hack", "investigate"):
+            classification = se.classify_freetext(
+                f"I {keyword} the target", scaffold
+            )
+            assert classification is not None
+            assert classification.interpreted_check.life_threatening is False
+
 
 # ---------------------------------------------------------------------------
 # R24/AE9: Narrative fact registration + NPC stat generation.

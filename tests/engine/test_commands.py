@@ -216,3 +216,54 @@ def test_forced_roller_determinism_two_engines_same_queue():
         engine_b.apply(c)
 
     assert engine_a.state.model_dump_json() == engine_b.state.model_dump_json()
+
+
+# ---------------------------------------------------------------------------
+# Regression: swap_state rebinds LiveRoller to restored RNG streams (AE3).
+# ---------------------------------------------------------------------------
+
+
+def test_swap_state_rebinds_live_roller_to_restored_rng():
+    """After swap_state, rolls advance the RESTORED state's RNG, not the old one.
+
+    Without rebinding, the LiveRoller keeps advancing the abandoned branch's
+    streams while the restored state's RNG stays frozen — breaking the
+    determinism/replay guarantee (AE3).
+    """
+    from src.engine.checkpoint import CheckpointManager
+    from src.engine.state import CampaignConfig
+
+    state = GameState.new(seed=99)
+    state.campaign = CampaignConfig(death_mode="checkpoint")
+
+    # Production engine: LiveRoller bound to state.rng.
+    engine = Engine(state)
+
+    mgr = CheckpointManager()
+    mgr.take_snapshot(state)
+
+    # Roll during the abandoned scene branch — advances the original RNG.
+    engine.state.rng.roll("oracle", 2, 6)
+
+    restored = mgr.restore(engine.state)
+    engine.swap_state(restored)
+
+    # The next oracle roll should match a fresh state that hasn't rolled
+    # during the scene — proving the roller now reads restored state's RNG.
+    reference = GameState.new(seed=99)
+    expected = reference.rng.roll("oracle", 2, 6).total
+    actual = engine.state.rng.roll("oracle", 2, 6).total
+    assert actual == expected
+
+
+def test_swap_state_leaves_forced_roller_untouched():
+    """swap_state does not replace a ForcedRoller (test injection)."""
+    state = GameState.new(seed=1)
+    roller = ForcedRoller([[3, 3]])
+    engine = Engine(state, roller=roller)
+
+    new_state = GameState.new(seed=2)
+    engine.swap_state(new_state)
+
+    assert engine.roller is roller
+    assert engine.state is new_state

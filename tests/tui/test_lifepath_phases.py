@@ -419,3 +419,206 @@ class TestMultiTermLifepath:
 
             await play_through_term(app, pilot, screen)
             assert app.engine.state.character.terms == 2
+
+
+# ---------------------------------------------------------------------------
+# 6. Regression: soft-lock when final skill pick lands at age >= 34.
+# ---------------------------------------------------------------------------
+
+
+class TestSkillPickAgingTransition:
+    """Final skill roll at age >= 34 must transition to run_aging.
+
+    Before the fix, the age >= 34 branch only called ``_set_term_phase``
+    without setting ``self.phase`` or calling ``_post_step()`` — the choice
+    menu kept showing skill tables with "0 left" and the player was stuck.
+    """
+
+    async def test_last_skill_pick_at_age_34_advances_to_aging(self, seeded_app):
+        """Final skill pick at age 34+ transitions to run_aging, not soft-lock."""
+        from src.engine.lifepath import TermResult
+
+        app = seeded_app
+        async with app.run_test() as pilot:
+            screen = await push_lifepath(app, pilot)
+
+            # Set up a mid-term state at age >= 34.
+            state = app.engine.state
+            state.character.characteristics = {
+                "STR": 7, "DEX": 9, "END": 6,
+                "INT": 8, "EDU": 10, "SOC": 5,
+            }
+            state.character.career = "navy"
+            state.character.age = 34
+            state.character.terms = 1
+            state.character.rank = 0
+
+            # Build a TermResult and set up choose_skills phase with 1 roll left.
+            result = TermResult(
+                term_number=1, career_id="navy", career_name="Navy",
+                age_before=30, age_after=34,
+            )
+            screen._current_term_result = result
+            screen._skill_rolls_remaining = 1
+            screen._set_term_phase("choose_skills")
+            screen.phase = "choose_skills"
+            await pilot.pause()
+
+            # Select a skill table — this is the last roll.
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Should have transitioned to run_aging, not soft-locked.
+            assert screen.phase == "run_aging"
+
+
+# ---------------------------------------------------------------------------
+# 7. Regression: qualification roll detail uses raw_roll (not roll_total).
+# ---------------------------------------------------------------------------
+
+
+class TestQualificationRollDisplay:
+    """The qualification roll detail must actually display.
+
+    Before the fix, the code checked ``hasattr(qual, 'roll_total')`` which
+    is always False (QualificationResult has ``raw_roll``, not ``roll_total``),
+    making the display branch unreachable.
+    """
+
+    async def test_qualification_roll_shown_in_log(self, seeded_app):
+        """Qualification roll detail appears in the narrative log."""
+        app = seeded_app
+        async with app.run_test() as pilot:
+            screen = await push_lifepath(app, pilot)
+            log = app.screen.query_one(NarrativeLogWidget)
+
+            await select_first(app, pilot)  # chars
+            await select_first(app, pilot)  # career → qualification
+
+            full_text = " ".join(str(l) for l in log.lines)
+            # The roll line includes the label and the dice notation.
+            assert "Qualification" in full_text
+
+
+# ---------------------------------------------------------------------------
+# 8. Regression: resume reconstructs term state before phase determination.
+# ---------------------------------------------------------------------------
+
+
+class TestResumeOrdering:
+    """Term state reconstruction must run BEFORE phase determination.
+
+    Before the fix, ``_determine_phase`` was called first, reading the initial
+    ``_skill_rolls_remaining`` of 0 and skipping a resumed player's remaining
+    skill picks (AE8).
+    """
+
+    async def test_resume_in_choose_skills_keeps_phase(self, seeded_app):
+        """Resuming mid-choose_skills stays in choose_skills, not re_enlist.
+
+        Before the fix, ``_determine_phase`` ran before
+        ``_reconstruct_term_state`` in ``on_mount``, reading the initial
+        ``_skill_rolls_remaining`` of 0 and skipping to ``re_enlist``.
+        """
+        app = seeded_app
+        async with app.run_test() as pilot:
+            screen = await push_lifepath(app, pilot)
+            await select_first(app, pilot)  # chars
+            await select_first(app, pilot)  # career
+            await select_first(app, pilot)  # survival
+
+            if screen.phase == "run_advancement":
+                await select_first(app, pilot)  # advancement
+
+            if screen.phase != "choose_skills":
+                pytest.skip("Path did not reach choose_skills")
+
+            assert screen._skill_rolls_remaining > 0
+            app.save_game()
+
+        # Load into a fresh app.
+        app2 = CepheusApp(saves_dir=app.saves_dir)
+        app2.llm_settings = LLMSettings()
+        save_path = app.saves_dir / "TestHero.json"
+        app2.load_campaign(save_path)
+
+        screen2 = LifepathScreen()
+        app2.push_screen(screen2)
+
+        # Before reconstruction, _skill_rolls_remaining is 0, so
+        # _determine_phase would WRONGLY return re_enlist.
+        assert screen2._skill_rolls_remaining == 0
+        assert screen2._determine_phase() != "choose_skills"
+
+        # After reconstruction (as on_mount now does first), rolls are
+        # restored and _determine_phase correctly returns choose_skills.
+        screen2._reconstruct_term_state()
+        assert screen2._skill_rolls_remaining > 0
+        assert screen2._determine_phase() == "choose_skills"
+
+
+# ---------------------------------------------------------------------------
+# 9. Regression: adventure loop reachable from lifepath completion.
+# ---------------------------------------------------------------------------
+
+
+class TestAdventureWiring:
+    """A mustered-out character can enter the adventure loop."""
+
+    async def test_complete_shows_begin_adventure(self, seeded_app):
+        """The completion screen offers 'Begin Adventure' for living characters."""
+        app = seeded_app
+        async with app.run_test() as pilot:
+            screen = await push_lifepath(app, pilot)
+
+            # Force completion state.
+            state = app.engine.state
+            state.character.characteristics = {
+                "STR": 7, "DEX": 9, "END": 6,
+                "INT": 8, "EDU": 10, "SOC": 5,
+            }
+            state.character.career = "navy"
+            state.character.alive = True
+            from src.engine.commands import SetFlagCommand
+            app.engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            screen.phase = "complete"
+            await pilot.pause()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Should have "Begin Adventure" + "Finish".
+            assert cm.option_list.option_count == 2
+
+    async def test_load_campaign_routes_to_adventure(self, tmp_path):
+        """A mustered-out, living save loads into AdventureScreen."""
+        from src.engine.commands import Engine, SetFlagCommand
+        from src.engine.lifepath import LifepathRunner
+        from src.themepacks.cepheus_scifi import load_scifi_pack
+        from src.tui.screens.adventure import AdventureScreen
+
+        app = CepheusApp(saves_dir=tmp_path)
+        app.llm_settings = LLMSettings()
+        state = GameState.new(seed=42)
+        state.campaign = CampaignConfig(theme_pack="scifi")
+        state.character.name = "Hero"
+        state.character.alive = True
+        state.character.characteristics = {
+            "STR": 7, "DEX": 9, "END": 6,
+            "INT": 8, "EDU": 10, "SOC": 5,
+        }
+        state.character.career = "navy"
+        app.engine = Engine(state)
+        app.engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+        app.pack = load_scifi_pack()
+        app.campaign_name = "Hero"
+        save_path = app.save_game()
+
+        # Load into a fresh app — must be async for Textual.
+        app2 = CepheusApp(saves_dir=tmp_path)
+        async with app2.run_test() as pilot:
+            app2.load_campaign(save_path)
+            await pilot.pause()
+            assert any(
+                isinstance(s, AdventureScreen) for s in app2.screen_stack
+            )
