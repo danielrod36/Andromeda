@@ -23,6 +23,18 @@ uv run cepheus-adventure             # equivalent (installed console script)
 
 Tests run sync + async (`asyncio_mode = "auto"`); `pythonpath = ["."]` is set in pyproject, so imports are `from src.engine...`. The package is literally named `src` — pyproject's `[tool.setuptools.packages.find]` is configured for this; don't rename it without updating the entry point.
 
+## Quality gate (lint + pre-push hook + CI)
+
+```bash
+uv run ruff check src tests          # lint
+uv run ruff format --check src tests # format check (apply with `ruff format`)
+uv run ruff check --fix src tests    # auto-fix lint errors
+```
+
+**Pre-push hook** (`.githooks/pre-push`): runs `ruff check`, `ruff format --check`, and the **full** pytest suite before a push is accepted — any failure aborts the push so broken code never reaches the remote. It's the tracked, shared hook (via `core.hooksPath`); new clones need one line: `git config core.hooksPath .githooks`. Bypass in a genuine emergency with `git push --no-verify`.
+
+**CI** (`.github/workflows/ci.yml`): on every PR and push to `main`, runs ruff (lint + format) and the full pytest suite across Python 3.12, 3.13, and 3.14. Deps install with `uv sync --frozen`, so keep `uv.lock` committed and re-run `uv lock` after any dependency change — a stale lockfile fails CI.
+
 ## Architecture: The Engine Is the Trust Boundary
 
 The central design principle: **the LLM can never influence mechanics.** Every dice roll, state mutation, and outcome runs in deterministic Python; the LLM receives outcomes as facts and produces prose.

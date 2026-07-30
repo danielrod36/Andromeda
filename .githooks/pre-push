@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Pre-push gate for Cepheus Adventure.
+#
+# Runs ruff (lint + format check) and the FULL pytest suite before a push is
+# accepted. Any failure aborts the push so broken code never reaches the remote.
+#
+# One-time setup (per clone):  git config core.hooksPath .githooks
+# Emergency bypass:            git push --no-verify
+set -euo pipefail
+
+# Hooks may be invoked from an unexpected CWD; always operate from repo root.
+cd "$(git rev-parse --show-toplevel)"
+
+printf '▶ pre-push: ruff check\n'
+uv run ruff check src tests
+
+printf '▶ pre-push: ruff format --check\n'
+uv run ruff format --check src tests
+
+printf '▶ pre-push: pytest (full suite)\n'
+uv run pytest tests/ -q
+
+printf '✓ pre-push checks passed\n'
