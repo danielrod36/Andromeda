@@ -366,38 +366,41 @@ _FOCUS_OPTION_MAP: list[tuple[str, list[tuple[str, str, str, str, bool]]]] = [
 
 
 #: Keyword-based free-text classifier (v0.3b template fallback, AE5).
-#: Maps common verbs/actions to skill + characteristic + difficulty.
-_FREETEXT_KEYWORD_MAP: list[tuple[str, str, str, str, str]] = [
-    ("bribe", "Broker", "SOC", "average", "Bribe the target"),
-    ("pay off", "Broker", "SOC", "average", "Bribe the target"),
-    ("fight", "Gun Combat", "DEX", "average", "Fight the target"),
-    ("attack", "Gun Combat", "DEX", "average", "Attack the target"),
-    ("shoot", "Gun Combat", "DEX", "average", "Shoot at the target"),
-    ("sneak", "Stealth", "DEX", "difficult", "Sneak past"),
-    ("hide", "Stealth", "DEX", "average", "Hide from view"),
-    ("hack", "Computers", "INT", "difficult", "Hack the system"),
-    ("repair", "Mechanic", "EDU", "average", "Repair the system"),
-    ("persuade", "Persuade", "SOC", "average", "Persuade the target"),
-    ("convince", "Persuade", "SOC", "average", "Convince the target"),
-    ("lie", "Deception", "SOC", "difficult", "Deceive the target"),
-    ("deceive", "Deception", "SOC", "difficult", "Deceive the target"),
-    ("negotiate", "Broker", "INT", "average", "Negotiate a deal"),
-    ("intimidate", "Streetwise", "SOC", "difficult", "Intimidate the target"),
-    ("threaten", "Streetwise", "SOC", "difficult", "Threaten the target"),
-    ("investigate", "Investigate", "INT", "average", "Investigate the situation"),
-    ("search", "Investigate", "INT", "average", "Search the area"),
-    ("scan", "Sensors", "EDU", "average", "Scan with sensors"),
-    ("pilot", "Pilot", "DEX", "average", "Pilot the vehicle"),
-    ("fly", "Pilot", "DEX", "average", "Fly the vehicle"),
-    ("drive", "Drive", "DEX", "average", "Drive the vehicle"),
-    ("heal", "Medic", "EDU", "average", "Provide medical aid"),
-    ("medicine", "Medic", "EDU", "average", "Provide medical aid"),
-    ("climb", "Athletics", "STR", "difficult", "Climb the obstacle"),
-    ("run", "Athletics", "END", "average", "Run to safety"),
-    ("escape", "Athletics", "END", "difficult", "Escape the situation"),
-    ("flee", "Athletics", "END", "average", "Flee from danger"),
-    ("research", "Research", "EDU", "average", "Research the topic"),
-    ("inspect", "Investigate", "INT", "average", "Inspect the target"),
+#: Each tuple is (keyword, skill, characteristic, difficulty, label,
+#: life_threatening). Combat keywords are life-threatening, mirroring the
+#: structured combat-focus options, so free-text combat can trigger the
+#: defeat loop (F5) exactly like structured options.
+_FREETEXT_KEYWORD_MAP: list[tuple[str, str, str, str, str, bool]] = [
+    ("bribe", "Broker", "SOC", "average", "Bribe the target", False),
+    ("pay off", "Broker", "SOC", "average", "Bribe the target", False),
+    ("fight", "Gun Combat", "DEX", "average", "Fight the target", True),
+    ("attack", "Gun Combat", "DEX", "average", "Attack the target", True),
+    ("shoot", "Gun Combat", "DEX", "average", "Shoot at the target", True),
+    ("sneak", "Stealth", "DEX", "difficult", "Sneak past", False),
+    ("hide", "Stealth", "DEX", "average", "Hide from view", False),
+    ("hack", "Computers", "INT", "difficult", "Hack the system", False),
+    ("repair", "Mechanic", "EDU", "average", "Repair the system", False),
+    ("persuade", "Persuade", "SOC", "average", "Persuade the target", False),
+    ("convince", "Persuade", "SOC", "average", "Convince the target", False),
+    ("lie", "Deception", "SOC", "difficult", "Deceive the target", False),
+    ("deceive", "Deception", "SOC", "difficult", "Deceive the target", False),
+    ("negotiate", "Broker", "INT", "average", "Negotiate a deal", False),
+    ("intimidate", "Streetwise", "SOC", "difficult", "Intimidate the target", False),
+    ("threaten", "Streetwise", "SOC", "difficult", "Threaten the target", False),
+    ("investigate", "Investigate", "INT", "average", "Investigate the situation", False),
+    ("search", "Investigate", "INT", "average", "Search the area", False),
+    ("scan", "Sensors", "EDU", "average", "Scan with sensors", False),
+    ("pilot", "Pilot", "DEX", "average", "Pilot the vehicle", False),
+    ("fly", "Pilot", "DEX", "average", "Fly the vehicle", False),
+    ("drive", "Drive", "DEX", "average", "Drive the vehicle", False),
+    ("heal", "Medic", "EDU", "average", "Provide medical aid", False),
+    ("medicine", "Medic", "EDU", "average", "Provide medical aid", False),
+    ("climb", "Athletics", "STR", "difficult", "Climb the obstacle", False),
+    ("run", "Athletics", "END", "average", "Run to safety", False),
+    ("escape", "Athletics", "END", "difficult", "Escape the situation", False),
+    ("flee", "Athletics", "END", "average", "Flee from danger", False),
+    ("research", "Research", "EDU", "average", "Research the topic", False),
+    ("inspect", "Investigate", "INT", "average", "Inspect the target", False),
 ]
 
 
@@ -573,7 +576,7 @@ class SceneEngine:
         """
         text_lower = text.lower().strip()
 
-        for keyword, skill, char, diff, label in _FREETEXT_KEYWORD_MAP:
+        for keyword, skill, char, diff, label, life_threatening in _FREETEXT_KEYWORD_MAP:
             if keyword in text_lower:
                 option = SceneOption(
                     label=f"[Free-text] {label}",
@@ -581,6 +584,7 @@ class SceneEngine:
                     characteristic=char,
                     difficulty=diff,
                     description=f"Interpreted from: '{text}'",
+                    life_threatening=life_threatening,
                 )
                 return FreeTextClassification(
                     original_text=text,

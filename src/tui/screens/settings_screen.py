@@ -28,6 +28,8 @@ from textual.widgets import (
 )
 from textual.widgets.option_list import Option
 
+from pydantic import ValidationError
+
 from src.tui.providers import get_provider_config, provider_labels
 from src.tui.settings import (
     LLMSettings,
@@ -300,7 +302,15 @@ class SettingsScreen(Screen):
 
     def _do_save(self) -> None:
         """Persist current settings to disk and apply them."""
-        self._settings = self._collect_settings()
+        try:
+            self._settings = self._collect_settings()
+        except ValidationError as exc:
+            # e.g. the base_url SSRF guard rejecting a non-http(s) scheme —
+            # surface the error in the form instead of crashing the screen.
+            msg = exc.errors()[0]["msg"] if exc.errors() else str(exc)
+            self._set_fetch_status(f"Not saved: {msg}", error=True)
+            self.app.notify(f"Settings not saved: {msg}", severity="error")
+            return
         save_settings(self._settings, self.app.settings_dir)
         self.app.apply_llm_settings(self._settings)
         self._update_status()

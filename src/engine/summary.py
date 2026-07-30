@@ -82,10 +82,11 @@ class SummaryValidator:
 
     Two checks:
 
-    1. **Entity check**: every proper-noun-like word in the summary that
-       appears to reference a named entity must exist in the state's entity
-       list or character/campaign data. We use a conservative heuristic: we
-       check for known entity names and flag references to unknown entities.
+    1. **Entity check**: currently a deliberate no-op. Known entity names are
+       extracted from state (see :meth:`_extract_known_entities`), but
+       flagging unknown proper-noun references proved too false-positive
+       prone — the LLM regeneration loop handles bad references in production.
+       The hook remains so a stricter check can be enabled later.
 
     2. **Mechanical check**: no mechanical claims (dice notation, modifiers,
        stat abbreviations, target numbers, effect values) are allowed.

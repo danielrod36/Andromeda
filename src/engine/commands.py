@@ -104,6 +104,19 @@ class Engine:
     def roller(self) -> Roller:
         return self._roller
 
+    def swap_state(self, state: GameState) -> None:
+        """Swap canonical state (checkpoint restore), rebinding a live roller.
+
+        A :class:`LiveRoller` holds the previous state's ``RngStreams``;
+        without rebinding, post-restore rolls would advance the abandoned
+        branch's streams while the restored state's RNG stays frozen —
+        silently breaking the determinism/replay guarantee (AE3). A
+        :class:`ForcedRoller` (tests) is left untouched.
+        """
+        self._state = state
+        if isinstance(self._roller, LiveRoller):
+            self._roller = LiveRoller(state.rng)
+
     def apply(self, cmd: Command) -> Event:
         """Run ``validate → resolve → mutate → append`` and return the event.
 

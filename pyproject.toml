@@ -23,8 +23,12 @@ dev = [
 [project.scripts]
 cepheus-adventure = "src.tui.__main__:main"
 
-[tool.setuptools]
-packages = []
+[tool.setuptools.packages.find]
+# The package is literally named ``src`` (entry point: src.tui.__main__:main).
+# Without this, setuptools installs zero packages and the console script
+# documented in the README fails with ModuleNotFoundError outside the repo.
+where = ["."]
+include = ["src*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

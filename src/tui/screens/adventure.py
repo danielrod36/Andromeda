@@ -29,6 +29,8 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, OptionList
 
+from rich.markup import escape
+
 from src.engine.death import DefeatContext, get_death_strategy
 from src.engine.mission import Mission, MissionEnding, MissionEngine
 from src.engine.scene import SceneEngine
@@ -108,6 +110,15 @@ class AdventureScreen(Screen):
     #: Phase state machine — always_update so refreshes happen on re-entry.
     phase = reactive("init", always_update=True)
     _mounted = False
+
+    # Transient adventure state. ``None`` means "not live": hooks are
+    # generated on demand in ``_offer_hook`` and scenes in ``_present_scene``
+    # only when the corresponding slot is empty, so re-entering a phase
+    # (``always_update``) never discards live content.
+    _current_hook = None
+    _current_scene = None
+    _current_mission = None
+    _pending_freetext = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="adv-main-area"):
@@ -238,9 +249,15 @@ class AdventureScreen(Screen):
     # ------------------------------------------------------------------
 
     def _offer_hook(self) -> None:
-        """Generate and display a mission hook."""
-        mission_engine = self._get_mission_engine()
-        self._current_hook = mission_engine.generate_hook()
+        """Display the current mission hook, generating one if none is live.
+
+        Generation happens only when ``_current_hook`` is empty — re-entering
+        ``hook_offered`` (e.g. after a refusal) re-displays the live hook
+        instead of rolling a second, discarded one.
+        """
+        if self._current_hook is None:
+            mission_engine = self._get_mission_engine()
+            self._current_hook = mission_engine.generate_hook()
 
         self._narrate("--- Mission Hook ---")
         self._narrate(f"Patron: {self._current_hook.patron}")
@@ -261,20 +278,21 @@ class AdventureScreen(Screen):
         """Accept the current hook and enter scene play."""
         mission_engine = self._get_mission_engine()
         self._current_mission = mission_engine.accept_mission(self._current_hook)
+        # The hook is consumed and the next scene must be freshly generated.
+        self._current_hook = None
+        self._current_scene = None
         self._narrate("Mission accepted. The adventure begins!")
         self._post_step()
         self.phase = "scene_active"
 
     def _do_refuse_mission(self) -> None:
-        """Refuse the hook; generate a new one."""
+        """Refuse the hook; the engine generates a replacement (R23)."""
         mission_engine = self._get_mission_engine()
         self._current_hook = mission_engine.refuse_mission()
         self._narrate("You decline. Another opportunity arises...")
-        self._narrate("--- New Mission Hook ---")
-        self._narrate(f"Patron: {self._current_hook.patron}")
-        self._narrate(f"Objective: {self._current_hook.objective}")
         self._post_step()
-        # Stay in hook_offered to offer the new hook.
+        # Stay in hook_offered; _offer_hook displays the replacement hook
+        # (it does not generate a second one).
         self.phase = "hook_offered"
 
     # ------------------------------------------------------------------
@@ -282,24 +300,32 @@ class AdventureScreen(Screen):
     # ------------------------------------------------------------------
 
     def _present_scene(self) -> None:
-        """Generate and present a scene with options."""
-        # Take a checkpoint snapshot at scene start (F4 cycle) for
-        # checkpoint death mode (AE3).
-        state = self.app.engine.state
-        if state.campaign.death_mode == "checkpoint":
-            self.app.checkpoint_mgr.take_snapshot(state)
+        """Generate and present a scene with options.
 
-        scene_engine = self._get_scene_engine()
-        self._current_scene = scene_engine.run_scene()
-        scaffold = self._current_scene.scaffold
+        Re-entry with a live scene (e.g. after the player rejects a free-text
+        interpretation) re-displays the current scene's options instead of
+        generating a replacement scene and checkpoint snapshot. Callers that
+        want the next scene beat clear ``_current_scene`` before assigning
+        ``phase = "scene_active"``.
+        """
+        if self._current_scene is None:
+            # Take a checkpoint snapshot at scene start (F4 cycle) for
+            # checkpoint death mode (AE3).
+            state = self.app.engine.state
+            if state.campaign.death_mode == "checkpoint":
+                self.app.checkpoint_mgr.take_snapshot(state)
 
-        self._narrate("--- New Scene ---")
-        self._narrate(f"Focus: {scaffold.focus} — {scaffold.focus_description}")
-        self._narrate(f"Situation: {scaffold.situation}")
-        if scaffold.npc_hint:
-            self._narrate(f"NPC: {scaffold.npc_hint}")
+            scene_engine = self._get_scene_engine()
+            self._current_scene = scene_engine.run_scene()
+            scaffold = self._current_scene.scaffold
 
-        # Build choice list from options.
+            self._narrate("--- New Scene ---")
+            self._narrate(f"Focus: {scaffold.focus} — {scaffold.focus_description}")
+            self._narrate(f"Situation: {scaffold.situation}")
+            if scaffold.npc_hint:
+                self._narrate(f"NPC: {scaffold.npc_hint}")
+
+        # Build choice list from the current scene's options (new or live).
         cm = self.query_one(ChoiceMenuWidget)
         choices = [
             (f"{i+1}. {opt.label} ({opt.skill}, {opt.difficulty})",
@@ -336,6 +362,9 @@ class AdventureScreen(Screen):
             return  # Defeat handled; phase already updated.
 
         self._post_step()
+        # Move to the next scene beat: clear the live scene so re-entering
+        # scene_active generates a fresh one.
+        self._current_scene = None
         self.phase = "scene_active"
 
     def _do_resolve_mission(self) -> None:
@@ -439,8 +468,15 @@ class AdventureScreen(Screen):
         self._narrate(result.message)
 
         if result.restored_state is not None:
-            # Checkpoint mode: swap in the restored state.
-            self.app.engine._state = result.restored_state
+            # Checkpoint mode: swap in the restored state. swap_state also
+            # rebinds the engine's LiveRoller to the restored RNG streams —
+            # otherwise post-rewind rolls would advance the abandoned
+            # branch's streams and break determinism (AE3).
+            self.app.engine.swap_state(result.restored_state)
+
+        # The scene that produced the defeat is over; the next scene beat
+        # (a replay of scene start after checkpoint restore) generates fresh.
+        self._current_scene = None
 
         if not result.play_continues:
             # Ironman: character is dead. Offer restart via hook phase.
@@ -485,8 +521,10 @@ class AdventureScreen(Screen):
         )
 
         if classification is None:
+            # Escape user text: the log renders Rich markup, and raw input
+            # like "[/]" would otherwise crash with a MarkupError.
             self._narrate(
-                f"Could not interpret '{text}'. "
+                f"Could not interpret '{escape(text)}'. "
                 "Try rephrasing or select a structured option."
             )
             event.input.value = ""
@@ -540,10 +578,16 @@ class AdventureScreen(Screen):
             return  # Defeat handled; phase already updated.
 
         self._post_step()
+        # Move to the next scene beat (fresh scene on phase re-entry).
+        self._current_scene = None
         self.phase = "scene_active"
 
     def _do_reject_freetext(self) -> None:
-        """Reject the interpreted check; return to structured options."""
+        """Reject the interpreted check; return to the SAME scene's options.
+
+        The live scene is kept, so re-entering scene_active re-displays its
+        structured options rather than generating a replacement scene.
+        """
         self._narrate("Interpretation rejected. Choose an option or rephrase.")
         self._pending_freetext = None
         self.phase = "scene_active"

@@ -1,6 +1,6 @@
 """Main Textual App for Cepheus Adventure (U4).
 
-Screen-based navigation: MainMenu -> CampaignConfig -> Lifepath.
+Screen-based navigation: MainMenu -> CampaignConfig -> Lifepath -> Adventure.
 
 The engine is a plain sync Python package. The TUI is a client that calls
 ``engine.apply(cmd)`` through the LifepathRunner and updates panels via
@@ -28,6 +28,7 @@ from src.engine.state import CampaignConfig, GameState
 from src.themepacks.base import get_pack
 from src.themepacks.cepheus_scifi import load_scifi_pack
 
+from src.tui.screens.adventure import AdventureScreen
 from src.tui.screens.campaign_config import CampaignConfigScreen
 from src.tui.screens.lifepath import LifepathScreen
 from src.tui.screens.main_menu import MainMenuScreen
@@ -160,7 +161,22 @@ class CepheusApp(App):
         if state.campaign.death_mode == "checkpoint":
             self.checkpoint_mgr.load_snapshot(save_path)
 
-        self.push_screen(LifepathScreen())
+        # A mustered-out, living character goes straight to the adventure
+        # loop; anything else resumes (or restarts) character generation.
+        mustered_out = "mustered_out=true" in state.narrative_log
+        if mustered_out and state.character.alive:
+            self.push_screen(AdventureScreen())
+        else:
+            self.push_screen(LifepathScreen())
+
+    def start_adventure(self) -> None:
+        """Enter the adventure loop with the current (mustered-out) character.
+
+        Called from the lifepath screen's completion choices. Saves first so
+        the adventure begins from the persisted post-chargen state.
+        """
+        self.save_game()
+        self.push_screen(AdventureScreen())
 
     def return_to_main_menu(self) -> None:
         """Pop back to the main menu from the lifepath screen."""
@@ -200,6 +216,8 @@ class CepheusApp(App):
         if not self.saves_dir.is_dir():
             return results
         for path in sorted(self.saves_dir.glob("*.json")):
+            if path.name.endswith(".checkpoint.json"):
+                continue  # Checkpoint sidecar, not a loadable campaign save.
             try:
                 with path.open("r", encoding="utf-8") as f:
                     data = json.load(f)

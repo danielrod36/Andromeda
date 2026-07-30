@@ -141,10 +141,14 @@ class LifepathScreen(Screen):
         self._update_character_sheet()
         self._update_status_bar()
         self._show_resume_context()
-        self.phase = self._determine_phase()
-        # Rebuild term-level instance state if resuming mid-term.
-        if self.phase in _TERM_PHASES:
+        # Rebuild term-level instance state BEFORE phase determination:
+        # _determine_phase consults _skill_rolls_remaining (choose_skills
+        # exhaustion check), which is only reconstructed here. Determining
+        # the phase first would read the initial 0 and skip a resumed
+        # player's remaining skill picks (AE8).
+        if self._get_latest_term_phase() in _TERM_PHASES:
             self._reconstruct_term_state()
+        self.phase = self._determine_phase()
         # Focus the choice menu's OptionList for immediate interaction.
         self.query_one(ChoiceMenuWidget).option_list.focus()
         self._mounted = True
@@ -462,11 +466,21 @@ class LifepathScreen(Screen):
             label = "Character generation complete:"
             if not state.character.alive:
                 label = "Character generation complete (deceased):"
-            cm.set_choices(
-                label,
-                [("Finish — Return to Main Menu", "finish")],
-                descriptions=["Save the character and return to the main menu."],
-            )
+            choices = []
+            descs = []
+            # A living, mustered-out character may enter the adventure loop.
+            if (
+                state.character.alive
+                and "mustered_out=true" in state.narrative_log
+            ):
+                choices.append(("Begin Adventure", "begin_adventure"))
+                descs.append(
+                    "Enter the adventure loop: mission hooks, scenes, and "
+                    "free-text actions with this character."
+                )
+            choices.append(("Finish — Return to Main Menu", "finish"))
+            descs.append("Save the character and return to the main menu.")
+            cm.set_choices(label, choices, descriptions=descs)
 
     # ------------------------------------------------------------------
     # Event handlers.
@@ -492,6 +506,8 @@ class LifepathScreen(Screen):
             self._do_muster_out()
         elif option_id == "finish":
             self._do_finish()
+        elif option_id == "begin_adventure":
+            self._do_begin_adventure()
         elif option_id == "re_enlist_continue":
             self._do_re_enlist_continue()
         elif option_id == "re_enlist_muster_out":
@@ -530,13 +546,13 @@ class LifepathScreen(Screen):
         self._narrate_section(f"Qualification: {career_name}")
         qual = self.app.runner.qualify(career_id)
 
-        # Show the roll.
-        if hasattr(qual, 'roll_total') and qual.roll_total:
-            self._narrate_roll(
-                "Qualification", f"2D6({qual.roll_total})",
-                qual.roll_total, qual.adjusted_total - qual.roll_total,
-                qual.target, qual.success,
-            )
+        # Show the roll. QualificationResult exposes ``raw_roll`` (the dice)
+        # and ``adjusted_total`` (dice + DM); there is no ``roll_total``.
+        self._narrate_roll(
+            "Qualification", f"2D6({qual.raw_roll})",
+            qual.raw_roll, qual.adjusted_total - qual.raw_roll,
+            qual.target, qual.success,
+        )
 
         # Narrate — LLM or template.
         self._narrate_step(
@@ -703,6 +719,11 @@ class LifepathScreen(Screen):
             state = self.app.engine.state
             if state.character.age >= 34:
                 self._set_term_phase("run_aging")
+                # Advance the UI too: without this the choice menu keeps
+                # showing skill tables with "0 left" and the player is
+                # soft-locked out of the aging roll.
+                self._post_step()
+                self.phase = self._determine_phase()
             else:
                 # No aging needed — finalize and narrate the term.
                 self.app.runner.finalize_term(career_id, result)
@@ -848,6 +869,11 @@ class LifepathScreen(Screen):
         self._narrate("Campaign saved. Returning to main menu...")
         self.app.save_game()
         self.app.return_to_main_menu()
+
+    def _do_begin_adventure(self) -> None:
+        """Enter the adventure loop with the mustered-out character."""
+        self._narrate("Campaign saved. Beginning the adventure...")
+        self.app.start_adventure()
 
     # ------------------------------------------------------------------
     # LLM narration plumbing.
