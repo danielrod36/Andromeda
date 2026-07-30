@@ -4,6 +4,7 @@ Covers R25 (fact retrieval re-surfaces relevant facts in curated view),
 R24 (LLM-introduced NPCs/places/items as narrative facts), AE9 (NPC stat
 generation when a check targets a fact).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -11,7 +12,6 @@ import pytest
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.retrieval import (
-    DEFAULT_MATCH_CAP,
     DEFAULT_RECENCY_CAP,
     FactRetriever,
     generate_npc_stats,
@@ -21,7 +21,6 @@ from src.engine.scene import RatifyFactCommand, RegisterFactCommand
 from src.engine.state import CampaignConfig, GameState, NarrativeFact
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import get_pack
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -58,9 +57,7 @@ class TestEntityMatching:
         add_fact(state, "Dock Officer Vex", "A corrupt official.")
         retriever = FactRetriever()
 
-        results = retriever.retrieve_facts(
-            state, ["The Dock Officer Vex demands a bribe."]
-        )
+        results = retriever.retrieve_facts(state, ["The Dock Officer Vex demands a bribe."])
         assert len(results) >= 1
         assert results[0].name == "Dock Officer Vex"
 
@@ -70,11 +67,9 @@ class TestEntityMatching:
         add_fact(state, "Captain Rho", "A merchant.")
         retriever = FactRetriever()
 
-        results = retriever.retrieve_facts(
-            state, ["The bar is quiet tonight."]
-        )
+        results = retriever.retrieve_facts(state, ["The bar is quiet tonight."])
         # No entity match — may still appear in recency slice.
-        matched = [r for r in results if r.name == "Captain Rho"]
+        [r for r in results if r.name == "Captain Rho"]
         # In recency slice, it would be included, so let's test specifically
         # with no recency contribution.
         assert len(results) <= DEFAULT_RECENCY_CAP
@@ -87,9 +82,7 @@ class TestEntityMatching:
         add_fact(state, "Irrelevant", "Not mentioned.")
         retriever = FactRetriever()
 
-        results = retriever.retrieve_facts(
-            state, ["Vex and Rho meet at the bar."]
-        )
+        results = retriever.retrieve_facts(state, ["Vex and Rho meet at the bar."])
         names = [r.name for r in results]
         assert "Vex" in names
         assert "Rho" in names
@@ -100,9 +93,7 @@ class TestEntityMatching:
         add_fact(state, "Dock Officer Vex")
         retriever = FactRetriever()
 
-        results = retriever.retrieve_facts(
-            state, ["The DOCK OFFICER VEX blocks your path."]
-        )
+        results = retriever.retrieve_facts(state, ["The DOCK OFFICER VEX blocks your path."])
         matched = [r for r in results if r.name == "Dock Officer Vex"]
         assert len(matched) >= 1
 
@@ -113,9 +104,7 @@ class TestEntityMatching:
         retriever = FactRetriever()
 
         # "Jojo" should not match "Jo" due to word boundary requirement.
-        results = retriever.retrieve_facts(
-            state, ["Jojo is here."]
-        )
+        retriever.retrieve_facts(state, ["Jojo is here."])
         # "Jo" might appear in recency slice, but shouldn't be entity-matched.
         # Just verify it doesn't crash.
 
@@ -130,10 +119,7 @@ class TestEntityMatching:
         results = retriever.retrieve_facts(state, [context])
         # First 3 should be matched (plus recency, but deduped).
         # With match_cap=3, at most 3 matched facts.
-        matched = [
-            r for r in results
-            if r.name.startswith("Character")
-        ]
+        matched = [r for r in results if r.name.startswith("Character")]
         assert len(matched) <= 3 + DEFAULT_RECENCY_CAP  # recency adds more
 
 
@@ -228,9 +214,7 @@ class TestSceneRetrieval:
 
         # Later scene: reference the entity.
         retriever = FactRetriever()
-        results = retriever.retrieve_facts(
-            state, ["Merchant Kael sends a message."]
-        )
+        results = retriever.retrieve_facts(state, ["Merchant Kael sends a message."])
         names = [r.name for r in results]
         assert "Merchant Kael" in names
 
@@ -270,11 +254,9 @@ class TestNpcStatGeneration:
         state = make_state()
         add_fact(state, "Hunter Kell", "A dangerous bounty hunter.")
         fact = next(
-            e for e in state.entities
-            if isinstance(e, NarrativeFact) and e.name == "Hunter Kell"
+            e for e in state.entities if isinstance(e, NarrativeFact) and e.name == "Hunter Kell"
         )
 
-        original_desc = fact.description
         stats = ratify_fact_as_npc(state, fact)
 
         assert "NPC stats" in fact.description
@@ -284,10 +266,7 @@ class TestNpcStatGeneration:
         """Ratification works with a custom ruleset."""
         state = make_state()
         add_fact(state, "Custom NPC", "Test.")
-        fact = next(
-            e for e in state.entities
-            if isinstance(e, NarrativeFact)
-        )
+        fact = next(e for e in state.entities if isinstance(e, NarrativeFact))
 
         rs = CepheusRuleSet()
         stats = ratify_fact_as_npc(state, fact, ruleset=rs)
@@ -306,12 +285,9 @@ class TestRatifyFactFunnel:
         """Ratifying with an engine produces a ratify_fact audit event."""
         state = make_state()
         engine = Engine(state, roller=ForcedRoller([]))
-        engine.apply(
-            RegisterFactCommand(name="Bounty Hunter", description="Dangerous.")
-        )
+        engine.apply(RegisterFactCommand(name="Bounty Hunter", description="Dangerous."))
         fact = next(
-            e for e in state.entities
-            if isinstance(e, NarrativeFact) and e.name == "Bounty Hunter"
+            e for e in state.entities if isinstance(e, NarrativeFact) and e.name == "Bounty Hunter"
         )
         initial_events = len(state.events)
 
@@ -327,9 +303,7 @@ class TestRatifyFactFunnel:
         """Ratifying without engine still works (backward-compatible direct mutation)."""
         state = make_state()
         add_fact(state, "Old NPC", "A test.")
-        fact = next(
-            e for e in state.entities if isinstance(e, NarrativeFact)
-        )
+        fact = next(e for e in state.entities if isinstance(e, NarrativeFact))
         stats = ratify_fact_as_npc(state, fact)
         assert "NPC stats" in fact.description
         assert stats["name"] == "Old NPC"
@@ -338,9 +312,7 @@ class TestRatifyFactFunnel:
         """RatifyFactCommand can be applied directly through the funnel."""
         state = make_state()
         engine = Engine(state, roller=ForcedRoller([]))
-        engine.apply(
-            RegisterFactCommand(name="Test NPC", description="Base desc.")
-        )
+        engine.apply(RegisterFactCommand(name="Test NPC", description="Base desc."))
 
         engine.apply(
             RatifyFactCommand(
@@ -350,8 +322,7 @@ class TestRatifyFactFunnel:
         )
 
         fact = next(
-            e for e in state.entities
-            if isinstance(e, NarrativeFact) and e.name == "Test NPC"
+            e for e in state.entities if isinstance(e, NarrativeFact) and e.name == "Test NPC"
         )
         assert "[NPC stats:" in fact.description
         last_event = state.events[-1]
@@ -363,7 +334,6 @@ class TestRatifyFactFunnel:
         state = make_state()
         engine = Engine(state, roller=ForcedRoller([]))
         import pytest
+
         with pytest.raises(ValueError, match="non-empty"):
-            engine.apply(
-                RatifyFactCommand(fact_name="", stats_description="x")
-            )
+            engine.apply(RatifyFactCommand(fact_name="", stats_description="x"))

@@ -7,6 +7,7 @@ Each provider entry defines:
 - Models-listing endpoint and auth-header format (for the fetch-models feature)
 - Model name presets (fallback when the API can't be reached)
 """
+
 from __future__ import annotations
 
 import logging
@@ -150,10 +151,7 @@ async def fetch_available_models(
     cfg = get_provider_config(provider)
     url = models_endpoint(provider, base_url)
     if not url:
-        raise RuntimeError(
-            f"No base URL configured for {cfg['label']}. "
-            "Please enter a base URL."
-        )
+        raise RuntimeError(f"No base URL configured for {cfg['label']}. Please enter a base URL.")
 
     headers: dict[str, str] = {}
     auth_header = cfg.get("auth_header", "Authorization")
@@ -173,11 +171,13 @@ async def fetch_available_models(
         elif status == 403:
             raise RuntimeError("Access denied. Your API key may lack permissions.") from exc
         elif 400 <= status < 500:
-            raise RuntimeError(f"API request failed (HTTP {status}). Check your configuration.") from exc
+            raise RuntimeError(
+                f"API request failed (HTTP {status}). Check your configuration."
+            ) from exc
         else:
             raise RuntimeError(f"API request failed (HTTP {status}). Try again later.") from exc
     except httpx.RequestError as exc:
-        raise RuntimeError(f"Connection failed. Check your network and base URL.") from exc
+        raise RuntimeError("Connection failed. Check your network and base URL.") from exc
 
     # Parse model IDs — most OpenAI-compatible APIs return {"data": [{"id": ...}]}.
     # Anthropic returns {"data": [{"id": ...}]} as well.
@@ -194,9 +194,6 @@ async def fetch_available_models(
                 models.append(entry)
 
     if not models:
-        raise RuntimeError(
-            "No models found in API response. "
-            f"Unexpected format: {str(data)[:200]}"
-        )
+        raise RuntimeError(f"No models found in API response. Unexpected format: {str(data)[:200]}")
 
     return sorted(models)

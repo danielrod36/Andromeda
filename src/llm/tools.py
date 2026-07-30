@@ -7,6 +7,7 @@ tools are the bridge, and the command funnel is the trust boundary.
 Tools are defined as standalone functions (not ``@agent.tool`` decorators)
 so they can be registered with any agent and unit-tested independently.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,7 +16,7 @@ from typing import Any
 
 from pydantic_ai import RunContext
 
-from src.engine.commands import Command, Engine, SetFlagCommand
+from src.engine.commands import Engine, SetFlagCommand
 from src.engine.state import GameState
 
 #: Strict whitelist for LLM-provided flag keys: lowercase snake_case,
@@ -47,9 +48,7 @@ class ToolDeps:
 # ---------------------------------------------------------------------------
 
 
-async def set_narrative_flag(
-    ctx: RunContext[ToolDeps], key: str, value: str
-) -> str:
+async def set_narrative_flag(ctx: RunContext[ToolDeps], key: str, value: str) -> str:
     """Set a narrative flag on the story log.
 
     This is the primary mechanism for the LLM to record narrative facts
@@ -70,13 +69,11 @@ async def set_narrative_flag(
         )
 
     cmd = SetFlagCommand(key=key, value=value)
-    event = ctx.deps.engine.apply(cmd)
+    ctx.deps.engine.apply(cmd)
     return f"Narrative flag set: {key}={value}"
 
 
-async def add_narrative_log_entry(
-    ctx: RunContext[ToolDeps], entry: str
-) -> str:
+async def add_narrative_log_entry(ctx: RunContext[ToolDeps], entry: str) -> str:
     """Append a prose entry to the narrative log.
 
     This lets the LLM record its narration output into the canonical

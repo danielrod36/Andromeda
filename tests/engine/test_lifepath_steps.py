@@ -6,16 +6,16 @@ Verifies that ``start_term``, ``run_survival_step``, ``run_advancement_step``,
 called in sequence, and that each step can be used independently for the
 interactive TUI flow.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
-from src.engine.lifepath import LifepathRunner, SkillGain, TermResult
+from src.engine.lifepath import LifepathRunner, TermResult
 from src.engine.state import CampaignConfig, GameState
 from src.themepacks.base import get_pack
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -36,9 +36,15 @@ def make_engine(queue, death_mode="narrative", seed=42):
 def setup_qualified_engine(queue, pack, career_id="navy", death_mode="narrative"):
     """Create an engine with characteristics rolled and career qualified."""
     queue = [
-        [6, 3], [4, 3], [5, 3], [5, 4], [4, 3], [4, 2],  # chars
+        [6, 3],
+        [4, 3],
+        [5, 3],
+        [5, 4],
+        [4, 3],
+        [4, 2],  # chars
         [3, 2],  # qualification: INT 9 + DM 1 = 5 >= 5 -> success
-    ] + list(queue)
+        *queue,
+    ]
     engine = make_engine(list(queue), death_mode=death_mode)
     runner = LifepathRunner(engine, pack)
     runner.roll_characteristics()
@@ -93,10 +99,7 @@ class TestStepEquivalence:
         assert result_a.age_after == result_b.age_after
 
         # Engine state should be identical.
-        assert (
-            engine_a.state.model_dump_json()
-            == engine_b.state.model_dump_json()
-        )
+        assert engine_a.state.model_dump_json() == engine_b.state.model_dump_json()
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +109,7 @@ class TestStepEquivalence:
 
 class TestStartTerm:
     def test_creates_term_result_with_career_info(self, pack):
-        engine, runner = setup_qualified_engine([], pack)
+        _engine, runner = setup_qualified_engine([], pack)
         result = runner.start_term("navy", 1)
         assert result.term_number == 1
         assert result.career_id == "navy"
@@ -119,7 +122,7 @@ class TestStartTerm:
 
     def test_start_term_does_not_roll(self, pack):
         """start_term should not consume any dice from the queue."""
-        engine, runner = setup_qualified_engine([], pack)
+        _engine, runner = setup_qualified_engine([], pack)
         # The ForcedRoller queue should be empty and unused.
         result = runner.start_term("navy", 1)
         assert result.survival_raw == 0  # Not rolled yet.
@@ -133,7 +136,8 @@ class TestStartTerm:
 class TestSurvivalStep:
     def test_survival_success_advances_term(self, pack):
         engine, runner = setup_qualified_engine(
-            [[4, 3]], pack  # END 8 -> roll 7 -> success
+            [[4, 3]],
+            pack,  # END 8 -> roll 7 -> success
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
@@ -145,9 +149,7 @@ class TestSurvivalStep:
         assert engine.state.character.age == 22
 
     def test_survival_mishap_narrative_mode(self, pack):
-        engine, runner = setup_qualified_engine(
-            [[1, 1]], pack, death_mode="narrative"
-        )
+        engine, runner = setup_qualified_engine([[1, 1]], pack, death_mode="narrative")
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
 
@@ -158,9 +160,7 @@ class TestSurvivalStep:
         assert engine.state.character.terms == 1
 
     def test_survival_death_ironman_mode(self, pack):
-        engine, runner = setup_qualified_engine(
-            [[1, 1]], pack, death_mode="ironman"
-        )
+        engine, runner = setup_qualified_engine([[1, 1]], pack, death_mode="ironman")
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
 
@@ -177,7 +177,8 @@ class TestSurvivalStep:
 class TestAdvancementStep:
     def test_advancement_success_promotes(self, pack):
         engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3]], pack  # survival, advancement success
+            [[4, 3], [5, 3]],
+            pack,  # survival, advancement success
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
@@ -188,8 +189,9 @@ class TestAdvancementStep:
         assert engine.state.character.rank == 1
 
     def test_advancement_failure_no_promotion(self, pack):
-        engine, runner = setup_qualified_engine(
-            [[4, 3], [1, 1]], pack  # survival, advancement fail (2 < 7)
+        _engine, runner = setup_qualified_engine(
+            [[4, 3], [1, 1]],
+            pack,  # survival, advancement fail (2 < 7)
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
@@ -206,20 +208,26 @@ class TestAdvancementStep:
 
 class TestComputeNumSkillRolls:
     def test_base_one_roll(self, pack):
-        engine, runner = setup_qualified_engine([], pack)
+        _engine, runner = setup_qualified_engine([], pack)
         result = TermResult(
-            term_number=1, career_id="navy", career_name="Navy",
-            age_before=18, age_after=22,
+            term_number=1,
+            career_id="navy",
+            career_name="Navy",
+            age_before=18,
+            age_after=22,
         )
         result.advancement_success = False
         # Rank is 0 (not >= 3).
         assert runner.compute_num_skill_rolls(result) == 1
 
     def test_advancement_grants_extra(self, pack):
-        engine, runner = setup_qualified_engine([], pack)
+        _engine, runner = setup_qualified_engine([], pack)
         result = TermResult(
-            term_number=1, career_id="navy", career_name="Navy",
-            age_before=18, age_after=22,
+            term_number=1,
+            career_id="navy",
+            career_name="Navy",
+            age_before=18,
+            age_after=22,
         )
         result.advancement_success = True
         assert runner.compute_num_skill_rolls(result) == 2
@@ -228,8 +236,11 @@ class TestComputeNumSkillRolls:
         engine, runner = setup_qualified_engine([], pack)
         engine.state.character.rank = 3
         result = TermResult(
-            term_number=1, career_id="navy", career_name="Navy",
-            age_before=18, age_after=22,
+            term_number=1,
+            career_id="navy",
+            career_name="Navy",
+            age_before=18,
+            age_after=22,
         )
         result.advancement_success = True
         assert runner.compute_num_skill_rolls(result) == 3
@@ -242,24 +253,21 @@ class TestComputeNumSkillRolls:
 
 class TestSkillRollStep:
     def test_single_skill_roll_returns_gain(self, pack):
-        engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3], [5, 3]], pack  # survival, advancement, skill
+        _engine, runner = setup_qualified_engine(
+            [[4, 3], [5, 3], [5, 3]],
+            pack,  # survival, advancement, skill
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
         runner.run_advancement_step("navy", result)
 
-        gain = runner.run_skill_roll_step(
-            "navy", result, "Personal Development"
-        )
+        gain = runner.run_skill_roll_step("navy", result, "Personal Development")
         assert gain.table_name == "Personal Development"
         assert len(result.skill_gains) == 1
         assert result.skill_gains[0] is gain
 
     def test_skill_roll_unknown_table_falls_back(self, pack):
-        engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3], [5, 3]], pack
-        )
+        _engine, runner = setup_qualified_engine([[4, 3], [5, 3], [5, 3]], pack)
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
         runner.run_advancement_step("navy", result)
@@ -279,8 +287,11 @@ class TestAgingStep:
         engine, runner = setup_qualified_engine([], pack)
         engine.state.character.age = 30
         result = TermResult(
-            term_number=1, career_id="navy", career_name="Navy",
-            age_before=26, age_after=30,
+            term_number=1,
+            career_id="navy",
+            career_name="Navy",
+            age_before=26,
+            age_after=30,
         )
         aged = runner.run_aging_step(result)
         assert aged is False
@@ -288,12 +299,16 @@ class TestAgingStep:
 
     def test_aging_at_34_success(self, pack):
         engine, runner = setup_qualified_engine(
-            [[5, 4]], pack  # aging roll 9 >= 8 -> success
+            [[5, 4]],
+            pack,  # aging roll 9 >= 8 -> success
         )
         engine.state.character.age = 34
         result = TermResult(
-            term_number=4, career_id="navy", career_name="Navy",
-            age_before=30, age_after=34,
+            term_number=4,
+            career_id="navy",
+            career_name="Navy",
+            age_before=30,
+            age_after=34,
         )
         aged = runner.run_aging_step(result)
         assert aged is True
@@ -301,12 +316,16 @@ class TestAgingStep:
 
     def test_aging_at_34_failure(self, pack):
         engine, runner = setup_qualified_engine(
-            [[2, 3]], pack  # aging roll 5 < 8 -> failure
+            [[2, 3]],
+            pack,  # aging roll 5 < 8 -> failure
         )
         engine.state.character.age = 34
         result = TermResult(
-            term_number=4, career_id="navy", career_name="Navy",
-            age_before=30, age_after=34,
+            term_number=4,
+            career_id="navy",
+            career_name="Navy",
+            age_before=30,
+            age_after=34,
         )
         aged = runner.run_aging_step(result)
         assert aged is True
@@ -324,8 +343,11 @@ class TestFinalizeTerm:
         engine, runner = setup_qualified_engine([], pack)
         engine.state.character.rank = 1
         result = TermResult(
-            term_number=1, career_id="navy", career_name="Navy",
-            age_before=18, age_after=22,
+            term_number=1,
+            career_id="navy",
+            career_name="Navy",
+            age_before=18,
+            age_after=22,
         )
         runner.finalize_term("navy", result)
         # Navy rank 1 should have a title.
@@ -335,8 +357,11 @@ class TestFinalizeTerm:
         engine, runner = setup_qualified_engine([], pack)
         engine.state.character.rank = 0
         result = TermResult(
-            term_number=1, career_id="scout", career_name="Scout",
-            age_before=18, age_after=22,
+            term_number=1,
+            career_id="scout",
+            career_name="Scout",
+            age_before=18,
+            age_after=22,
         )
         runner.finalize_term("scout", result)
         # Scout has no ranks, so title stays empty.

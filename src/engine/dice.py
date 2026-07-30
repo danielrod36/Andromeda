@@ -11,13 +11,13 @@ Tests inject forced-result queues via :class:`ForcedRoller`.
 
 Never use module-level ``random``.
 """
+
 from __future__ import annotations
 
 import random
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, PrivateAttr
-
 
 # The canonical named streams. New streams are added here when their subsystem
 # lands (combat is included from the start per the U1 spec; loot/post-v1).
@@ -57,9 +57,7 @@ class Roller(Protocol):
     results.
     """
 
-    def roll(
-        self, stream: str, ndice: int, sides: int, modifiers: int = 0
-    ) -> RollResult: ...
+    def roll(self, stream: str, ndice: int, sides: int, modifiers: int = 0) -> RollResult: ...
 
 
 class RngSnapshot(BaseModel):
@@ -87,9 +85,7 @@ class RngSnapshot(BaseModel):
     def to_random(self) -> random.Random:
         r = random.Random()
         # setstate requires tuples; JSON round-trips tuples to lists.
-        r.setstate(
-            (self.version, tuple(self.internalstate), self.gauss_next)
-        )
+        r.setstate((self.version, tuple(self.internalstate), self.gauss_next))
         return r
 
 
@@ -124,9 +120,7 @@ class RngStreams(BaseModel):
             snap: RngSnapshot = getattr(self, name)
             self._live[name] = snap.to_random()
 
-    def roll(
-        self, stream: str, ndice: int, sides: int, modifiers: int = 0
-    ) -> RollResult:
+    def roll(self, stream: str, ndice: int, sides: int, modifiers: int = 0) -> RollResult:
         """Roll ``ndice`` dice of ``sides`` on the named stream."""
         if stream not in self._live:
             known = sorted(self._live)
@@ -183,9 +177,7 @@ class LiveRoller:
     def streams(self) -> RngStreams:
         return self._streams
 
-    def roll(
-        self, stream: str, ndice: int, sides: int, modifiers: int = 0
-    ) -> RollResult:
+    def roll(self, stream: str, ndice: int, sides: int, modifiers: int = 0) -> RollResult:
         return self._streams.roll(stream, ndice, sides, modifiers)
 
 
@@ -201,9 +193,7 @@ class ForcedRoller:
     def __init__(self, queued_rolls: list[list[int]] | None = None) -> None:
         self._queue: list[list[int]] = list(queued_rolls or [])
 
-    def roll(
-        self, stream: str, ndice: int, sides: int, modifiers: int = 0
-    ) -> RollResult:
+    def roll(self, stream: str, ndice: int, sides: int, modifiers: int = 0) -> RollResult:
         if not self._queue:
             raise IndexError("ForcedRoller queue exhausted")
         rolls = self._queue.pop(0)

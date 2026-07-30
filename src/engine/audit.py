@@ -10,6 +10,7 @@ Each :class:`Event` with ``kind == ROLL`` carries a full :class:`RollResult`
 with its inputs (stream, dice, sides, modifiers) and outcome (individual die
 values, total), satisfying AE1's inspectability requirement.
 """
+
 from __future__ import annotations
 
 from enum import Enum

@@ -10,9 +10,8 @@ Test scenarios covered:
 
 All tests use ``TestModel`` — no real API calls.
 """
-from __future__ import annotations
 
-import copy
+from __future__ import annotations
 
 import pytest
 from pydantic_ai.models.test import TestModel
@@ -22,12 +21,10 @@ from src.engine.lifepath import LifepathResult, TermResult
 from src.engine.state import Character, GameState
 from src.llm.adapter import (
     AdapterConfig,
-    LLMAdapter,
     LifepathNarration,
-    NarrationResult,
+    LLMAdapter,
 )
 from src.llm.state_view import build_curated_view
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -36,17 +33,17 @@ from src.llm.state_view import build_curated_view
 
 def make_term_result(term_number: int = 1, **kwargs) -> TermResult:
     """Build a TermResult with sensible defaults for testing."""
-    defaults = dict(
-        term_number=term_number,
-        career_id="navy",
-        career_name="Navy",
-        age_before=18 + (term_number - 1) * 4,
-        age_after=18 + term_number * 4,
-        survival_success=True,
-        advancement_success=True,
-        rank_after=term_number,
-        rank_title="Lieutenant" if term_number >= 2 else "Ensign",
-    )
+    defaults = {
+        "term_number": term_number,
+        "career_id": "navy",
+        "career_name": "Navy",
+        "age_before": 18 + (term_number - 1) * 4,
+        "age_after": 18 + term_number * 4,
+        "survival_success": True,
+        "advancement_success": True,
+        "rank_after": term_number,
+        "rank_title": "Lieutenant" if term_number >= 2 else "Ensign",
+    }
     defaults.update(kwargs)
     return TermResult(**defaults)
 
@@ -127,7 +124,9 @@ class TestValidLLMNarration:
     @pytest.mark.asyncio
     async def test_term_narration_with_test_model(self, state, engine, term_result):
         test_model = TestModel(
-            custom_output_args={"prose": "You served aboard the destroyer Ironfall, patrolling the frontier."}
+            custom_output_args={
+                "prose": "You served aboard the destroyer Ironfall, patrolling the frontier."
+            }
         )
         adapter = LLMAdapter(test_model=test_model)
         result = await adapter.narrate_term(state, engine, term_result)
@@ -139,7 +138,9 @@ class TestValidLLMNarration:
     @pytest.mark.asyncio
     async def test_full_lifepath_with_test_model(self, state, engine):
         test_model = TestModel(
-            custom_output_args={"prose": "Your career spanned multiple terms of distinguished service."}
+            custom_output_args={
+                "prose": "Your career spanned multiple terms of distinguished service."
+            }
         )
         adapter = LLMAdapter(test_model=test_model)
         lifepath = LifepathResult(
@@ -218,8 +219,14 @@ class TestInvalidOutputRejection:
         # went through the funnel and are legitimate.)
         char_after = state.character.model_dump()
         mechanical_keys = {
-            "name", "characteristics", "skills", "age",
-            "terms", "career", "rank", "alive",
+            "name",
+            "characteristics",
+            "skills",
+            "age",
+            "terms",
+            "career",
+            "rank",
+            "alive",
         }
         for key in mechanical_keys:
             assert char_before[key] == char_after[key], (
@@ -295,8 +302,8 @@ class TestFullLifepathFaithfulness:
     @pytest.mark.asyncio
     async def test_narration_references_skills(self, state, engine):
         """Skill gains must appear in the facts."""
-        from src.llm.prompts import build_term_facts
         from src.engine.lifepath import SkillGain
+        from src.llm.prompts import build_term_facts
 
         term = make_term_result(term_number=1)
         term.skill_gains.append(
@@ -352,9 +359,7 @@ class TestUsageLimits:
     @pytest.mark.asyncio
     async def test_low_request_limit_triggers_fallback(self, state, engine, term_result):
         """A very low request_limit causes failure → template fallback."""
-        test_model = TestModel(
-            custom_output_args={"prose": "Valid narration for the term."}
-        )
+        test_model = TestModel(custom_output_args={"prose": "Valid narration for the term."})
         adapter = LLMAdapter(
             config=AdapterConfig(request_limit=1, max_retries=3),
             test_model=test_model,
@@ -370,9 +375,7 @@ class TestUsageLimits:
     @pytest.mark.asyncio
     async def test_usage_limits_applied(self, state, engine, term_result):
         """The adapter builds and passes UsageLimits on every run."""
-        test_model = TestModel(
-            custom_output_args={"prose": "You served with distinction."}
-        )
+        test_model = TestModel(custom_output_args={"prose": "You served with distinction."})
         config = AdapterConfig(request_limit=5, token_limit=1000, max_retries=3)
         adapter = LLMAdapter(config=config, test_model=test_model)
 
@@ -412,7 +415,6 @@ class TestCuratedViewIntegration:
     @pytest.mark.asyncio
     async def test_narration_does_not_leak_state(self, state, engine, term_result):
         """The prompt assembled by the adapter must not contain prohibited data."""
-        import json
         from src.llm.prompts import build_lifepath_prompt, build_term_facts
 
         view = build_curated_view(state)
@@ -423,9 +425,7 @@ class TestCuratedViewIntegration:
         from src.llm.state_view import PROHIBITED_KEYS
 
         for key in PROHIBITED_KEYS:
-            assert f'"{key}"' not in prompt, (
-                f"Prohibited key '{key}' leaked into prompt"
-            )
+            assert f'"{key}"' not in prompt, f"Prohibited key '{key}' leaked into prompt"
 
 
 # ---------------------------------------------------------------------------
@@ -460,6 +460,4 @@ class TestNarrationOutputModel:
     def test_model_has_no_mechanical_fields(self):
         """The narration model must only have 'prose' — no mechanical fields."""
         fields = set(LifepathNarration.model_fields.keys())
-        assert fields == {"prose"}, (
-            f"Unexpected fields in LifepathNarration: {fields}"
-        )
+        assert fields == {"prose"}, f"Unexpected fields in LifepathNarration: {fields}"

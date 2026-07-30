@@ -26,12 +26,12 @@ Complication/consequence tables:
     responsible for looking up complications (weak hit) or consequences (miss)
     from the active theme pack's complication tables.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
 from src.rulesets.base import CheckOutcome, OutcomeQuality
-
 
 # ---------------------------------------------------------------------------
 # Constants.
@@ -180,10 +180,7 @@ class NarrativeProfile:
             success = False
 
         # Note DM clamping in description when it occurs.
-        if effective_dm != dm:
-            clamp_note = f" (DM clamped {dm:+d} -> {effective_dm:+d})"
-        else:
-            clamp_note = ""
+        clamp_note = f" (DM clamped {dm:+d} -> {effective_dm:+d})" if effective_dm != dm else ""
 
         return CheckOutcome(
             success=success,

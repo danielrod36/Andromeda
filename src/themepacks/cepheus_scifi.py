@@ -4,6 +4,7 @@ Provides :func:`load_scifi_pack` as a convenience entry point for the sci-fi
 pack. The actual content lives in ``src/themepacks/data/scifi/`` as YAML files;
 this module just calls the generic loader and returns the result.
 """
+
 from __future__ import annotations
 
 from src.themepacks.base import DATA_ROOT, LoadedThemePack, ThemePackLoader

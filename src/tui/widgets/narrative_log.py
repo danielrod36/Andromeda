@@ -4,6 +4,7 @@ Wraps RichLog with formatting helpers for section headers, separators,
 roll results, and paragraph breaks so the log reads as structured prose
 rather than a monolith of text.
 """
+
 from __future__ import annotations
 
 from textual.widgets import RichLog
@@ -56,8 +57,9 @@ class NarrativeLogWidget(RichLog):
         self.write(f"[bold cyan]{title}[/bold cyan]")
         self.write("")
 
-    def add_roll(self, label: str, dice: str, total: int, dm: int,
-                 target: int, success: bool, tier: str = "") -> None:
+    def add_roll(
+        self, label: str, dice: str, total: int, dm: int, target: int, success: bool, tier: str = ""
+    ) -> None:
         """Add a formatted dice roll result line.
 
         Example output:

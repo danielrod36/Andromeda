@@ -14,6 +14,7 @@ objectives, complications, rewards). On accept, the mission runs as a
 sequence of scenes toward an ending. After resolution, the engine returns
 to hook generation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -22,13 +23,12 @@ from typing import ClassVar
 
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine
-from src.engine.dice import RollResult, Roller
+from src.engine.dice import Roller, RollResult
 from src.engine.lifepath import lookup_table_result
 from src.engine.scene import SceneEngine, SceneResult
 from src.engine.state import GameState
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import LoadedThemePack
-
 
 # ---------------------------------------------------------------------------
 # Mission state and data structures.
@@ -262,17 +262,13 @@ class MissionEngine:
 
         complication_roll = self._mission_table_roll("mission_complication")
         rolls.append(complication_roll)
-        complication = self._lookup_mission_table(
-            "mission_complication", complication_roll
-        )
+        complication = self._lookup_mission_table("mission_complication", complication_roll)
 
         reward_roll = self._mission_table_roll("mission_reward")
         rolls.append(reward_roll)
         reward = self._lookup_mission_table("mission_reward", reward_roll)
 
-        description = self._build_hook_description(
-            patron, objective, complication, reward
-        )
+        description = self._build_hook_description(patron, objective, complication, reward)
 
         return MissionHook(
             patron=patron,
@@ -301,14 +297,10 @@ class MissionEngine:
         self._active_mission = mission
 
         # Persist in canonical state.
-        self.engine.apply(
-            SetMissionStateCommand(mission_data=mission.to_dict())
-        )
+        self.engine.apply(SetMissionStateCommand(mission_data=mission.to_dict()))
 
         # Log the acceptance.
-        self.engine.apply(
-            _LogMissionCommand(text=f"Mission accepted: {hook.summary}")
-        )
+        self.engine.apply(_LogMissionCommand(text=f"Mission accepted: {hook.summary}"))
 
         return mission
 
@@ -317,9 +309,7 @@ class MissionEngine:
 
         The engine returns to hook generation, rolling new tables.
         """
-        self.engine.apply(
-            _LogMissionCommand(text="Mission refused. Generating new hook...")
-        )
+        self.engine.apply(_LogMissionCommand(text="Mission refused. Generating new hook..."))
         return self.generate_hook()
 
     # ------------------------------------------------------------------
@@ -338,9 +328,7 @@ class MissionEngine:
         mission.scene_results.append(result)
 
         # Update persisted state.
-        self.engine.apply(
-            SetMissionStateCommand(mission_data=mission.to_dict())
-        )
+        self.engine.apply(SetMissionStateCommand(mission_data=mission.to_dict()))
 
         return result
 
@@ -366,9 +354,7 @@ class MissionEngine:
             mission.consequences.extend(consequences)
 
         # Persist as completed mission; clears active_mission.
-        self.engine.apply(
-            SetMissionStateCommand(completed_mission=mission.to_dict())
-        )
+        self.engine.apply(SetMissionStateCommand(completed_mission=mission.to_dict()))
 
         self.engine.apply(
             _LogMissionCommand(

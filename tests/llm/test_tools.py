@@ -5,6 +5,7 @@ Tools must:
 - Reject invalid arguments with clear errors.
 - Never alter dice or mechanical outcomes directly.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -12,7 +13,6 @@ import pytest
 from src.engine.commands import Engine
 from src.engine.state import GameState
 from src.llm.tools import TOOL_REGISTRY, ToolDeps, add_narrative_log_entry, set_narrative_flag
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.

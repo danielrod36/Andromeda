@@ -3,6 +3,7 @@
 Theme packs are pure YAML/JSON data validated into Pydantic models at load time.
 The directory-scan registry discovers packs under ``src/themepacks/data/``.
 """
+
 from src.themepacks.base import (
     DATA_ROOT,
     LoadedThemePack,

@@ -7,6 +7,7 @@ the resolution profile strategies.
 Theme packs live in ``src/themepacks/`` and satisfy the ThemePack Protocol by
 shape — they don't import from this package at runtime.
 """
+
 from src.rulesets.base import (
     BenefitsTable,
     CareerData,
@@ -14,8 +15,8 @@ from src.rulesets.base import (
     CheckRef,
     ComplicationTable,
     MissionTable,
-    OutcomeQuality,
     OracleTable,
+    OutcomeQuality,
     RankEntry,
     RuleSet,
     SkillData,

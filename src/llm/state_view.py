@@ -18,12 +18,12 @@ Per R2 and AE13, the LLM never receives the full :class:`GameState`. Instead,
 
 The view is a Pydantic model so it serializes cleanly to JSON for the prompt.
 """
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 from src.engine.state import GameState
-
 
 # ---------------------------------------------------------------------------
 # View sub-models — intentionally minimal to control what the LLM can see.
@@ -126,8 +126,8 @@ def build_curated_view(
     log_slice = list(state.narrative_log[-recent_log_count:])
 
     # Use chapter summaries from state if not explicitly provided.
-    summaries = chapter_summaries if chapter_summaries is not None else list(
-        state.chapter_summaries
+    summaries = (
+        chapter_summaries if chapter_summaries is not None else list(state.chapter_summaries)
     )
 
     return CuratedView(
@@ -150,16 +150,16 @@ def build_curated_view(
 #: runtime guard.
 PROHIBITED_KEYS: frozenset[str] = frozenset(
     {
-        "roll",          # RollResult objects
-        "rolls",         # individual die pips
-        "modifiers",     # dice modifiers
-        "rng",           # RNG state
-        "events",        # raw audit log
-        "seed",          # internal seed
+        "roll",  # RollResult objects
+        "rolls",  # individual die pips
+        "modifiers",  # dice modifiers
+        "rng",  # RNG state
+        "events",  # raw audit log
+        "seed",  # internal seed
         "save_version",  # internal version
-        "stream",        # RNG stream name
-        "ndice",         # dice count
-        "sides",         # die sides
+        "stream",  # RNG stream name
+        "ndice",  # dice count
+        "sides",  # die sides
     }
 )
 

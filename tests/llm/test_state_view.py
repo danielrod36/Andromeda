@@ -6,22 +6,21 @@ Verifies that the curated view:
 - Excludes prohibited fields (raw dice, audit log details, RNG state,
   off-scene NPC stats, internal engine fields).
 """
+
 from __future__ import annotations
 
 import json
 
 from src.engine.audit import Event, EventKind
 from src.engine.dice import RollResult
-from src.engine.state import Character, CampaignConfig, GameState
+from src.engine.state import Character, GameState
 from src.llm.state_view import (
     PROHIBITED_KEYS,
     CharacterSheet,
-    CuratedView,
     NpcSummary,
     assert_no_prohibited_fields,
     build_curated_view,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.

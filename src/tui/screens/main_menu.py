@@ -1,11 +1,13 @@
 """Main menu screen — new campaign / continue (R16)."""
+
 from __future__ import annotations
 
 import time
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Middle, Vertical
+from textual.containers import Vertical
 from textual.screen import Screen
 from textual.widgets import (
     Button,
@@ -72,7 +74,7 @@ class MainMenuScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("q", "app.quit", "Quit"),
     ]
 
@@ -81,9 +83,7 @@ class MainMenuScreen(Screen):
         with Vertical(id="menu-container"):
             yield Static("CEPHEUS ADVENTURE", id="app-title")
             yield Static("A deterministic-rules CYOA RPG", id="subtitle")
-            yield Button(
-                "New Campaign", id="new-campaign", variant="primary"
-            )
+            yield Button("New Campaign", id="new-campaign", variant="primary")
             yield Button("LLM Settings", id="settings-btn", variant="default")
             yield Label("Saved Campaigns:", classes="section-label")
             yield OptionList(id="save-list")
@@ -99,9 +99,7 @@ class MainMenuScreen(Screen):
         ol.clear_options()
         saves = self.app.list_saves()
         if not saves:
-            ol.add_option(
-                Option("[dim]No saved campaigns[/dim]", id="empty", disabled=True)
-            )
+            ol.add_option(Option("[dim]No saved campaigns[/dim]", id="empty", disabled=True))
         else:
             for s in saves:
                 label = self._format_save_label(s)
@@ -110,7 +108,6 @@ class MainMenuScreen(Screen):
     @staticmethod
     def _format_save_label(s) -> str:
         """Format a SaveInfo into a display string for the picker."""
-        from src.tui.app import SaveInfo  # noqa: F811 — circular safe
 
         parts: list[str] = [s.name]
         if s.character_name:
@@ -140,9 +137,7 @@ class MainMenuScreen(Screen):
         elif event.button.id == "quit-btn":
             self.app.exit()
 
-    def on_option_list_option_selected(
-        self, event: OptionList.OptionSelected
-    ) -> None:
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Load the selected save."""
         if event.option.id == "empty":
             return
@@ -151,6 +146,4 @@ class MainMenuScreen(Screen):
             try:
                 self.app.load_campaign(save_path)
             except Exception as exc:
-                self.app.notify(
-                    f"Failed to load: {exc}", severity="error", timeout=5
-                )
+                self.app.notify(f"Failed to load: {exc}", severity="error", timeout=5)

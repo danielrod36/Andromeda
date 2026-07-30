@@ -4,6 +4,7 @@ Covers AE15 (mission hook offered, accepted, played to ending; consequences
 persist; returns to hook generation), R23 (missions as discrete arcs with
 endings), mission refusal generating a new hook.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -16,11 +17,9 @@ from src.engine.mission import (
     MissionEngine,
     MissionHook,
     MissionState,
-    SetMissionStateCommand,
 )
 from src.engine.state import CampaignConfig, GameState
 from src.themepacks.base import get_pack
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -37,8 +36,12 @@ def make_engine(queue, seed=42):
     state = GameState.new(seed=seed)
     state.campaign = CampaignConfig()
     state.character.characteristics = {
-        "STR": 7, "DEX": 7, "END": 7,
-        "INT": 7, "EDU": 7, "SOC": 7,
+        "STR": 7,
+        "DEX": 7,
+        "END": 7,
+        "INT": 7,
+        "EDU": 7,
+        "SOC": 7,
     }
     state.character.skills = {"Gun Combat": 1, "Persuade": 0}
     return Engine(state, roller=ForcedRoller(queue))
@@ -98,10 +101,7 @@ class TestHookGeneration:
         me = MissionEngine(engine, pack)
         me.generate_hook()
 
-        mission_events = [
-            e for e in engine.state.events
-            if e.command_type == "mission_table_roll"
-        ]
+        mission_events = [e for e in engine.state.events if e.command_type == "mission_table_roll"]
         assert len(mission_events) == 4
 
 
@@ -115,9 +115,14 @@ class TestMissionAcceptRefuse:
 
     def test_accept_mission_sets_active(self, pack):
         """Accepting a hook transitions to active state."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # hook rolls
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # hook rolls
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -131,26 +136,36 @@ class TestMissionAcceptRefuse:
 
     def test_accept_mission_records_in_audit(self, pack):
         """Accepting a mission is recorded in the event log."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         me.accept_mission(hook)
 
-        mission_events = [
-            e for e in engine.state.events
-            if e.command_type == "set_mission_state"
-        ]
+        mission_events = [e for e in engine.state.events if e.command_type == "set_mission_state"]
         assert len(mission_events) >= 1
 
     def test_refuse_generates_new_hook(self, pack):
         """Refusing a hook generates a new one (AE15)."""
         # 4 rolls for first hook, 4 for second.
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # first hook
-            [6, 6], [2, 2], [5, 6], [1, 1],  # second hook
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # first hook
+                [6, 6],
+                [2, 2],
+                [5, 6],
+                [1, 1],  # second hook
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook1 = me.generate_hook()
         hook2 = me.refuse_mission()
@@ -160,10 +175,18 @@ class TestMissionAcceptRefuse:
 
     def test_refuse_does_not_set_active_mission(self, pack):
         """Refusing does not set an active mission."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # first hook
-            [6, 6], [2, 2], [5, 6], [1, 1],  # second hook
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # first hook
+                [6, 6],
+                [2, 2],
+                [5, 6],
+                [1, 1],  # second hook
+            ]
+        )
         me = MissionEngine(engine, pack)
         me.generate_hook()
         me.refuse_mission()
@@ -181,9 +204,14 @@ class TestMissionResolution:
 
     def test_resolve_success(self, pack):
         """Mission resolved with SUCCESS ending."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # hook
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # hook
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -196,9 +224,14 @@ class TestMissionResolution:
 
     def test_resolve_failure(self, pack):
         """Mission resolved with FAILURE ending."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -209,9 +242,14 @@ class TestMissionResolution:
 
     def test_resolve_abandonment(self, pack):
         """Mission resolved with ABANDONMENT ending."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -222,9 +260,14 @@ class TestMissionResolution:
 
     def test_consequences_persist_after_resolution(self, pack):
         """Consequences are recorded and persist in completed missions."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -241,10 +284,18 @@ class TestMissionResolution:
 
     def test_returns_to_hook_after_resolution(self, pack):
         """After resolution, engine can generate a new hook (AE15)."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # first mission hook
-            [6, 6], [2, 2], [5, 6], [1, 1],  # second mission hook
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # first mission hook
+                [6, 6],
+                [2, 2],
+                [5, 6],
+                [1, 1],  # second mission hook
+            ]
+        )
         me = MissionEngine(engine, pack)
 
         hook1 = me.generate_hook()
@@ -265,9 +316,14 @@ class TestMissionPersistence:
 
     def test_mission_to_dict_roundtrips(self, pack):
         """Mission serializes to dict correctly."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -279,9 +335,14 @@ class TestMissionPersistence:
 
     def test_mission_recorded_in_completed_list(self, pack):
         """Completed missions are in the completed_missions list."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],
+            ]
+        )
         me = MissionEngine(engine, pack)
         hook = me.generate_hook()
         mission = me.accept_mission(hook)
@@ -291,10 +352,18 @@ class TestMissionPersistence:
 
     def test_multiple_missions_accumulate(self, pack):
         """Multiple completed missions accumulate in history."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # mission 1
-            [6, 6], [2, 2], [5, 6], [1, 1],  # mission 2
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # mission 1
+                [6, 6],
+                [2, 2],
+                [5, 6],
+                [1, 1],  # mission 2
+            ]
+        )
         me = MissionEngine(engine, pack)
 
         # Mission 1.
@@ -323,13 +392,20 @@ class TestFullMissionArc:
     def test_full_arc_success(self, pack):
         """Hook offered, accepted, played, resolved with consequences."""
         # Hook rolls + scene oracle rolls + scene check.
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # hook
-            [5, 5], [4, 4],                   # scene oracle
-            [6, 6],                            # scene check (strong hit)
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # hook
+                [5, 5],
+                [4, 4],  # scene oracle
+                [6, 6],  # scene check (strong hit)
+            ]
+        )
         me = MissionEngine(engine, pack)
         from src.engine.scene import SceneEngine
+
         se = SceneEngine(engine, pack)
 
         # 1. Hook.
@@ -345,9 +421,7 @@ class TestFullMissionArc:
         assert len(scene_result.options) >= 2
 
         # Resolve the scene check.
-        check = se.resolve_scene(
-            scene_result.scaffold, scene_result.options[0]
-        )
+        check = se.resolve_scene(scene_result.scaffold, scene_result.options[0])
         se.apply_consequences(check, scene_result.scaffold)
 
         # 4. Resolve mission.
@@ -359,11 +433,20 @@ class TestFullMissionArc:
 
     def test_full_arc_with_refusal(self, pack):
         """Refuse first hook, accept second, play, resolve."""
-        engine = make_engine([
-            [3, 4], [5, 5], [3, 3], [4, 4],  # hook 1
-            [6, 6], [2, 2], [5, 6], [1, 1],  # hook 2
-            [5, 5], [4, 4],                   # scene oracle
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [5, 5],
+                [3, 3],
+                [4, 4],  # hook 1
+                [6, 6],
+                [2, 2],
+                [5, 6],
+                [1, 1],  # hook 2
+                [5, 5],
+                [4, 4],  # scene oracle
+            ]
+        )
         me = MissionEngine(engine, pack)
 
         # 1. First hook — refused.

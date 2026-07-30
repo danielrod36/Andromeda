@@ -4,6 +4,7 @@ Covers the narration methods added for the interactive lifepath:
 ``narrate_qualification`` and ``narrate_mustering_out``, including
 template fallback (no LLM) and TestModel-driven LLM narration.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -13,7 +14,6 @@ from src.engine.commands import Engine
 from src.engine.lifepath import MusteringOutResult, QualificationResult
 from src.engine.state import Character, GameState
 from src.llm.adapter import AdapterConfig, LLMAdapter
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.

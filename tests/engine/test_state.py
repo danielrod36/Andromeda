@@ -1,4 +1,5 @@
 """Tests for GameState models and serialization round-trip (R2)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -6,7 +7,6 @@ import hashlib
 import pytest
 
 from src.engine.commands import Engine, RollCharacteristicCommand
-from src.engine.dice import RngStreams
 from src.engine.state import (
     CampaignConfig,
     Character,
@@ -58,7 +58,7 @@ def test_state_round_trip_preserves_full_event_log():
 
     restored = GameState.model_validate_json(engine.state.model_dump_json())
     assert len(restored.events) == len(engine.state.events)
-    for a, b in zip(restored.events, engine.state.events):
+    for a, b in zip(restored.events, engine.state.events, strict=False):
         assert a.seq == b.seq
         assert a.kind == b.kind
         assert a.command_type == b.command_type
@@ -109,10 +109,12 @@ def test_discriminated_union_rejects_unknown_type():
     """An entity with an unknown discriminator value fails validation."""
     import json
 
+    from pydantic import ValidationError
+
     state = GameState.new(seed=1)
     raw = json.loads(state.model_dump_json())
     raw["entities"] = [{"type": "unknown_kind", "name": "X"}]
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         GameState.model_validate(raw)
 
 

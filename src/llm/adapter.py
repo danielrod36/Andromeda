@@ -17,10 +17,11 @@ Design (per the KTD): one agent with ``output_type=BaseModel`` for structured
 narration, tools registered for state mutation, ``ModelRetry`` for validation
 rejection, ``UsageLimits`` on every turn.
 """
+
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, field_validator
@@ -68,8 +69,7 @@ class LifepathNarration(BaseModel):
     def prose_must_be_nonempty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ModelRetry(
-                "Narration prose must be non-empty. "
-                "Please write 2-4 sentences of backstory."
+                "Narration prose must be non-empty. Please write 2-4 sentences of backstory."
             )
         return v.strip()
 
@@ -87,9 +87,7 @@ class FullLifepathNarration(BaseModel):
     @classmethod
     def prose_must_be_nonempty(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ModelRetry(
-                "Full lifepath narration must be non-empty."
-            )
+            raise ModelRetry("Full lifepath narration must be non-empty.")
         return v.strip()
 
 
@@ -193,9 +191,7 @@ class LLMAdapter:
     def _setup_agents(self) -> None:
         """Create the Pydantic AI agents for narration."""
         is_test = self._test_model is not None
-        model: Any = (
-            self._test_model if is_test else self.config.model
-        )
+        model: Any = self._test_model if is_test else self.config.model
         # Defer model validation for real providers so the adapter can be
         # constructed before API keys are available.
         defer = not is_test
@@ -292,8 +288,7 @@ class LLMAdapter:
             # AE11: LLM failure (invalid output, retry exhaustion) falls back
             # to template narration. State is unchanged.
             logger.warning(
-                "LLM narration failed for term %d, falling back to "
-                "template: %s",
+                "LLM narration failed for term %d, falling back to template: %s",
                 term_result.term_number,
                 exc,
             )
@@ -326,6 +321,7 @@ class LLMAdapter:
 
         view = build_curated_view(state)
         import json as _json
+
         view_json = _json.dumps(view.model_dump(), indent=2)
         outcome = "passed" if qual_result.success else "failed"
         prompt = (
@@ -351,8 +347,7 @@ class LLMAdapter:
             )
         except Exception as exc:
             logger.warning(
-                "LLM qualification narration failed, falling back to "
-                "template: %s",
+                "LLM qualification narration failed, falling back to template: %s",
                 exc,
             )
             return NarrationResult(
@@ -384,14 +379,13 @@ class LLMAdapter:
 
         view = build_curated_view(state)
         import json as _json
+
         view_json = _json.dumps(view.model_dump(), indent=2)
         benefits: list[str] = []
         if mo_result.cash_benefits:
             benefits.append(f"Cash: {', '.join(mo_result.cash_benefits)}")
         if mo_result.material_benefits:
-            benefits.append(
-                f"Material benefits: {', '.join(mo_result.material_benefits)}"
-            )
+            benefits.append(f"Material benefits: {', '.join(mo_result.material_benefits)}")
         benefits_text = "\n".join(f"  - {b}" for b in benefits) or "  - No benefits"
         prompt = (
             f"## Character State\n{view_json}\n\n"
@@ -418,8 +412,7 @@ class LLMAdapter:
             )
         except Exception as exc:
             logger.warning(
-                "LLM mustering out narration failed, falling back to "
-                "template: %s",
+                "LLM mustering out narration failed, falling back to template: %s",
                 exc,
             )
             return NarrationResult(
@@ -469,8 +462,7 @@ class LLMAdapter:
             )
         except Exception as exc:
             logger.warning(
-                "LLM full lifepath narration failed, falling back to "
-                "template: %s",
+                "LLM full lifepath narration failed, falling back to template: %s",
                 exc,
             )
             lines = self._narrator.narrate_lifepath(lifepath_result)
@@ -499,10 +491,7 @@ class LLMAdapter:
         """
         from src.llm.state_view import NpcSummary
 
-        npcs = [
-            n if isinstance(n, NpcSummary) else NpcSummary(**n)
-            for n in (scene_npcs or [])
-        ]
+        npcs = [n if isinstance(n, NpcSummary) else NpcSummary(**n) for n in (scene_npcs or [])]
         return build_curated_view(
             state,
             scene_npcs=npcs,

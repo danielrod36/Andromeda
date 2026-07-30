@@ -3,15 +3,17 @@
 Covers the TUI integration of the scene engine and mission lifecycle.
 Uses Textual's run_test() pilot for async TUI testing.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
+from textual.widgets import Input
 
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
-from src.engine.mission import Mission, MissionEnding, MissionHook, MissionState
+from src.engine.mission import Mission, MissionHook, MissionState
 from src.engine.state import CampaignConfig, GameState, Injury
 from src.themepacks.cepheus_scifi import load_scifi_pack
 from src.tui.app import CepheusApp
@@ -19,8 +21,6 @@ from src.tui.screens.adventure import AdventureScreen
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
-from textual.widgets import Input, OptionList
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -33,12 +33,18 @@ def make_seeded_engine(queue):
     state.campaign = CampaignConfig(resolution_profile="narrative")
     state.character.name = "TestHero"
     state.character.characteristics = {
-        "STR": 7, "DEX": 9, "END": 6,
-        "INT": 8, "EDU": 10, "SOC": 5,
+        "STR": 7,
+        "DEX": 9,
+        "END": 6,
+        "INT": 8,
+        "EDU": 10,
+        "SOC": 5,
     }
     state.character.skills = {
-        "Gun Combat": 1, "Persuade": 0,
-        "Stealth": 2, "Investigate": 1,
+        "Gun Combat": 1,
+        "Persuade": 0,
+        "Stealth": 2,
+        "Investigate": 1,
     }
     state.character.career = "navy"
     state.character.terms = 2
@@ -56,12 +62,18 @@ def adventure_app(tmp_path: Path) -> CepheusApp:
     app = CepheusApp(saves_dir=tmp_path)
     # Queue: 4 mission table rolls + 2 oracle rolls + 1 check + buffer.
     queue = [
-        [3, 4], [5, 5], [3, 3], [4, 4],  # mission hook tables
-        [5, 5], [4, 4],                   # scene oracle tables (first scene)
-        [6, 6],                            # scene check
-        [5, 5], [4, 4],                   # scene oracle tables (second scene)
-        [5, 5],                            # scene check (second scene)
-        [5, 5], [4, 4],                   # scene oracle tables (third scene)
+        [3, 4],
+        [5, 5],
+        [3, 3],
+        [4, 4],  # mission hook tables
+        [5, 5],
+        [4, 4],  # scene oracle tables (first scene)
+        [6, 6],  # scene check
+        [5, 5],
+        [4, 4],  # scene oracle tables (second scene)
+        [5, 5],  # scene check (second scene)
+        [5, 5],
+        [4, 4],  # scene oracle tables (third scene)
     ]
     app.engine = make_seeded_engine(queue)
     app.pack = load_scifi_pack()
@@ -151,7 +163,7 @@ class TestMissionHookInteraction:
         """Scene phase presents structured options."""
         app = adventure_app
         async with app.run_test() as pilot:
-            screen = await push_adventure(app, pilot)
+            await push_adventure(app, pilot)
 
             # Accept mission.
             cm = app.screen.query_one(ChoiceMenuWidget)
@@ -166,7 +178,7 @@ class TestMissionHookInteraction:
         """Active mission is persisted in GameState."""
         app = adventure_app
         async with app.run_test() as pilot:
-            screen = await push_adventure(app, pilot)
+            await push_adventure(app, pilot)
 
             cm = app.screen.query_one(ChoiceMenuWidget)
             cm.option_list.highlighted = 0
@@ -295,9 +307,7 @@ class TestFreeTextInput:
             # Should be back in scene phase.
             assert screen.phase == "scene_active"
 
-    async def test_freetext_reject_returns_to_options(
-        self, adventure_app: CepheusApp
-    ):
+    async def test_freetext_reject_returns_to_options(self, adventure_app: CepheusApp):
         """Rejecting the interpretation returns to structured options."""
         app = adventure_app
         app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
@@ -368,7 +378,8 @@ class TestMissionResume:
         """On resume with active_mission set, _current_mission is reconstructed."""
         app = CepheusApp(saves_dir=tmp_path)
         queue = [
-            [5, 5], [4, 4],  # scene oracle tables
+            [5, 5],
+            [4, 4],  # scene oracle tables
             [6, 6],  # scene check
         ]
         app.engine = make_seeded_engine(queue)
@@ -430,8 +441,12 @@ class TestCheckpointWiring:
         """take_snapshot is called when presenting a scene in checkpoint mode."""
         app = CepheusApp(saves_dir=tmp_path)
         queue = [
-            [3, 4], [5, 5], [3, 3], [4, 4],  # mission hook
-            [5, 5], [4, 4],  # scene oracle
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # mission hook
+            [5, 5],
+            [4, 4],  # scene oracle
             [6, 6],  # scene check
         ]
         app.engine = make_seeded_engine(queue)
@@ -494,6 +509,7 @@ class TestCheckpointWiring:
 
         # Load the snapshot via the manager (avoids LifepathScreen mount).
         from src.engine.checkpoint import CheckpointManager
+
         mgr = CheckpointManager()
         loaded = mgr.load_snapshot(save_path)
         assert loaded is True
@@ -512,12 +528,18 @@ class TestDefeatDetection:
         """A severe injury from a MISS triggers narrative defeat."""
         app = CepheusApp(saves_dir=tmp_path)
         queue = [
-            [3, 4], [5, 5], [3, 3], [4, 4],  # mission hook
-            [5, 5], [4, 4],  # scene oracle
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # mission hook
+            [5, 5],
+            [4, 4],  # scene oracle
             [1, 1],  # scene check: very low roll -> MISS with severe injury
-            [5, 5], [4, 4],  # scene oracle (second scene after defeat)
+            [5, 5],
+            [4, 4],  # scene oracle (second scene after defeat)
             [5, 5],  # scene check (second scene)
-            [5, 5], [4, 4],  # scene oracle (third)
+            [5, 5],
+            [4, 4],  # scene oracle (third)
         ]
         app.engine = make_seeded_engine(queue)
         app.engine.state.campaign = CampaignConfig(
@@ -542,19 +564,13 @@ class TestDefeatDetection:
             await pilot.pause()
 
             # Verify at least one injury exists (either defeat or consequence).
-            all_injuries = [
-                e for e in app.engine.state.entities
-                if isinstance(e, Injury)
-            ]
+            all_injuries = [e for e in app.engine.state.entities if isinstance(e, Injury)]
             assert len(all_injuries) >= 1
 
             # If the first option was life-threatening and produced a MISS,
             # a defeat injury with "Defeat:" prefix should be present.
-            first_option = None
             # Check if defeat was triggered by looking for defeat injuries.
-            defeat_injuries = [
-                e for e in all_injuries if "Defeat:" in e.name
-            ]
+            [e for e in all_injuries if "Defeat:" in e.name]
             # Either a defeat injury or a consequence injury should exist.
             assert len(all_injuries) >= 1
 
@@ -562,11 +578,19 @@ class TestDefeatDetection:
         """Ironman defeat on life-threatening MISS kills the character."""
         app = CepheusApp(saves_dir=tmp_path)
         queue = [
-            [3, 4], [5, 5], [3, 3], [4, 4],  # mission hook
-            [5, 5], [4, 4],  # scene oracle
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # mission hook
+            [5, 5],
+            [4, 4],  # scene oracle
             [1, 1],  # scene check: very low -> MISS
-            [3, 4], [5, 5], [3, 3], [4, 4],  # second hook (after death)
-            [5, 5], [4, 4],  # scene oracle
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # second hook (after death)
+            [5, 5],
+            [4, 4],  # scene oracle
         ]
         app.engine = make_seeded_engine(queue)
         app.engine.state.campaign = CampaignConfig(
@@ -739,14 +763,18 @@ class TestCheckpointRestoreRebindsRoller:
 
     async def test_restore_advances_restored_rng(self, tmp_path: Path):
         """Post-rewind oracle roll matches scene-start sequence, not abandoned."""
-        from src.engine.checkpoint import CheckpointManager
 
         app = CepheusApp(saves_dir=tmp_path)
         queue = [
-            [3, 4], [5, 5], [3, 3], [4, 4],  # mission hook
-            [5, 5], [4, 4],                    # scene oracle
-            [1, 1],                             # scene check (severe miss)
-            [5, 5], [4, 4],                    # second scene oracle
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # mission hook
+            [5, 5],
+            [4, 4],  # scene oracle
+            [1, 1],  # scene check (severe miss)
+            [5, 5],
+            [4, 4],  # second scene oracle
         ]
         app.engine = make_seeded_engine(queue)
         app.engine.state.campaign = CampaignConfig(
@@ -760,7 +788,7 @@ class TestCheckpointRestoreRebindsRoller:
         state = app.engine.state
         mgr = app.checkpoint_mgr
         mgr.take_snapshot(state)
-        abandoned_roll = state.rng.roll("oracle", 2, 6).total
+        _ = state.rng.roll("oracle", 2, 6)
 
         restored = mgr.restore(state)
         app.engine.swap_state(restored)

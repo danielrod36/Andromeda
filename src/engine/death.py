@@ -16,6 +16,7 @@ All strategies implement :class:`DeathStrategy` with a single
 ``handle_defeat(state, context) -> DefeatResult`` method, making the mode
 swappable per campaign configuration (``campaign.death_mode``).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -74,9 +75,7 @@ class DeathStrategy(Protocol):
 
     mode: str
 
-    def handle_defeat(
-        self, state: GameState, context: DefeatContext
-    ) -> DefeatResult: ...
+    def handle_defeat(self, state: GameState, context: DefeatContext) -> DefeatResult: ...
 
 
 # ---------------------------------------------------------------------------
@@ -102,9 +101,7 @@ class IronmanStrategy:
     def __init__(self, engine: Engine | None = None) -> None:
         self._engine = engine
 
-    def handle_defeat(
-        self, state: GameState, context: DefeatContext
-    ) -> DefeatResult:
+    def handle_defeat(self, state: GameState, context: DefeatContext) -> DefeatResult:
         reason = context.reason or "an encounter"
         if self._engine is not None:
             self._engine.apply(SetCharacterDeadCommand(reason=reason))
@@ -113,10 +110,7 @@ class IronmanStrategy:
         name = state.character.name or "the traveler"
         return DefeatResult(
             mode=self.mode,
-            message=(
-                f"{name} has died from {reason}. "
-                f"Ironman mode: death is permanent."
-            ),
+            message=(f"{name} has died from {reason}. Ironman mode: death is permanent."),
             play_continues=False,
             restart_offered=True,
         )
@@ -136,9 +130,7 @@ class CheckpointStrategy:
     def __init__(self, checkpoint: CheckpointManager) -> None:
         self.checkpoint = checkpoint
 
-    def handle_defeat(
-        self, state: GameState, context: DefeatContext
-    ) -> DefeatResult:
+    def handle_defeat(self, state: GameState, context: DefeatContext) -> DefeatResult:
         restored = self.checkpoint.restore(state)
         reason = context.reason or "an encounter"
         return DefeatResult(
@@ -171,9 +163,7 @@ class NarrativeStrategy:
     def __init__(self, engine: Engine | None = None) -> None:
         self._engine = engine
 
-    def handle_defeat(
-        self, state: GameState, context: DefeatContext
-    ) -> DefeatResult:
+    def handle_defeat(self, state: GameState, context: DefeatContext) -> DefeatResult:
         reason = context.reason or "a defeat"
         injury_name = f"Defeat: {reason}"
         injury_desc = (
@@ -197,10 +187,7 @@ class NarrativeStrategy:
             state.entities.append(injury)
         return DefeatResult(
             mode=self.mode,
-            message=(
-                f"Defeat from {reason} — a lasting consequence is applied. "
-                f"Play continues."
-            ),
+            message=(f"Defeat from {reason} — a lasting consequence is applied. Play continues."),
             play_continues=True,
         )
 
@@ -236,12 +223,8 @@ def get_death_strategy(
         return IronmanStrategy(engine=engine)
     if mode == "checkpoint":
         if checkpoint is None:
-            raise ValueError(
-                "Checkpoint death mode requires a CheckpointManager instance"
-            )
+            raise ValueError("Checkpoint death mode requires a CheckpointManager instance")
         return CheckpointStrategy(checkpoint)
     if mode == "narrative":
         return NarrativeStrategy(engine=engine)
-    raise ValueError(
-        f"Unknown death mode {mode!r}; expected one of: {', '.join(DEATH_MODES)}"
-    )
+    raise ValueError(f"Unknown death mode {mode!r}; expected one of: {', '.join(DEATH_MODES)}")

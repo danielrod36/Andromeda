@@ -1,7 +1,7 @@
 """Tests for LLM settings persistence and TUI integration."""
+
 import json
 import os
-from pathlib import Path
 
 import pytest
 
@@ -12,7 +12,6 @@ from src.tui.settings import (
     save_settings,
     settings_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # LLMSettings model tests.
@@ -213,16 +212,31 @@ class TestProviderConfigs:
     def test_all_expected_providers_present(self):
         from src.tui.providers import PROVIDER_CONFIGS
 
-        expected = {"anthropic", "openai", "deepseek", "openrouter",
-                    "xiaomi_mimo", "groq", "custom"}
+        expected = {
+            "anthropic",
+            "openai",
+            "deepseek",
+            "openrouter",
+            "xiaomi_mimo",
+            "groq",
+            "custom",
+        }
         assert expected <= set(PROVIDER_CONFIGS.keys())
 
     def test_each_provider_has_required_fields(self):
         from src.tui.providers import PROVIDER_CONFIGS
 
-        required = {"label", "pydantic_prefix", "key_env", "base_url_env",
-                     "default_base_url", "models_path", "auth_header",
-                     "auth_prefix", "presets"}
+        required = {
+            "label",
+            "pydantic_prefix",
+            "key_env",
+            "base_url_env",
+            "default_base_url",
+            "models_path",
+            "auth_header",
+            "auth_prefix",
+            "presets",
+        }
         for key, cfg in PROVIDER_CONFIGS.items():
             missing = required - set(cfg.keys())
             assert not missing, f"Provider {key} missing fields: {missing}"
@@ -263,7 +277,7 @@ class TestProviderConfigs:
         from src.tui.providers import provider_labels
 
         labels = provider_labels()
-        assert all(isinstance(l, tuple) and len(l) == 2 for l in labels)
+        assert all(isinstance(label, tuple) and len(label) == 2 for label in labels)
         keys = [k for _, k in labels]
         assert "anthropic" in keys
         assert "deepseek" in keys
@@ -303,8 +317,9 @@ class TestFetchAvailableModels:
     @pytest.mark.asyncio
     async def test_fetch_handles_auth_error(self):
         """RuntimeError on 401."""
-        import httpx
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        import httpx
 
         mock_resp = MagicMock()
         mock_resp.status_code = 401
@@ -416,12 +431,12 @@ class TestSettingsScreenSaveValidation:
 
     async def test_invalid_base_url_does_not_crash(self, tmp_path):
         """Saving with a bad base_url shows an error, not a crash."""
+        from textual.widgets import Input
+
         from src.tui.app import CepheusApp
         from src.tui.screens.settings_screen import SettingsScreen
-        from textual.widgets import Input, Select
 
-        app = CepheusApp(saves_dir=tmp_path / "saves",
-                         settings_dir=tmp_path / "settings")
+        app = CepheusApp(saves_dir=tmp_path / "saves", settings_dir=tmp_path / "settings")
         async with app.run_test() as pilot:
             app.push_screen(SettingsScreen())
             await pilot.pause()

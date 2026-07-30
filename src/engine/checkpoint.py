@@ -15,6 +15,7 @@ to rebuild live ``random.Random`` instances from serializable snapshots.
 Persistence is via a sidecar ``{save}.checkpoint.json`` file so rewind works
 after relaunch.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -80,9 +81,7 @@ class CheckpointManager:
             RuntimeError: if no snapshot has been taken.
         """
         if self._snapshot is None:
-            raise RuntimeError(
-                "No checkpoint snapshot available — call take_snapshot() first"
-            )
+            raise RuntimeError("No checkpoint snapshot available — call take_snapshot() first")
 
         # Deep-copy the stored snapshot so the original remains intact for
         # repeated restores (e.g., testing or multiple rewind attempts).

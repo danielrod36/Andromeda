@@ -9,24 +9,22 @@ Covers:
 - Fantasy oracle/complication/mission tables produce genre-appropriate content.
 - discover_packs() finds the fantasy pack alongside the sci-fi pack.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from src.rulesets.base import ThemePack
-from src.themepacks.base import (
-    PackLoadError,
-    ThemePackLoader,
-    discover_packs,
-    validate_pack,
-)
-from src.themepacks.fantasy import load_fantasy_pack
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.lifepath import LifepathRunner
 from src.engine.state import CampaignConfig, GameState
-from src.rulesets.cepheus import CepheusRuleSet
-
+from src.rulesets.base import ThemePack
+from src.themepacks.base import (
+    PackLoadError,
+    discover_packs,
+    validate_pack,
+)
+from src.themepacks.fantasy import load_fantasy_pack
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -88,9 +86,8 @@ class TestCareerValidity:
 
     def test_all_expected_careers_present(self, fantasy_pack):
         ids = set(fantasy_pack.careers.keys())
-        assert FANTASY_CAREER_IDS == ids, (
-            f"Missing: {FANTASY_CAREER_IDS - ids}, "
-            f"Extra: {ids - FANTASY_CAREER_IDS}"
+        assert ids == FANTASY_CAREER_IDS, (
+            f"Missing: {FANTASY_CAREER_IDS - ids}, Extra: {ids - FANTASY_CAREER_IDS}"
         )
 
     @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
@@ -100,7 +97,12 @@ class TestCareerValidity:
         assert career.name
         assert career.description
         assert career.qualification.characteristic in (
-            "STR", "DEX", "END", "INT", "EDU", "SOC",
+            "STR",
+            "DEX",
+            "END",
+            "INT",
+            "EDU",
+            "SOC",
         )
         assert career.survival.target >= 2
         assert career.advancement.target >= 2
@@ -127,9 +129,7 @@ class TestCareerValidity:
     @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
     def test_career_has_mustering_out_tables(self, fantasy_pack, career_id):
         career = fantasy_pack.careers[career_id]
-        assert career.mustering_out_cash is not None, (
-            f"Career '{career_id}' missing cash benefits"
-        )
+        assert career.mustering_out_cash is not None, f"Career '{career_id}' missing cash benefits"
         assert career.mustering_out_material is not None, (
             f"Career '{career_id}' missing material benefits"
         )
@@ -150,27 +150,20 @@ class TestReferentialIntegrity:
         for skill_id, skill in fantasy_pack.skills.items():
             if skill.career:
                 assert skill.career in career_ids, (
-                    f"Skill '{skill_id}' references career '{skill.career}' "
-                    f"which does not exist"
+                    f"Skill '{skill_id}' references career '{skill.career}' which does not exist"
                 )
 
     def test_oracle_tables_contiguous(self, fantasy_pack):
         for table_id, table in fantasy_pack.oracle_tables.items():
-            assert table.entries.is_contiguous(), (
-                f"Oracle table '{table_id}' non-contiguous"
-            )
+            assert table.entries.is_contiguous(), f"Oracle table '{table_id}' non-contiguous"
 
     def test_complication_tables_contiguous(self, fantasy_pack):
         for table_id, table in fantasy_pack.complication_tables.items():
-            assert table.entries.is_contiguous(), (
-                f"Complication table '{table_id}' non-contiguous"
-            )
+            assert table.entries.is_contiguous(), f"Complication table '{table_id}' non-contiguous"
 
     def test_mission_tables_contiguous(self, fantasy_pack):
         for table_id, table in fantasy_pack.mission_tables.items():
-            assert table.entries.is_contiguous(), (
-                f"Mission table '{table_id}' non-contiguous"
-            )
+            assert table.entries.is_contiguous(), f"Mission table '{table_id}' non-contiguous"
 
     def test_skill_count(self, fantasy_pack):
         """The pack defines a rich set of fantasy skills (30+)."""
@@ -208,9 +201,7 @@ class TestPackDiscovery:
 
 def _make_engine(queue, death_mode="narrative", seed=42):
     state = GameState.new(seed=seed)
-    state.campaign = CampaignConfig(
-        theme_pack="fantasy", death_mode=death_mode
-    )
+    state.campaign = CampaignConfig(theme_pack="fantasy", death_mode=death_mode)
     return Engine(state, roller=ForcedRoller(queue))
 
 
@@ -310,7 +301,12 @@ class TestFantasyLifepath:
     def test_fantasy_skills_gained_in_lifepath(self, fantasy_pack):
         """Skills gained during lifepath are fantasy skills, not sci-fi skills."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [5, 4], [4, 3], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [5, 4],
+            [4, 3],
+            [4, 2],  # chars
             [3, 2],  # qual: Knight STR 8 + 1 = 6 >= 5
             [4, 3],  # survival
             [5, 3],  # advancement
@@ -331,14 +327,16 @@ class TestFantasyLifepath:
 
         # None of the skill results should be sci-fi-only skills.
         scifi_only = {
-            "pilot_small_craft", "astrogation", "gun_combat_slug_rifle",
-            "electronics_comms", "engineer", "sensor_ops",
+            "pilot_small_craft",
+            "astrogation",
+            "gun_combat_slug_rifle",
+            "electronics_comms",
+            "engineer",
+            "sensor_ops",
         }
         for s in skill_results:
             if not s.startswith("+"):
-                assert s not in scifi_only, (
-                    f"Sci-fi skill '{s}' appeared in fantasy lifepath"
-                )
+                assert s not in scifi_only, f"Sci-fi skill '{s}' appeared in fantasy lifepath"
 
 
 # ---------------------------------------------------------------------------
@@ -355,11 +353,34 @@ class TestFantasyOracles:
     def test_oracle_content_is_fantasy(self, fantasy_pack):
         """Oracle results contain fantasy-genre language, not sci-fi."""
         fantasy_terms = (
-            "tavern", "dungeon", "castle", "dragon", "guild", "kingdom",
-            "spell", "sword", "sorcerer", "quest", "mage", "knight",
-            "temple", "forest", "village", "magic", "curse", "relic",
-            "monster", "beast", "realm", "throne", "rune", "ancient",
-            "wilderness", "inn", "crypt", "cursed",
+            "tavern",
+            "dungeon",
+            "castle",
+            "dragon",
+            "guild",
+            "kingdom",
+            "spell",
+            "sword",
+            "sorcerer",
+            "quest",
+            "mage",
+            "knight",
+            "temple",
+            "forest",
+            "village",
+            "magic",
+            "curse",
+            "relic",
+            "monster",
+            "beast",
+            "realm",
+            "throne",
+            "rune",
+            "ancient",
+            "wilderness",
+            "inn",
+            "crypt",
+            "cursed",
         )
         all_text = ""
         for table in fantasy_pack.oracle_tables.values():
@@ -369,24 +390,30 @@ class TestFantasyOracles:
         # At least some oracle results contain fantasy terminology.
         matches = [term for term in fantasy_terms if term in all_text]
         assert len(matches) >= 3, (
-            f"Oracle tables lack fantasy terminology. "
-            f"Found matches: {matches}"
+            f"Oracle tables lack fantasy terminology. Found matches: {matches}"
         )
 
     def test_no_scifi_terms_in_fantasy_oracles(self, fantasy_pack):
         """Oracle results should not contain jarring sci-fi terminology."""
         scifi_terms = (
-            "starship", "blaster", "hyperspace", "star system",
-            "laser", "planet", "galaxy", "space station",
-            "android", "cybernetic", "terraform",
+            "starship",
+            "blaster",
+            "hyperspace",
+            "star system",
+            "laser",
+            "planet",
+            "galaxy",
+            "space station",
+            "android",
+            "cybernetic",
+            "terraform",
         )
         for table_id, table in fantasy_pack.oracle_tables.items():
             for entry in table.entries.entries:
                 text = entry.result.lower()
                 for term in scifi_terms:
                     assert term not in text, (
-                        f"Sci-fi term '{term}' in oracle table "
-                        f"'{table_id}': {entry.result}"
+                        f"Sci-fi term '{term}' in oracle table '{table_id}': {entry.result}"
                     )
 
 
@@ -404,11 +431,35 @@ class TestFantasyComplications:
     def test_complication_content_is_fantasy(self, fantasy_pack):
         """Complication results reference fantasy elements."""
         fantasy_terms = (
-            "sword", "spell", "armor", "potion", "curse", "guild",
-            "monster", "beast", "dragon", "guard", "tavern", "inn",
-            "castle", "dungeon", "temple", "arrow", "bow", "mount",
-            "horse", "rune", "relic", "king", "lord", "mage",
-            "wand", "scroll", "blow", "wound", "weapon",
+            "sword",
+            "spell",
+            "armor",
+            "potion",
+            "curse",
+            "guild",
+            "monster",
+            "beast",
+            "dragon",
+            "guard",
+            "tavern",
+            "inn",
+            "castle",
+            "dungeon",
+            "temple",
+            "arrow",
+            "bow",
+            "mount",
+            "horse",
+            "rune",
+            "relic",
+            "king",
+            "lord",
+            "mage",
+            "wand",
+            "scroll",
+            "blow",
+            "wound",
+            "weapon",
         )
         all_text = ""
         for table in fantasy_pack.complication_tables.values():
@@ -416,10 +467,7 @@ class TestFantasyComplications:
                 all_text += entry.result.lower() + " "
 
         matches = [term for term in fantasy_terms if term in all_text]
-        assert len(matches) >= 2, (
-            f"Complication tables lack fantasy terminology. "
-            f"Found: {matches}"
-        )
+        assert len(matches) >= 2, f"Complication tables lack fantasy terminology. Found: {matches}"
 
 
 # ---------------------------------------------------------------------------
@@ -436,12 +484,40 @@ class TestFantasyMissions:
     def test_mission_content_is_fantasy(self, fantasy_pack):
         """Mission hooks reference fantasy patrons and objectives."""
         fantasy_terms = (
-            "guild", "noble", "wizard", "dragon", "temple", "king",
-            "queen", "lord", "castle", "dungeon", "relic", "artifact",
-            "spell", "curse", "beast", "monster", "rescue", "kingdom",
-            "throne", "quest", "treasure", "tome", "amulet", "quest",
-            "baron", "count", "duke", "witch", "warlock", "sage",
-            "village", "farm", "crop", "blight",
+            "guild",
+            "noble",
+            "wizard",
+            "dragon",
+            "temple",
+            "king",
+            "queen",
+            "lord",
+            "castle",
+            "dungeon",
+            "relic",
+            "artifact",
+            "spell",
+            "curse",
+            "beast",
+            "monster",
+            "rescue",
+            "kingdom",
+            "throne",
+            "quest",
+            "treasure",
+            "tome",
+            "amulet",
+            "quest",
+            "baron",
+            "count",
+            "duke",
+            "witch",
+            "warlock",
+            "sage",
+            "village",
+            "farm",
+            "crop",
+            "blight",
         )
         all_text = ""
         for table in fantasy_pack.mission_tables.values():
@@ -449,9 +525,7 @@ class TestFantasyMissions:
                 all_text += entry.result.lower() + " "
 
         matches = [term for term in fantasy_terms if term in all_text]
-        assert len(matches) >= 3, (
-            f"Mission tables lack fantasy terminology. Found: {matches}"
-        )
+        assert len(matches) >= 3, f"Mission tables lack fantasy terminology. Found: {matches}"
 
     def test_mission_reward_uses_fantasy_currency(self, fantasy_pack):
         """Mission rewards use gold/silver instead of Credits."""
@@ -467,9 +541,7 @@ class TestFantasyMissions:
                     break
 
         assert reward_table is not None, "No reward table found"
-        all_text = " ".join(
-            e.result.lower() for e in reward_table.entries.entries
-        )
+        all_text = " ".join(e.result.lower() for e in reward_table.entries.entries)
         assert "gold" in all_text or "silver" in all_text or "crown" in all_text, (
             f"Reward table lacks fantasy currency: {all_text}"
         )

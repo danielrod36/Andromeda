@@ -4,6 +4,7 @@ Settings are stored as JSON in a settings directory so they persist across
 sessions. The file is loaded on app startup and used to configure the LLM
 adapter. Keys are never written to the engine state or save files.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,9 +42,7 @@ class LLMSettings(BaseModel):
             return v
         parsed = urlparse(v)
         if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                f"Base URL must use http or https scheme, got '{parsed.scheme}'"
-            )
+            raise ValueError(f"Base URL must use http or https scheme, got '{parsed.scheme}'")
         if not parsed.netloc:
             raise ValueError("Base URL must include a host")
         return v
@@ -65,9 +64,7 @@ class LLMSettings(BaseModel):
 
     def effective_base_url(self) -> str:
         """The base URL to use — explicit override or provider default."""
-        return self.base_url or get_provider_config(self.provider).get(
-            "default_base_url", ""
-        )
+        return self.base_url or get_provider_config(self.provider).get("default_base_url", "")
 
     def env_overrides(self) -> dict[str, str]:
         """Return environment variables to set before creating the adapter.
@@ -124,9 +121,7 @@ def load_settings(settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> LLMSetting
         return LLMSettings()
 
 
-def save_settings(
-    settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR
-) -> Path:
+def save_settings(settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> Path:
     """Persist LLM settings to disk atomically.
 
     The file is given restrictive permissions (0600) because it contains the

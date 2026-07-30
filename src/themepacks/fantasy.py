@@ -7,6 +7,7 @@ this module just calls the generic loader and returns the result.
 No engine code changes — this uses the exact same loader infrastructure as the
 sci-fi pack.
 """
+
 from __future__ import annotations
 
 from src.themepacks.base import DATA_ROOT, LoadedThemePack, ThemePackLoader

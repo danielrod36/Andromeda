@@ -8,11 +8,13 @@ Tests cover:
   5. AE8 Save and resume (quit mid-lifepath, relaunch, resume at same term)
   6. Responsive layout at 80x24
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
+from textual.widgets import Button, Input
 
 from src.engine.persistence import load
 from src.engine.state import CampaignConfig, GameState
@@ -23,8 +25,6 @@ from src.tui.screens.main_menu import MainMenuScreen
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
-from textual.widgets import Button, Input, OptionList
-
 
 # ---------------------------------------------------------------------------
 # Helpers.
@@ -52,6 +52,7 @@ def app(tmp_path: Path) -> CepheusApp:
     app = CepheusApp(saves_dir=tmp_path)
     # Ensure LLM is not configured so tests use template narration.
     from src.tui.settings import LLMSettings
+
     app.llm_settings = LLMSettings()
     return app
 
@@ -62,6 +63,7 @@ def seeded_app(tmp_path: Path) -> CepheusApp:
     app = CepheusApp(saves_dir=tmp_path)
     # Ensure LLM is not configured so tests use template narration.
     from src.tui.settings import LLMSettings
+
     app.llm_settings = LLMSettings()
     config = CampaignConfig(
         ruleset="cepheus",
@@ -180,7 +182,7 @@ class TestKeyboardNavigation:
             await push_lifepath(app, pilot)
 
             cm = app.screen.query_one(ChoiceMenuWidget)
-            log = app.screen.query_one(NarrativeLogWidget)
+            app.screen.query_one(NarrativeLogWidget)
             # Initial focus should be on the OptionList.
             assert cm.option_list.has_focus
 
@@ -233,9 +235,7 @@ class TestKeyboardNavigation:
 class TestLifepathInteraction:
     """Verify term outcomes appear in the log and choices are presented."""
 
-    async def test_roll_characteristics_advances_to_career(
-        self, seeded_app: CepheusApp
-    ):
+    async def test_roll_characteristics_advances_to_career(self, seeded_app: CepheusApp):
         """Rolling characteristics moves to the career selection phase."""
         app = seeded_app
         async with app.run_test() as pilot:
@@ -250,9 +250,7 @@ class TestLifepathInteraction:
             assert screen.phase == "choose_career"
             assert len(app.engine.state.character.characteristics) == 6
 
-    async def test_career_choices_are_option_list_items(
-        self, seeded_app: CepheusApp
-    ):
+    async def test_career_choices_are_option_list_items(self, seeded_app: CepheusApp):
         """Career selection phase shows careers as OptionList options."""
         app = seeded_app
         async with app.run_test() as pilot:
@@ -296,9 +294,7 @@ class TestLifepathInteraction:
                         cm.option_list.highlighted = 0
                     cm.option_list.action_select()
                     await pilot.pause()
-                elif screen.phase == "mustering_out":
-                    break
-                elif screen.phase == "complete":
+                elif screen.phase == "mustering_out" or screen.phase == "complete":
                     break
                 else:
                     break
@@ -310,14 +306,12 @@ class TestLifepathInteraction:
             # 5. Should be complete.
             assert screen.phase == "complete"
 
-    async def test_narrative_log_shows_term_outcome(
-        self, seeded_app: CepheusApp
-    ):
+    async def test_narrative_log_shows_term_outcome(self, seeded_app: CepheusApp):
         """Term narration appears in the narrative log."""
         app = seeded_app
         async with app.run_test() as pilot:
             screen = await push_lifepath(app, pilot)
-            cm = app.screen.query_one(ChoiceMenuWidget)
+            app.screen.query_one(ChoiceMenuWidget)
 
             # Roll characteristics.
             await select_first(app, pilot)
@@ -347,9 +341,7 @@ class TestCampaignCreationFlow:
             await pilot.pause()
             assert isinstance(app.screen, MainMenuScreen)
 
-    async def test_new_campaign_button_navigates_to_config(
-        self, app: CepheusApp
-    ):
+    async def test_new_campaign_button_navigates_to_config(self, app: CepheusApp):
         """Clicking 'New Campaign' shows the config screen."""
         async with app.run_test() as pilot:
             await pilot.pause()
@@ -421,7 +413,7 @@ class TestSaveAndResume:
         app = seeded_app
         async with app.run_test() as pilot:
             screen = await push_lifepath(app, pilot)
-            cm = app.screen.query_one(ChoiceMenuWidget)
+            app.screen.query_one(ChoiceMenuWidget)
 
             # Roll characteristics.
             await select_first(app, pilot)
@@ -451,14 +443,12 @@ class TestSaveAndResume:
         assert loaded_state.character.terms == terms_before
         assert loaded_state.character.career == career_before
 
-    async def test_resume_continues_at_correct_phase(
-        self, seeded_app: CepheusApp
-    ):
+    async def test_resume_continues_at_correct_phase(self, seeded_app: CepheusApp):
         """Resuming mid-lifepath enters the correct phase (AE8)."""
         app = seeded_app
         async with app.run_test() as pilot:
             screen = await push_lifepath(app, pilot)
-            cm = app.screen.query_one(ChoiceMenuWidget)
+            app.screen.query_one(ChoiceMenuWidget)
 
             # Roll characteristics.
             await select_first(app, pilot)
@@ -486,9 +476,7 @@ class TestSaveAndResume:
         # Characteristics should be fully rolled.
         assert len(app2.engine.state.character.characteristics) == 6
 
-    async def test_resume_save_picker_lists_campaign(
-        self, seeded_app: CepheusApp
-    ):
+    async def test_resume_save_picker_lists_campaign(self, seeded_app: CepheusApp):
         """Main menu save picker shows saved campaigns."""
         app = seeded_app
         async with app.run_test() as pilot:
@@ -506,9 +494,7 @@ class TestSaveAndResume:
         assert saves[0].name == "TestHero"
         assert saves[0].theme_pack == "scifi"
 
-    async def test_save_picker_excludes_checkpoint_sidecars(
-        self, seeded_app: CepheusApp
-    ):
+    async def test_save_picker_excludes_checkpoint_sidecars(self, seeded_app: CepheusApp):
         """list_saves excludes *.checkpoint.json sidecar files.
 
         Before the fix, the ``*.json`` glob matched ``Name.json.checkpoint.json``
@@ -521,9 +507,7 @@ class TestSaveAndResume:
             await push_lifepath(app, pilot)
 
             # Create a save in checkpoint mode so a sidecar is produced.
-            app.engine.state.campaign = CampaignConfig(
-                theme_pack="scifi", death_mode="checkpoint"
-            )
+            app.engine.state.campaign = CampaignConfig(theme_pack="scifi", death_mode="checkpoint")
             app.checkpoint_mgr.take_snapshot(app.engine.state)
             app.save_game()
 

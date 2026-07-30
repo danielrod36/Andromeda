@@ -1,4 +1,5 @@
 """Entry point for ``python -m src.tui`` — launches the Cepheus Adventure TUI."""
+
 from src.tui.app import CepheusApp
 
 

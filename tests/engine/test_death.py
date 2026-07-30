@@ -7,13 +7,13 @@ Covers:
   the character sheet; play continues.
 - Factory function and strategy protocol conformance.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.engine.checkpoint import CheckpointManager
-from src.engine.commands import Engine, SetCharacterDeadCommand
-from src.engine.dice import ForcedRoller
+from src.engine.commands import Engine
 from src.engine.death import (
     DEATH_MODES,
     CheckpointStrategy,
@@ -24,8 +24,8 @@ from src.engine.death import (
     NarrativeStrategy,
     get_death_strategy,
 )
+from src.engine.dice import ForcedRoller
 from src.engine.state import CampaignConfig, GameState, Injury, NarrativeFact
-
 
 # ---------------------------------------------------------------------------
 # Helpers.
@@ -44,8 +44,12 @@ def make_state(
     state.character.alive = alive
     state.character.age = 34
     state.character.characteristics = {
-        "STR": 7, "DEX": 9, "END": 6,
-        "INT": 8, "EDU": 10, "SOC": 5,
+        "STR": 7,
+        "DEX": 9,
+        "END": 6,
+        "INT": 8,
+        "EDU": 10,
+        "SOC": 5,
     }
     return state
 
@@ -64,7 +68,7 @@ class TestIronmanStrategy:
         assert state.character.alive is True
 
         strategy = IronmanStrategy()
-        result = strategy.handle_defeat(state, DefeatContext(reason="pirate ambush"))
+        strategy.handle_defeat(state, DefeatContext(reason="pirate ambush"))
 
         assert state.character.alive is False
 
@@ -185,12 +189,15 @@ class TestCheckpointStrategy:
 
         # Simulate events during the scene.
         from src.engine.audit import Event
-        state.events.append(Event(
-            seq=0,
-            kind=EventKind.STATE_CHANGE,
-            command_type="scene_action",
-            description="The character fought and lost.",
-        ))
+
+        state.events.append(
+            Event(
+                seq=0,
+                kind=EventKind.STATE_CHANGE,
+                command_type="scene_action",
+                description="The character fought and lost.",
+            )
+        )
 
         strategy = CheckpointStrategy(mgr)
         result = strategy.handle_defeat(state, DefeatContext())
@@ -433,6 +440,7 @@ class TestFunnelRoutedDeathStrategies:
         strategy.handle_defeat(state, DefeatContext(reason="test"))
 
         from src.engine.state import Injury
+
         assert any(isinstance(e, Injury) for e in state.entities)
 
     def test_factory_passes_engine_to_ironman(self):

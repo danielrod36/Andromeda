@@ -4,20 +4,17 @@ Covers AE16 (after two completed missions, LLM context contains two chapter
 summaries and no raw event history; validation failure triggers regeneration
 up to retry limit), R19 (summary validated against canonical state).
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from src.engine.audit import Event, EventKind
 from src.engine.state import CampaignConfig, GameState, NarrativeFact
 from src.engine.summary import (
     ChapterSummarizer,
-    SummaryResult,
     SummaryValidator,
     get_llm_context_summaries,
     has_raw_history_been_summarized,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers.
@@ -65,9 +62,7 @@ class TestSummaryValidator:
     def test_valid_summary_passes(self):
         """A clean summary with no mechanical claims passes validation."""
         state = make_state()
-        state.entities.append(
-            NarrativeFact(name="Vex", description="An NPC.")
-        )
+        state.entities.append(NarrativeFact(name="Vex", description="An NPC."))
         validator = SummaryValidator()
 
         result = validator.validate(
@@ -81,9 +76,7 @@ class TestSummaryValidator:
         state = make_state()
         validator = SummaryValidator()
 
-        result = validator.validate(
-            "The crew rolled 2d6 and succeeded.", state
-        )
+        result = validator.validate("The crew rolled 2d6 and succeeded.", state)
         assert result.valid is False
         assert any("Mechanical" in e for e in result.errors)
 
@@ -92,9 +85,7 @@ class TestSummaryValidator:
         state = make_state()
         validator = SummaryValidator()
 
-        result = validator.validate(
-            "With a +2 DM, the check succeeded.", state
-        )
+        result = validator.validate("With a +2 DM, the check succeeded.", state)
         assert result.valid is False
 
     def test_mechanical_stat_abbreviations_rejected(self):
@@ -102,9 +93,7 @@ class TestSummaryValidator:
         state = make_state()
         validator = SummaryValidator()
 
-        result = validator.validate(
-            "The character's STR was impressive.", state
-        )
+        result = validator.validate("The character's STR was impressive.", state)
         assert result.valid is False
 
     def test_mechanical_roll_reference_rejected(self):
@@ -112,9 +101,7 @@ class TestSummaryValidator:
         state = make_state()
         validator = SummaryValidator()
 
-        result = validator.validate(
-            "The crew made a roll and won.", state
-        )
+        result = validator.validate("The crew made a roll and won.", state)
         assert result.valid is False
 
     def test_mechanical_vs_target_rejected(self):
@@ -122,9 +109,7 @@ class TestSummaryValidator:
         state = make_state()
         validator = SummaryValidator()
 
-        result = validator.validate(
-            "The result was vs 8 and they passed.", state
-        )
+        result = validator.validate("The result was vs 8 and they passed.", state)
         assert result.valid is False
 
     def test_effect_value_rejected(self):
@@ -132,9 +117,7 @@ class TestSummaryValidator:
         state = make_state()
         validator = SummaryValidator()
 
-        result = validator.validate(
-            "The check had effect +3.", state
-        )
+        result = validator.validate("The check had effect +3.", state)
         assert result.valid is False
 
 
@@ -157,9 +140,7 @@ class TestChapterSummarizer:
         ]
         summarizer = ChapterSummarizer()
 
-        result = summarizer.summarize_mission(
-            events, state, "Rescue the hostage from Vex."
-        )
+        result = summarizer.summarize_mission(events, state, "Rescue the hostage from Vex.")
 
         assert len(result.summary) > 0
         assert "Rescue the hostage" in result.summary
@@ -171,9 +152,7 @@ class TestChapterSummarizer:
         events = [make_check_event("strong_hit", 3, "Persuade")]
         summarizer = ChapterSummarizer()
 
-        result = summarizer.summarize_mission(
-            events, state, "A simple mission."
-        )
+        result = summarizer.summarize_mission(events, state, "A simple mission.")
 
         # Validate the template output.
         validator = SummaryValidator()
@@ -191,7 +170,9 @@ class TestChapterSummarizer:
             return "The crew succeeded in their mission."
 
         result = summarizer.summarize_mission(
-            events, state, "Test mission.",
+            events,
+            state,
+            "Test mission.",
             llm_generator=good_generator,
         )
 
@@ -213,7 +194,9 @@ class TestChapterSummarizer:
             return "The crew completed the mission successfully."  # Valid.
 
         result = summarizer.summarize_mission(
-            events, state, "Test mission.",
+            events,
+            state,
+            "Test mission.",
             llm_generator=generator,
         )
 
@@ -231,7 +214,9 @@ class TestChapterSummarizer:
             return f"They rolled 2d6 on attempt {attempt}."  # Always invalid.
 
         result = summarizer.summarize_mission(
-            events, state, "Test mission.",
+            events,
+            state,
+            "Test mission.",
             llm_generator=always_bad_generator,
         )
 
@@ -253,7 +238,9 @@ class TestChapterSummarizer:
             return "They rolled dice."  # Always invalid.
 
         summarizer.summarize_mission(
-            events, state, "Test.",
+            events,
+            state,
+            "Test.",
             llm_generator=always_bad,
         )
 
@@ -276,9 +263,7 @@ class TestChapterSummaryReplacement:
         events = [make_check_event("strong_hit", 3, "Persuade")]
         summarizer = ChapterSummarizer()
 
-        result = summarizer.summarize_mission(
-            events, state, "Mission 1."
-        )
+        result = summarizer.summarize_mission(events, state, "Mission 1.")
         state.chapter_summaries.append(result.summary)
 
         assert len(state.chapter_summaries) == 1
@@ -330,7 +315,7 @@ class TestChapterSummaryReplacement:
 
     def test_raw_events_not_in_curated_view(self):
         """Raw event details are not in the curated view (R19)."""
-        from src.llm.state_view import build_curated_view, PROHIBITED_KEYS
+        from src.llm.state_view import build_curated_view
 
         state = make_state()
         state.chapter_summaries.append("A clean summary.")
@@ -340,6 +325,7 @@ class TestChapterSummaryReplacement:
 
         view = build_curated_view(state)
         import json
+
         raw = json.dumps(view.model_dump())
 
         # Raw event data should not be present.
@@ -363,11 +349,13 @@ class TestValidationRegeneration:
 
         def generator(events, desc, attempt):
             if attempt < 2:
-                return f"They made a roll with a DM."  # Invalid.
+                return "They made a roll with a DM."  # Invalid.
             return "The crew completed their objective."  # Valid.
 
         result = summarizer.summarize_mission(
-            events, state, "Test.",
+            events,
+            state,
+            "Test.",
             llm_generator=generator,
         )
 
@@ -391,7 +379,9 @@ class TestValidationRegeneration:
             return "Success through determination."  # Valid.
 
         result = summarizer.summarize_mission(
-            events, state, "Test.",
+            events,
+            state,
+            "Test.",
             llm_generator=generator,
         )
 

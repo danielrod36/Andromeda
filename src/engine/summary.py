@@ -12,6 +12,7 @@ the engine's audit trail. Instead, chapter summaries are stored alongside
 and included in the curated view in lieu of recent log entries from before
 the summary.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,7 +20,6 @@ import re
 from dataclasses import dataclass, field
 
 from src.engine.state import GameState
-from src.rulesets.cepheus import CepheusRuleSet
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,8 @@ DEFAULT_MAX_RETRIES: int = 3
 
 #: Regex patterns for mechanical claims that must not appear in summaries.
 _MECHANICAL_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"\b\d*d\d+", re.IGNORECASE),      # dice notation: 2d6, 1d3
-    re.compile(r"\bDM\b", re.IGNORECASE),           # dice modifier
+    re.compile(r"\b\d*d\d+", re.IGNORECASE),  # dice notation: 2d6, 1d3
+    re.compile(r"\bDM\b", re.IGNORECASE),  # dice modifier
     re.compile(r"\bSTR\b|\bDEX\b|\bEND\b|\bINT\b|\bEDU\b|\bSOC\b"),  # raw stat names
     re.compile(r"\bmodifier\b", re.IGNORECASE),
     re.compile(r"\broll(?:ed)?\b", re.IGNORECASE),
@@ -135,8 +135,7 @@ class SummaryValidator:
             matches = pattern.findall(summary)
             if matches:
                 violations.append(
-                    f"Mechanical claim detected: '{matches[0]}' "
-                    f"(pattern: {pattern.pattern})"
+                    f"Mechanical claim detected: '{matches[0]}' (pattern: {pattern.pattern})"
                 )
         return violations
 
@@ -159,9 +158,7 @@ class SummaryValidator:
         return names
 
     @staticmethod
-    def _check_entities(
-        summary: str, known_entities: set[str]
-    ) -> list[str]:
+    def _check_entities(summary: str, known_entities: set[str]) -> list[str]:
         """Check that referenced entities exist in known set.
 
         We use a conservative approach: we look for capitalized words/phrases
@@ -234,14 +231,10 @@ class ChapterSummarizer:
             if llm_generator is not None:
                 summary = llm_generator(events, mission_description, attempt)
             else:
-                summary = self._template_summary(
-                    events, mission_description, attempt
-                )
+                summary = self._template_summary(events, mission_description, attempt)
 
             # Validate.
-            result = self.validator.validate(
-                summary, state, known_entities
-            )
+            result = self.validator.validate(summary, state, known_entities)
 
             if result.valid:
                 return SummaryResult(
@@ -259,12 +252,9 @@ class ChapterSummarizer:
             )
 
         # All retries exhausted: ship best-available with flag.
-        best_summary = self._template_summary(
-            events, mission_description, self.max_retries
-        )
+        best_summary = self._template_summary(events, mission_description, self.max_retries)
         logger.warning(
-            "Summary validation failed after %d attempts. "
-            "Shipping best-available. Last error: %s",
+            "Summary validation failed after %d attempts. Shipping best-available. Last error: %s",
             self.max_retries,
             last_error,
         )
@@ -292,21 +282,11 @@ class ChapterSummarizer:
         """
         # Count scene checks and outcomes.
         scene_checks = [
-            e for e in events
-            if hasattr(e, "command_type") and e.command_type == "scene_check"
+            e for e in events if hasattr(e, "command_type") and e.command_type == "scene_check"
         ]
-        successes = sum(
-            1 for e in scene_checks
-            if e.changes.get("quality") == "strong_hit"
-        )
-        weak_hits = sum(
-            1 for e in scene_checks
-            if e.changes.get("quality") == "weak_hit"
-        )
-        misses = sum(
-            1 for e in scene_checks
-            if e.changes.get("quality") == "miss"
-        )
+        successes = sum(1 for e in scene_checks if e.changes.get("quality") == "strong_hit")
+        weak_hits = sum(1 for e in scene_checks if e.changes.get("quality") == "weak_hit")
+        misses = sum(1 for e in scene_checks if e.changes.get("quality") == "miss")
 
         parts: list[str] = []
         parts.append(f"The mission: {mission_description}")
@@ -319,21 +299,15 @@ class ChapterSummarizer:
 
         # List registered facts from this mission.
         facts = [
-            e for e in events
-            if hasattr(e, "command_type")
-            and e.command_type == "register_fact"
+            e for e in events if hasattr(e, "command_type") and e.command_type == "register_fact"
         ]
         if facts:
             fact_names = [e.changes.get("name", "unknown") for e in facts]
-            parts.append(
-                f"Key developments: {', '.join(fact_names)}."
-            )
+            parts.append(f"Key developments: {', '.join(fact_names)}.")
 
         # List injuries.
         injuries = [
-            e for e in events
-            if hasattr(e, "command_type")
-            and e.command_type == "add_injury"
+            e for e in events if hasattr(e, "command_type") and e.command_type == "add_injury"
         ]
         if injuries:
             injury_names = [e.changes.get("name", "wound") for e in injuries]

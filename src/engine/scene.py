@@ -12,18 +12,18 @@ classifier) interprets free-text input into an engine-known check, shown
 to the player before resolution. The player may accept, reject to rephrase,
 or fall back to a structured option.
 """
+
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from typing import ClassVar
 
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine
-from src.engine.dice import RollResult, Roller
+from src.engine.dice import Roller, RollResult
 from src.engine.lifepath import lookup_table_result
 from src.engine.state import GameState, Injury, NarrativeFact
-from src.rulesets.base import CheckOutcome, OutcomeQuality, SkillTableEntry
+from src.rulesets.base import OutcomeQuality
 from src.rulesets.cepheus import CepheusRuleSet
 from src.rulesets.profiles import (
     ClassicProfile,
@@ -31,7 +31,6 @@ from src.rulesets.profiles import (
     ResolutionProfile,
 )
 from src.themepacks.base import LoadedThemePack
-
 
 # ---------------------------------------------------------------------------
 # Commands — oracle rolls, scene checks, consequence application.
@@ -92,10 +91,7 @@ class SceneCheckCommand(Command):
 
         # Resolve via the appropriate profile strategy.
         profile_obj: ResolutionProfile
-        if self.profile == "classic":
-            profile_obj = ClassicProfile()
-        else:
-            profile_obj = NarrativeProfile()
+        profile_obj = ClassicProfile() if self.profile == "classic" else NarrativeProfile()
         outcome = profile_obj.resolve(roll.total, total_dm)
 
         return Event(
@@ -206,24 +202,19 @@ class RatifyFactCommand(Command):
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         fact = next(
             (
-                e for e in state.entities
+                e
+                for e in state.entities
                 if isinstance(e, NarrativeFact) and e.name == self.fact_name
             ),
             None,
         )
         if fact is None:
-            raise ValueError(
-                f"Cannot ratify fact {self.fact_name!r}: not found in entities"
-            )
-        fact.description = (
-            f"{fact.description} {self.stats_description}"
-        ).strip()
+            raise ValueError(f"Cannot ratify fact {self.fact_name!r}: not found in entities")
+        fact.description = (f"{fact.description} {self.stats_description}").strip()
         return Event(
             kind=EventKind.STATE_CHANGE,
             command_type=self.command_type,
-            description=(
-                f"Ratified narrative fact as NPC: {self.fact_name}"
-            ),
+            description=(f"Ratified narrative fact as NPC: {self.fact_name}"),
             changes={
                 "fact_name": self.fact_name,
                 "stats_description": self.stats_description,
@@ -650,11 +641,7 @@ class SceneEngine:
             consequences.append("Strong success — a lasting advantage gained.")
 
         # Log narration to the narrative log.
-        self.engine.apply(
-            _LogNarrationCommand(
-                text=self._narrate_result(check_result, scaffold)
-            )
-        )
+        self.engine.apply(_LogNarrationCommand(text=self._narrate_result(check_result, scaffold)))
 
         return consequences
 
@@ -709,17 +696,12 @@ class SceneEngine:
         return _FOCUS_OPTION_MAP[1][1]
 
     @staticmethod
-    def _narrate_result(
-        check_result: SceneCheckResult, scaffold: SceneScaffold
-    ) -> str:
+    def _narrate_result(check_result: SceneCheckResult, scaffold: SceneScaffold) -> str:
         """Template narration for a scene check result."""
         quality = check_result.quality
         skill = check_result.skill
         if quality == OutcomeQuality.STRONG_HIT.value:
-            return (
-                f"Your {skill} check succeeds brilliantly in the "
-                f"{scaffold.focus} scene."
-            )
+            return f"Your {skill} check succeeds brilliantly in the {scaffold.focus} scene."
         elif quality == OutcomeQuality.WEAK_HIT.value:
             return (
                 f"Your {skill} check succeeds, but with a complication "
@@ -747,6 +729,6 @@ class _LogNarrationCommand(Command):
         return Event(
             kind=EventKind.STATE_CHANGE,
             command_type=self.command_type,
-            description=f"Narration logged",
+            description="Narration logged",
             changes={"text": self.text},
         )

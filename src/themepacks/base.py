@@ -16,6 +16,7 @@ Referential integrity checks:
   3. Every career's skill table has contiguous die ranges.
   4. Required fields present on all models (enforced by Pydantic).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,16 +26,12 @@ import yaml
 from pydantic import ValidationError
 
 from src.rulesets.base import (
-    BenefitsTable,
     CareerData,
     ComplicationTable,
     MissionTable,
     OracleTable,
     SkillData,
-    SkillTable,
-    TableRange,
 )
-
 
 # ---------------------------------------------------------------------------
 # Errors.
@@ -168,9 +165,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
             skills[skill.id] = skill
 
     # --- Parse oracle tables ---
-    oracle_tables = _parse_table_section(
-        data.get("oracle_tables", {}), OracleTable, "oracle"
-    )
+    oracle_tables = _parse_table_section(data.get("oracle_tables", {}), OracleTable, "oracle")
 
     # --- Parse complication tables ---
     complication_tables = _parse_table_section(
@@ -178,9 +173,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
     )
 
     # --- Parse mission tables ---
-    mission_tables = _parse_table_section(
-        data.get("mission_tables", {}), MissionTable, "mission"
-    )
+    mission_tables = _parse_table_section(data.get("mission_tables", {}), MissionTable, "mission")
 
     # --- Referential integrity checks ---
     _check_referential_integrity(
@@ -199,9 +192,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
     )
 
 
-def _parse_model(
-    model_cls: type, raw: Any, context: str
-) -> Any:
+def _parse_model(model_cls: type, raw: Any, context: str) -> Any:
     """Parse a raw dict into a Pydantic model, wrapping errors in PackLoadError."""
     try:
         return model_cls.model_validate(raw)
@@ -250,24 +241,21 @@ def _check_referential_integrity(
     for tid, table in oracle_tables.items():
         if not table.entries.is_contiguous():
             raise PackLoadError(
-                f"Referential integrity: oracle table '{tid}' has "
-                f"non-contiguous die ranges"
+                f"Referential integrity: oracle table '{tid}' has non-contiguous die ranges"
             )
 
     # 3. Complication tables must have contiguous ranges.
     for tid, table in complication_tables.items():
         if not table.entries.is_contiguous():
             raise PackLoadError(
-                f"Referential integrity: complication table '{tid}' has "
-                f"non-contiguous die ranges"
+                f"Referential integrity: complication table '{tid}' has non-contiguous die ranges"
             )
 
     # 4. Mission tables must have contiguous ranges.
     for tid, table in mission_tables.items():
         if not table.entries.is_contiguous():
             raise PackLoadError(
-                f"Referential integrity: mission table '{tid}' has "
-                f"non-contiguous die ranges"
+                f"Referential integrity: mission table '{tid}' has non-contiguous die ranges"
             )
 
     # 5. Career skill tables and benefit tables must have contiguous ranges.
@@ -278,18 +266,20 @@ def _check_referential_integrity(
                     f"Referential integrity: career '{cid}' skill table "
                     f"'{table.name}' has non-contiguous die ranges"
                 )
-        if career.mustering_out_cash is not None:
-            if not career.mustering_out_cash.entries.is_contiguous():
-                raise PackLoadError(
-                    f"Referential integrity: career '{cid}' cash benefits "
-                    f"table has non-contiguous die ranges"
-                )
-        if career.mustering_out_material is not None:
-            if not career.mustering_out_material.entries.is_contiguous():
-                raise PackLoadError(
-                    f"Referential integrity: career '{cid}' material benefits "
-                    f"table has non-contiguous die ranges"
-                )
+        if career.mustering_out_cash is not None and (
+            not career.mustering_out_cash.entries.is_contiguous()
+        ):
+            raise PackLoadError(
+                f"Referential integrity: career '{cid}' cash benefits "
+                f"table has non-contiguous die ranges"
+            )
+        if career.mustering_out_material is not None and (
+            not career.mustering_out_material.entries.is_contiguous()
+        ):
+            raise PackLoadError(
+                f"Referential integrity: career '{cid}' material benefits "
+                f"table has non-contiguous die ranges"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -389,9 +379,7 @@ def discover_packs(data_root: Path | None = None) -> dict[str, LoadedThemePack]:
             except PackLoadError:
                 raise
             except Exception as exc:
-                raise PackLoadError(
-                    f"Failed to load pack from {entry}: {exc}"
-                ) from exc
+                raise PackLoadError(f"Failed to load pack from {entry}: {exc}") from exc
 
     if data_root is None:
         _pack_cache = dict(packs)
@@ -403,8 +391,5 @@ def get_pack(pack_id: str) -> LoadedThemePack:
     """Return a loaded pack by id, loading if necessary."""
     packs = discover_packs()
     if pack_id not in packs:
-        raise PackLoadError(
-            f"Theme pack '{pack_id}' not found. "
-            f"Available: {sorted(packs.keys())}"
-        )
+        raise PackLoadError(f"Theme pack '{pack_id}' not found. Available: {sorted(packs.keys())}")
     return packs[pack_id]

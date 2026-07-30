@@ -9,8 +9,12 @@ Features:
 - Selectable model OptionList with live filtering
 - Settings persist to disk via the :mod:`src.tui.settings` module
 """
+
 from __future__ import annotations
 
+from typing import ClassVar
+
+from pydantic import ValidationError
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -21,14 +25,11 @@ from textual.widgets import (
     Header,
     Input,
     Label,
-    LoadingIndicator,
     OptionList,
     Select,
     Static,
 )
 from textual.widgets.option_list import Option
-
-from pydantic import ValidationError
 
 from src.tui.providers import get_provider_config, provider_labels
 from src.tui.settings import (
@@ -105,7 +106,7 @@ class SettingsScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "app.pop_screen", "Back"),
         Binding("ctrl+s", "save_settings", "Save"),
     ]
@@ -204,14 +205,9 @@ class SettingsScreen(Screen):
         ol = self.query_one("#model-list", OptionList)
         ol.clear_options()
         filter_lower = filter_text.lower().strip()
-        matched = [
-            m for m in self._all_models
-            if not filter_lower or filter_lower in m.lower()
-        ]
+        matched = [m for m in self._all_models if not filter_lower or filter_lower in m.lower()]
         if not matched:
-            ol.add_option(
-                Option("[dim]No models found[/dim]", id="empty", disabled=True)
-            )
+            ol.add_option(Option("[dim]No models found[/dim]", id="empty", disabled=True))
         else:
             for model_id in matched:
                 label = model_id
@@ -226,9 +222,7 @@ class SettingsScreen(Screen):
                 f"[green]✓ LLM configured ({self._settings.provider}:{self._settings.model})[/green]"
             )
         else:
-            widget.update(
-                "[yellow]⚠ Not configured — template narration will be used[/yellow]"
-            )
+            widget.update("[yellow]⚠ Not configured — template narration will be used[/yellow]")
 
     def _set_fetch_status(self, text: str, *, error: bool = False) -> None:
         widget = self.query_one("#fetch-status", Static)
@@ -277,15 +271,11 @@ class SettingsScreen(Screen):
         if event.input.id == "model-search":
             self._render_model_list(event.value)
 
-    def on_option_list_option_selected(
-        self, event: OptionList.OptionSelected
-    ) -> None:
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Select a model from the list."""
         if event.option.id and event.option.id != "empty":
             self._settings.model = event.option.id
-            self._render_model_list(
-                self.query_one("#model-search", Input).value
-            )
+            self._render_model_list(self.query_one("#model-search", Input).value)
             self._update_status()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -342,18 +332,14 @@ class SettingsScreen(Screen):
         self._set_fetch_status(f"Fetching models from {cfg['label']}...")
         self.run_worker(self._fetch_models_task(provider, api_key, base_url))
 
-    async def _fetch_models_task(
-        self, provider: str, api_key: str, base_url: str
-    ) -> None:
+    async def _fetch_models_task(self, provider: str, api_key: str, base_url: str) -> None:
         """Worker that fetches models and updates the UI."""
         from src.tui.providers import fetch_available_models
 
         try:
             models = await fetch_available_models(provider, api_key, base_url or None)
             self._all_models = models
-            self._render_model_list(
-                self.query_one("#model-search", Input).value
-            )
+            self._render_model_list(self.query_one("#model-search", Input).value)
             self._set_fetch_status(f"Found {len(models)} models.")
         except RuntimeError as exc:
             self._set_fetch_status(str(exc), error=True)

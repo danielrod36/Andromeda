@@ -3,23 +3,19 @@
 Covers protocol conformance, difficulty ladder correctness, resolution mechanics,
 characteristic DMs, death modes, and data model validation.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from src.rulesets.base import (
-    CareerData,
-    CheckOutcome,
     OutcomeQuality,
     RuleSet,
-    SkillData,
-    SkillTable,
     SkillTableEntry,
-    ThemePack,
     TableRange,
+    ThemePack,
 )
 from src.rulesets.cepheus import CepheusRuleSet
-
 
 # ---------------------------------------------------------------------------
 # Scenario 1: Protocol conformance — CE SRD rule-set satisfies RuleSet protocol.
@@ -246,30 +242,36 @@ def test_skill_table_entry_valid():
 
 
 def test_skill_table_entry_rejects_min_greater_than_max():
-    with pytest.raises(ValueError, match="min.*max"):
+    with pytest.raises(ValueError, match=r"min.*max"):
         SkillTableEntry(min=6, max=3, result="Pilot")
 
 
 def test_table_range_contiguous_validation():
     """TableRange validates that entries form a contiguous 2-12 range."""
-    entries = [SkillTableEntry(min=2, max=4, result="A"),
-               SkillTableEntry(min=5, max=7, result="B"),
-               SkillTableEntry(min=8, max=12, result="C")]
+    entries = [
+        SkillTableEntry(min=2, max=4, result="A"),
+        SkillTableEntry(min=5, max=7, result="B"),
+        SkillTableEntry(min=8, max=12, result="C"),
+    ]
     tr = TableRange(entries=entries, die_size=6, num_dice=2)
     assert tr.is_contiguous()
 
 
 def test_table_range_detects_gap():
     """TableRange flags non-contiguous ranges (e.g., missing 5)."""
-    entries = [SkillTableEntry(min=2, max=4, result="A"),
-               SkillTableEntry(min=6, max=12, result="B")]
+    entries = [
+        SkillTableEntry(min=2, max=4, result="A"),
+        SkillTableEntry(min=6, max=12, result="B"),
+    ]
     tr = TableRange(entries=entries, die_size=6, num_dice=2)
     assert not tr.is_contiguous()
 
 
 def test_table_range_detects_overlap():
-    entries = [SkillTableEntry(min=2, max=5, result="A"),
-               SkillTableEntry(min=4, max=12, result="B")]
+    entries = [
+        SkillTableEntry(min=2, max=5, result="A"),
+        SkillTableEntry(min=4, max=12, result="B"),
+    ]
     tr = TableRange(entries=entries, die_size=6, num_dice=2)
     assert not tr.is_contiguous()
 
@@ -281,6 +283,7 @@ def test_table_range_detects_overlap():
 
 class _DummyPack:
     """Minimal object satisfying ThemePack Protocol by shape (structural typing)."""
+
     id = "dummy"
     name = "Dummy Pack"
     description = "For testing"

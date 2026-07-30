@@ -8,9 +8,10 @@ Entity types use a discriminated union keyed on ``type`` so polymorphic world
 entities serialize and deserialize correctly without engine code changes when
 new entity kinds are added.
 """
+
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -84,7 +85,7 @@ class Injury(BaseModel):
 
 
 EntityUnion = Annotated[
-    Union[NarrativeFact, Injury],
+    NarrativeFact | Injury,
     Field(discriminator="type"),
 ]
 

@@ -8,6 +8,7 @@ Covers:
 5. Term phase persistence via flags (save/resume)
 6. LLM narration wiring (template fallback path, narration dispatch)
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,8 +21,6 @@ from src.tui.screens.lifepath import LifepathScreen
 from src.tui.settings import LLMSettings
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
-from textual.widgets import OptionList
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -213,7 +212,7 @@ class TestDetailedRollDisplay:
         """Survival roll details appear in the narrative log."""
         app = seeded_app
         async with app.run_test() as pilot:
-            screen = await push_lifepath(app, pilot)
+            await push_lifepath(app, pilot)
             log = app.screen.query_one(NarrativeLogWidget)
             await select_first(app, pilot)  # chars
             await select_first(app, pilot)  # career
@@ -257,13 +256,12 @@ class TestTermPhasePersistence:
         """After saving mid-term, the loaded state reconstructs the phase."""
         app = seeded_app
         async with app.run_test() as pilot:
-            screen = await push_lifepath(app, pilot)
+            await push_lifepath(app, pilot)
             await select_first(app, pilot)  # chars
             await select_first(app, pilot)  # career
             await select_first(app, pilot)  # survival
 
             # Should be in run_advancement (or mishap path).
-            phase_before = screen.phase
             app.save_game()
 
         # Load into a fresh app.
@@ -277,8 +275,10 @@ class TestTermPhasePersistence:
         app2.push_screen(screen2)
 
         # Phase should match or be a valid term phase.
-        assert screen2._determine_phase() in TERM_PHASES or \
-            screen2._determine_phase() in ("mustering_out", "complete")
+        assert screen2._determine_phase() in TERM_PHASES or screen2._determine_phase() in (
+            "mustering_out",
+            "complete",
+        )
 
     async def test_reconstruct_term_state_on_mount(self, seeded_app):
         """_reconstruct_term_state rebuilds TermResult from events."""
@@ -308,7 +308,7 @@ class TestLLMNarrationWiring:
         app.llm_settings = LLMSettings()  # Explicitly unconfigured.
 
         async with app.run_test() as pilot:
-            screen = await push_lifepath(app, pilot)
+            await push_lifepath(app, pilot)
             assert not app.llm_settings.is_configured
 
             await select_first(app, pilot)  # chars
@@ -316,7 +316,7 @@ class TestLLMNarrationWiring:
 
             # Qualification narration should appear in the log.
             log = app.screen.query_one(NarrativeLogWidget)
-            full_text = " ".join(str(l) for l in log.lines)
+            full_text = " ".join(str(line) for line in log.lines)
             # Template narration contains career name.
             assert len(full_text) > 0
 
@@ -350,6 +350,7 @@ class TestLLMNarrationWiring:
         async with app.run_test() as pilot:
             await push_lifepath(app, pilot)
             from textual.widgets import Label
+
             status = app.screen.query_one("#status-bar", Label)
             rendered = str(status.render())
             assert "Template" in rendered or "template" in rendered.lower()
@@ -445,8 +446,12 @@ class TestSkillPickAgingTransition:
             # Set up a mid-term state at age >= 34.
             state = app.engine.state
             state.character.characteristics = {
-                "STR": 7, "DEX": 9, "END": 6,
-                "INT": 8, "EDU": 10, "SOC": 5,
+                "STR": 7,
+                "DEX": 9,
+                "END": 6,
+                "INT": 8,
+                "EDU": 10,
+                "SOC": 5,
             }
             state.character.career = "navy"
             state.character.age = 34
@@ -455,8 +460,11 @@ class TestSkillPickAgingTransition:
 
             # Build a TermResult and set up choose_skills phase with 1 roll left.
             result = TermResult(
-                term_number=1, career_id="navy", career_name="Navy",
-                age_before=30, age_after=34,
+                term_number=1,
+                career_id="navy",
+                career_name="Navy",
+                age_before=30,
+                age_after=34,
             )
             screen._current_term_result = result
             screen._skill_rolls_remaining = 1
@@ -491,13 +499,13 @@ class TestQualificationRollDisplay:
         """Qualification roll detail appears in the narrative log."""
         app = seeded_app
         async with app.run_test() as pilot:
-            screen = await push_lifepath(app, pilot)
+            await push_lifepath(app, pilot)
             log = app.screen.query_one(NarrativeLogWidget)
 
             await select_first(app, pilot)  # chars
             await select_first(app, pilot)  # career → qualification
 
-            full_text = " ".join(str(l) for l in log.lines)
+            full_text = " ".join(str(line) for line in log.lines)
             # The roll line includes the label and the dice notation.
             assert "Qualification" in full_text
 
@@ -576,12 +584,17 @@ class TestAdventureWiring:
             # Force completion state.
             state = app.engine.state
             state.character.characteristics = {
-                "STR": 7, "DEX": 9, "END": 6,
-                "INT": 8, "EDU": 10, "SOC": 5,
+                "STR": 7,
+                "DEX": 9,
+                "END": 6,
+                "INT": 8,
+                "EDU": 10,
+                "SOC": 5,
             }
             state.character.career = "navy"
             state.character.alive = True
             from src.engine.commands import SetFlagCommand
+
             app.engine.apply(SetFlagCommand(key="mustered_out", value="true"))
             screen.phase = "complete"
             await pilot.pause()
@@ -593,7 +606,6 @@ class TestAdventureWiring:
     async def test_load_campaign_routes_to_adventure(self, tmp_path):
         """A mustered-out, living save loads into AdventureScreen."""
         from src.engine.commands import Engine, SetFlagCommand
-        from src.engine.lifepath import LifepathRunner
         from src.themepacks.cepheus_scifi import load_scifi_pack
         from src.tui.screens.adventure import AdventureScreen
 
@@ -604,8 +616,12 @@ class TestAdventureWiring:
         state.character.name = "Hero"
         state.character.alive = True
         state.character.characteristics = {
-            "STR": 7, "DEX": 9, "END": 6,
-            "INT": 8, "EDU": 10, "SOC": 5,
+            "STR": 7,
+            "DEX": 9,
+            "END": 6,
+            "INT": 8,
+            "EDU": 10,
+            "SOC": 5,
         }
         state.character.career = "navy"
         app.engine = Engine(state)
@@ -619,6 +635,4 @@ class TestAdventureWiring:
         async with app2.run_test() as pilot:
             app2.load_campaign(save_path)
             await pilot.pause()
-            assert any(
-                isinstance(s, AdventureScreen) for s in app2.screen_stack
-            )
+            assert any(isinstance(s, AdventureScreen) for s in app2.screen_stack)

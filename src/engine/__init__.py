@@ -7,6 +7,7 @@ The engine is a plain sync Python package with zero TUI imports; the Textual
 shell and the LLM adapter are clients that call ``Engine.apply(cmd)`` and read
 curated views of :class:`GameState`.
 """
+
 from src.engine.audit import Event, EventKind, audit_rolls
 from src.engine.commands import (
     Command,
@@ -17,9 +18,9 @@ from src.engine.commands import (
 from src.engine.dice import (
     ForcedRoller,
     LiveRoller,
-    Roller,
     RngSnapshot,
     RngStreams,
+    Roller,
     RollResult,
     RollSpec,
 )
@@ -51,12 +52,12 @@ __all__ = [
     "Injury",
     "LiveRoller",
     "NarrativeFact",
+    "RngSnapshot",
+    "RngStreams",
     "RollCharacteristicCommand",
     "RollResult",
     "RollSpec",
     "Roller",
-    "RngSnapshot",
-    "RngStreams",
     "SetFlagCommand",
     "audit_rolls",
     "current_save_version",

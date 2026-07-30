@@ -1,4 +1,5 @@
 """Tests for named seeded RNG streams and the Roller protocol."""
+
 from __future__ import annotations
 
 import random
@@ -8,12 +9,11 @@ import pytest
 from src.engine.dice import (
     ForcedRoller,
     LiveRoller,
-    Roller,
     RngSnapshot,
     RngStreams,
+    Roller,
     RollResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Scenario: Dice determinism — random.Random(42) produces identical sequences.

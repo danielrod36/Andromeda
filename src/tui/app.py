@@ -6,6 +6,7 @@ The engine is a plain sync Python package. The TUI is a client that calls
 ``engine.apply(cmd)`` through the LifepathRunner and updates panels via
 reactive ``watch_*`` methods. Auto-save runs after every lifepath step (AE8).
 """
+
 from __future__ import annotations
 
 import json
@@ -13,11 +14,10 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
-from textual.app import App, ComposeResult
+from textual.app import App
 from textual.binding import Binding
-from textual.screen import Screen
-from textual.widgets import Footer, Header
 
 from src.engine.checkpoint import CheckpointManager
 from src.engine.commands import Engine
@@ -27,13 +27,10 @@ from src.engine.persistence import load, save
 from src.engine.state import CampaignConfig, GameState
 from src.themepacks.base import get_pack
 from src.themepacks.cepheus_scifi import load_scifi_pack
-
 from src.tui.screens.adventure import AdventureScreen
-from src.tui.screens.campaign_config import CampaignConfigScreen
 from src.tui.screens.lifepath import LifepathScreen
 from src.tui.screens.main_menu import MainMenuScreen
 from src.tui.settings import LLMSettings, load_settings
-
 
 # ---------------------------------------------------------------------------
 # Save metadata.
@@ -82,7 +79,7 @@ class CepheusApp(App):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("ctrl+s", "save_game", "Save"),
         Binding("ctrl+q", "quit", "Quit"),
     ]
@@ -132,9 +129,7 @@ class CepheusApp(App):
         state.character.name = name
         self.engine = Engine(state)
         self.pack = (
-            load_scifi_pack()
-            if config.theme_pack == "scifi"
-            else get_pack(config.theme_pack)
+            load_scifi_pack() if config.theme_pack == "scifi" else get_pack(config.theme_pack)
         )
         self.runner = LifepathRunner(self.engine, self.pack)
         self.campaign_name = name or "unnamed"
@@ -181,9 +176,7 @@ class CepheusApp(App):
     def return_to_main_menu(self) -> None:
         """Pop back to the main menu from the lifepath screen."""
         # Pop until we reach MainMenuScreen (or stack is empty).
-        while self.screen_stack and not isinstance(
-            self.screen, MainMenuScreen
-        ):
+        while self.screen_stack and not isinstance(self.screen, MainMenuScreen):
             self.pop_screen()
         # Refresh save list on the main menu.
         if isinstance(self.screen, MainMenuScreen):
@@ -197,10 +190,7 @@ class CepheusApp(App):
         """Auto-save current game state. Returns the save path or None."""
         if self.engine is None:
             return None
-        safe_name = (
-            self.campaign_name.replace(" ", "_").replace("/", "_")
-            or "unnamed"
-        )
+        safe_name = self.campaign_name.replace(" ", "_").replace("/", "_") or "unnamed"
         path = self.saves_dir / f"{safe_name}.json"
         save(self.engine.state, path)
 

@@ -1,4 +1,5 @@
 """Tests for the command funnel: determinism, validation, event log, audit (AE1)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -7,12 +8,11 @@ import pytest
 
 from src.engine.audit import EventKind, audit_rolls
 from src.engine.commands import (
-    Command,
     Engine,
     RollCharacteristicCommand,
     SetFlagCommand,
 )
-from src.engine.dice import ForcedRoller, LiveRoller, RollResult
+from src.engine.dice import ForcedRoller
 from src.engine.state import GameState
 
 

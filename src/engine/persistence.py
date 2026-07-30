@@ -7,12 +7,13 @@ stepwise migration so older saves upgrade to the current version on the way in.
 
 No pickle, no SQLite — single-player, single-session, small documents.
 """
+
 from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from src.engine.state import GameState
 

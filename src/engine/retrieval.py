@@ -10,6 +10,7 @@ LLM-introduced NPCs/places/items registered as narrative facts in canonical
 state; mechanically inert until any engine check targets them, at which
 point the engine generates stats from rule-set templates (R24, AE9).
 """
+
 from __future__ import annotations
 
 import re
@@ -17,7 +18,6 @@ import re
 from src.engine.commands import Engine
 from src.engine.scene import RatifyFactCommand
 from src.engine.state import GameState, NarrativeFact
-
 
 # ---------------------------------------------------------------------------
 # Configuration.
@@ -130,9 +130,7 @@ class FactRetriever:
     @staticmethod
     def _get_all_facts(state: GameState) -> list[NarrativeFact]:
         """Extract all NarrativeFact entities from state, preserving order."""
-        return [
-            e for e in state.entities if isinstance(e, NarrativeFact)
-        ]
+        return [e for e in state.entities if isinstance(e, NarrativeFact)]
 
     def _entity_match(
         self,
@@ -168,9 +166,7 @@ class FactRetriever:
 
         return matched
 
-    def _recency_slice(
-        self, facts: list[NarrativeFact]
-    ) -> list[NarrativeFact]:
+    def _recency_slice(self, facts: list[NarrativeFact]) -> list[NarrativeFact]:
         """Return the most recent facts (last N in the entity list).
 
         Entities are appended in order, so the last N facts are the most
@@ -202,7 +198,7 @@ def generate_npc_stats(
     rs = ruleset or CepheusRuleSet()
 
     # Standard NPC stats: average characteristics (7 across the board).
-    characteristics = {c: 7 for c in rs.characteristics}
+    characteristics = dict.fromkeys(rs.characteristics, 7)
     # Skill level 1 for a competent NPC.
     skill_level = 1
 
@@ -246,7 +242,5 @@ def ratify_fact_as_npc(
         )
     else:
         # Legacy path: update description directly.
-        fact.description = (
-            f"{fact.description} {stats_description}"
-        ).strip()
+        fact.description = (f"{fact.description} {stats_description}").strip()
     return stats

@@ -5,6 +5,7 @@ pre-mapped to checks), R15 (consequences persist), AE5 (free-text
 classification), R22 (oracle scaffolding), R24/AE9 (fact registration +
 stat generation).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -12,20 +13,12 @@ import pytest
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.scene import (
-    AddInjuryCommand,
-    FreeTextClassification,
-    OracleRollCommand,
     RegisterFactCommand,
-    SceneCheckCommand,
     SceneEngine,
-    SceneOption,
-    SceneScaffold,
 )
 from src.engine.state import CampaignConfig, GameState, Injury, NarrativeFact
 from src.rulesets.cepheus import CepheusRuleSet
-from src.rulesets.profiles import ClassicProfile, NarrativeProfile
 from src.themepacks.base import get_pack
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -48,12 +41,18 @@ def make_engine(queue, profile="narrative", seed=42):
     state.campaign = CampaignConfig(resolution_profile=profile)
     # Give the character some skills and characteristics for checks.
     state.character.characteristics = {
-        "STR": 7, "DEX": 9, "END": 6,
-        "INT": 8, "EDU": 10, "SOC": 5,
+        "STR": 7,
+        "DEX": 9,
+        "END": 6,
+        "INT": 8,
+        "EDU": 10,
+        "SOC": 5,
     }
     state.character.skills = {
-        "Gun Combat": 1, "Persuade": 0,
-        "Stealth": 2, "Investigate": 1,
+        "Gun Combat": 1,
+        "Persuade": 0,
+        "Stealth": 2,
+        "Investigate": 1,
     }
     return Engine(state, roller=ForcedRoller(queue))
 
@@ -114,10 +113,7 @@ class TestSceneScaffoldDeterminism:
         se = SceneEngine(engine, pack)
         se.generate_scaffold()
 
-        oracle_events = [
-            e for e in engine.state.events
-            if e.command_type == "oracle_roll"
-        ]
+        oracle_events = [e for e in engine.state.events if e.command_type == "oracle_roll"]
         assert len(oracle_events) == 2
 
 
@@ -221,12 +217,10 @@ class TestCheckResolution:
         options = se.generate_options(scaffold)
 
         result = se.resolve_scene(scaffold, options[0])
-        consequences = se.apply_consequences(result, scaffold)
+        se.apply_consequences(result, scaffold)
 
         # Check if injury was added.
-        injuries = [
-            e for e in engine.state.entities if isinstance(e, Injury)
-        ]
+        injuries = [e for e in engine.state.entities if isinstance(e, Injury)]
         # A roll of 2 with average difficulty and low DMs should miss badly.
         if result.effect <= -2:
             assert len(injuries) > 0
@@ -242,10 +236,7 @@ class TestCheckResolution:
         result = se.resolve_scene(scaffold, options[0])
         se.apply_consequences(result, scaffold)
 
-        facts = [
-            e for e in engine.state.entities
-            if isinstance(e, NarrativeFact)
-        ]
+        facts = [e for e in engine.state.entities if isinstance(e, NarrativeFact)]
         if result.quality == "strong_hit":
             assert len(facts) > 0
 
@@ -257,10 +248,7 @@ class TestCheckResolution:
         options = se.generate_options(scaffold)
         se.resolve_scene(scaffold, options[0])
 
-        check_events = [
-            e for e in engine.state.events
-            if e.command_type == "scene_check"
-        ]
+        check_events = [e for e in engine.state.events if e.command_type == "scene_check"]
         assert len(check_events) == 1
 
 
@@ -278,9 +266,7 @@ class TestFreeTextClassification:
         se = SceneEngine(engine, pack)
         scaffold = se.generate_scaffold()
 
-        classification = se.classify_freetext(
-            "I bribe the dock officer", scaffold
-        )
+        classification = se.classify_freetext("I bribe the dock officer", scaffold)
 
         assert classification is not None
         assert classification.original_text == "I bribe the dock officer"
@@ -294,9 +280,7 @@ class TestFreeTextClassification:
         se = SceneEngine(engine, pack)
         scaffold = se.generate_scaffold()
 
-        classification = se.classify_freetext(
-            "I fight the guard", scaffold
-        )
+        classification = se.classify_freetext("I fight the guard", scaffold)
 
         assert classification is not None
         assert classification.interpreted_check.skill == "Gun Combat"
@@ -307,9 +291,7 @@ class TestFreeTextClassification:
         se = SceneEngine(engine, pack)
         scaffold = se.generate_scaffold()
 
-        classification = se.classify_freetext(
-            "xyzzy frobnicate", scaffold
-        )
+        classification = se.classify_freetext("xyzzy frobnicate", scaffold)
         assert classification is None
 
     def test_freetext_can_be_resolved(self, pack):
@@ -319,14 +301,10 @@ class TestFreeTextClassification:
         se = SceneEngine(engine, pack)
         scaffold = se.generate_scaffold()
 
-        classification = se.classify_freetext(
-            "I bribe the dock officer", scaffold
-        )
+        classification = se.classify_freetext("I bribe the dock officer", scaffold)
         assert classification is not None
 
-        result = se.resolve_scene(
-            scaffold, classification.interpreted_check
-        )
+        result = se.resolve_scene(scaffold, classification.interpreted_check)
         assert result.skill == "Broker"
         assert result.raw_roll == 10
 
@@ -337,9 +315,7 @@ class TestFreeTextClassification:
         scaffold = se.generate_scaffold()
 
         for keyword in ("fight", "attack", "shoot"):
-            classification = se.classify_freetext(
-                f"I {keyword} the guard", scaffold
-            )
+            classification = se.classify_freetext(f"I {keyword} the guard", scaffold)
             assert classification is not None
             assert classification.interpreted_check.life_threatening is True
 
@@ -350,9 +326,7 @@ class TestFreeTextClassification:
         scaffold = se.generate_scaffold()
 
         for keyword in ("bribe", "persuade", "hack", "investigate"):
-            classification = se.classify_freetext(
-                f"I {keyword} the target", scaffold
-            )
+            classification = se.classify_freetext(f"I {keyword} the target", scaffold)
             assert classification is not None
             assert classification.interpreted_check.life_threatening is False
 
@@ -375,10 +349,7 @@ class TestNarrativeFactRegistration:
             )
         )
 
-        facts = [
-            e for e in engine.state.entities
-            if isinstance(e, NarrativeFact)
-        ]
+        facts = [e for e in engine.state.entities if isinstance(e, NarrativeFact)]
         assert len(facts) == 1
         assert facts[0].name == "Dock Officer Vex"
         assert "corrupt" in facts[0].description
@@ -419,7 +390,8 @@ class TestNarrativeFactRegistration:
         )
 
         fact = next(
-            e for e in engine.state.entities
+            e
+            for e in engine.state.entities
             if isinstance(e, NarrativeFact) and e.name == "Bounty Hunter Kell"
         )
 
@@ -444,8 +416,7 @@ class TestOracleScaffolding:
 
         # Roll 7 on scene_focus -> "Exploration" focus.
         # The result text should contain one of the known focus keywords.
-        known_keywords = ["combat", "social", "exploration", "technical",
-                          "political", "plot twist"]
+        known_keywords = ["combat", "social", "exploration", "technical", "political", "plot twist"]
         assert any(k in scaffold.focus.lower() for k in known_keywords)
 
     def test_scaffold_uses_action_outcome_table(self, pack):
@@ -460,8 +431,8 @@ class TestOracleScaffolding:
     def test_missing_oracle_table_raises(self, pack):
         """Missing oracle table raises KeyError."""
         # Create a pack without scene_focus table.
+        from src.rulesets.base import OracleTable, SkillTableEntry, TableRange
         from src.themepacks.base import LoadedThemePack
-        from src.rulesets.base import OracleTable, TableRange, SkillTableEntry
 
         # Build a minimal pack with only one oracle table.
         entries = [
@@ -511,11 +482,15 @@ class TestFullSceneCycle:
         """Consequences from one scene persist to the next (R15)."""
         # Scene 1: oracle rolls + check roll (low -> miss -> injury).
         # Scene 2: oracle rolls (no check, just scaffold).
-        engine = make_engine([
-            [3, 4], [4, 4],  # Scene 1 oracle
-            [1, 1],           # Scene 1 check (roll 2, severe miss)
-            [5, 5], [3, 3],  # Scene 2 oracle
-        ])
+        engine = make_engine(
+            [
+                [3, 4],
+                [4, 4],  # Scene 1 oracle
+                [1, 1],  # Scene 1 check (roll 2, severe miss)
+                [5, 5],
+                [3, 3],  # Scene 2 oracle
+            ]
+        )
         se = SceneEngine(engine, pack)
 
         # Scene 1.
@@ -523,15 +498,11 @@ class TestFullSceneCycle:
         check1 = se.resolve_scene(result1.scaffold, result1.options[0])
         se.apply_consequences(check1, result1.scaffold)
 
-        injuries_after_scene1 = len([
-            e for e in engine.state.entities if isinstance(e, Injury)
-        ])
+        injuries_after_scene1 = len([e for e in engine.state.entities if isinstance(e, Injury)])
 
         # Scene 2.
-        result2 = se.run_scene()
+        se.run_scene()
 
         # Injuries from scene 1 still present.
-        injuries_after_scene2 = len([
-            e for e in engine.state.entities if isinstance(e, Injury)
-        ])
+        injuries_after_scene2 = len([e for e in engine.state.entities if isinstance(e, Injury)])
         assert injuries_after_scene2 >= injuries_after_scene1

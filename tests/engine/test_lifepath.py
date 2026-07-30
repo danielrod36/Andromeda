@@ -4,6 +4,7 @@ Uses ForcedRoller to control every die, making scenarios fully deterministic.
 Covers R9 (lifepath playable end-to-end), R10 (death mode honored),
 AE2 (Ironman death vs non-Ironman mishap), AE7 (no LLM required).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -13,7 +14,6 @@ from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.lifepath import (
     AdvanceTermCommand,
-    LifepathResult,
     LifepathRunner,
     apply_skill_result,
     lookup_table_result,
@@ -22,7 +22,6 @@ from src.engine.state import CampaignConfig, Character, GameState
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import get_pack
-
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -142,7 +141,12 @@ class TestCompleteLifepath:
 
         # Characteristics rolled.
         assert result.characteristics == {
-            "STR": 9, "DEX": 7, "END": 8, "INT": 9, "EDU": 7, "SOC": 6
+            "STR": 9,
+            "DEX": 7,
+            "END": 8,
+            "INT": 9,
+            "EDU": 7,
+            "SOC": 6,
         }
 
         # Qualification succeeded.
@@ -182,7 +186,12 @@ class TestCompleteLifepath:
     def test_all_events_are_audited(self, pack):
         """Every lifepath roll appears in the audit log with full inputs (AE1)."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [4, 3], [4, 3], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [4, 3],
+            [4, 3],
+            [4, 2],  # chars
             [4, 3],  # qualification (success)
             [4, 3],  # survival (success)
             [5, 3],  # advancement (success)
@@ -213,7 +222,12 @@ class TestIronmanDeath:
     def test_failed_survival_kills_character_ironman(self, pack):
         """Ironman mode: failed survival -> alive=False, lifepath ends (AE2)."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [4, 3], [4, 3], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [4, 3],
+            [4, 3],
+            [4, 2],  # chars
             [4, 3],  # qualification: INT 7 + DM 0 = 7 >= 5 -> success
             [1, 1],  # survival: END 8 + DM 0 = 2 < 5 -> DEATH
         ]
@@ -237,7 +251,12 @@ class TestNonIronmanMishap:
     def test_failed_survival_mishap_narrative_mode(self, pack):
         """Narrative mode: failed survival -> mishap, mustering out proceeds (AE2)."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [4, 3], [4, 3], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [4, 3],
+            [4, 3],
+            [4, 2],  # chars
             [4, 3],  # qualification -> success
             [1, 1],  # survival -> 2 < 5 -> mishap
             # Mustering out (1 term, rank 0)
@@ -261,7 +280,12 @@ class TestNonIronmanMishap:
     def test_failed_survival_mishap_checkpoint_mode(self, pack):
         """Checkpoint mode behaves like narrative for mishap (AE2)."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [4, 3], [4, 3], [4, 2],
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [4, 3],
+            [4, 3],
+            [4, 2],
             [4, 3],  # qual success
             [1, 2],  # survival: 3 < 5 -> mishap
             # Mustering out (1 term, rank 0)
@@ -337,26 +361,37 @@ class TestAging:
         # Terms 1-3 (ages 18->30): survival, advancement, skills each.
         # No aging checks (age < 34).
         for _term in range(3):
-            queue.extend([
-                [4, 3],  # Survival: END 8 + DM 0 = 7 >= 5 -> success
-                [4, 3],  # Advancement: END 8 + DM 0 = 7 >= 7 -> success
+            queue.extend(
+                [
+                    [4, 3],  # Survival: END 8 + DM 0 = 7 >= 5 -> success
+                    [4, 3],  # Advancement: END 8 + DM 0 = 7 >= 7 -> success
+                    [5, 3],  # Skill 1
+                    [5, 3],  # Skill 2 (advancement -> extra)
+                ]
+            )
+        # Term 4 (age 30->34): survival, advancement, skills, THEN aging.
+        queue.extend(
+            [
+                [4, 3],  # Survival
+                [4, 3],  # Advancement
                 [5, 3],  # Skill 1
                 [5, 3],  # Skill 2 (advancement -> extra)
-            ])
-        # Term 4 (age 30->34): survival, advancement, skills, THEN aging.
-        queue.extend([
-            [4, 3],  # Survival
-            [4, 3],  # Advancement
-            [5, 3],  # Skill 1
-            [5, 3],  # Skill 2 (advancement -> extra)
-            # Aging check: roll 2D6 vs 8
-            [2, 3],  # 5 < 8 -> aging! Physical stats reduced.
-        ])
+                # Aging check: roll 2D6 vs 8
+                [2, 3],  # 5 < 8 -> aging! Physical stats reduced.
+            ]
+        )
         # Mustering out (4 terms, rank 0 since drifter has no ranks)
-        queue.extend([
-            [1], [1], [1],  # Cash: 3 rolls
-            [1], [1], [1], [1],  # Material: 4 rolls
-        ])
+        queue.extend(
+            [
+                [1],
+                [1],
+                [1],  # Cash: 3 rolls
+                [1],
+                [1],
+                [1],
+                [1],  # Material: 4 rolls
+            ]
+        )
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
         result = runner.run_lifepath("drifter", num_terms=4)
@@ -380,23 +415,37 @@ class TestAging:
     def test_aging_exceptional_failure_reduces_all(self, pack):
         """Natural 2 on aging roll reduces ALL characteristics."""
         queue = [
-            [5, 3], [5, 3], [5, 3], [2, 1], [2, 1], [4, 2],  # chars
+            [5, 3],
+            [5, 3],
+            [5, 3],
+            [2, 1],
+            [2, 1],
+            [4, 2],  # chars
             [3, 2],  # Drifter qualification success
         ]
         for _term in range(3):
             queue.extend([[4, 3], [4, 3], [5, 3], [5, 3]])
         # Term 4 with exceptional aging failure.
-        queue.extend([
-            [4, 3],  # survival
-            [4, 3],  # advancement
-            [5, 3],  # skill 1
-            [5, 3],  # skill 2
-            [1, 1],  # aging: natural 2 < 8 -> ALL reduced
-        ])
-        queue.extend([
-            [1], [1], [1],  # cash
-            [1], [1], [1], [1],  # material
-        ])
+        queue.extend(
+            [
+                [4, 3],  # survival
+                [4, 3],  # advancement
+                [5, 3],  # skill 1
+                [5, 3],  # skill 2
+                [1, 1],  # aging: natural 2 < 8 -> ALL reduced
+            ]
+        )
+        queue.extend(
+            [
+                [1],
+                [1],
+                [1],  # cash
+                [1],
+                [1],
+                [1],
+                [1],  # material
+            ]
+        )
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
         result = runner.run_lifepath("drifter", num_terms=4)
@@ -410,19 +459,36 @@ class TestAging:
     def test_aging_success_no_reduction(self, pack):
         """Successful aging roll (>= 8) causes no reductions."""
         queue = [
-            [5, 3], [5, 3], [5, 3], [2, 1], [2, 1], [4, 2],
+            [5, 3],
+            [5, 3],
+            [5, 3],
+            [2, 1],
+            [2, 1],
+            [4, 2],
             [3, 2],  # qual
         ]
         for _term in range(3):
             queue.extend([[4, 3], [4, 3], [5, 3], [5, 3]])
-        queue.extend([
-            [4, 3], [4, 3], [5, 3], [5, 3],
-            [5, 4],  # aging: 9 >= 8 -> no effect
-        ])
-        queue.extend([
-            [1], [1], [1],
-            [1], [1], [1], [1],
-        ])
+        queue.extend(
+            [
+                [4, 3],
+                [4, 3],
+                [5, 3],
+                [5, 3],
+                [5, 4],  # aging: 9 >= 8 -> no effect
+            ]
+        )
+        queue.extend(
+            [
+                [1],
+                [1],
+                [1],
+                [1],
+                [1],
+                [1],
+                [1],
+            ]
+        )
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
         result = runner.run_lifepath("drifter", num_terms=4)
@@ -444,29 +510,40 @@ class TestMusteringOut:
     def test_cash_benefits_with_dm_per_term_and_rank(self, pack):
         """Cash benefit rolls include DM per term and per rank."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [5, 4], [4, 3], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [5, 4],
+            [4, 3],
+            [4, 2],  # chars
             [4, 3],  # qual: INT 9 + DM 1 = 7 >= 5 -> success
         ]
         # 2 terms with successful advancement each.
         for _term in range(2):
-            queue.extend([
-                [4, 3],  # survival
-                [5, 3],  # advancement -> rank up
-                [5, 3],  # skill 1
-                [5, 3],  # skill 2 (advancement -> extra)
-            ])
+            queue.extend(
+                [
+                    [4, 3],  # survival
+                    [5, 3],  # advancement -> rank up
+                    [5, 3],  # skill 1
+                    [5, 3],  # skill 2 (advancement -> extra)
+                ]
+            )
         # Mustering out: 2 terms, rank 2.
         # Navy cash: dm_per_term=1, dm_per_rank=1. DM = 2 + 2 = 4.
         # min(2, 3) = 2 rolls.
-        queue.extend([
-            [1],  # 1 + 4 = 5 -> "40,000 Cr"
-            [2],  # 2 + 4 = 6 -> "50,000 Cr"
-        ])
+        queue.extend(
+            [
+                [1],  # 1 + 4 = 5 -> "40,000 Cr"
+                [2],  # 2 + 4 = 6 -> "50,000 Cr"
+            ]
+        )
         # Material: 2 rolls, DM = 0.
-        queue.extend([
-            [1],  # Weapon
-            [6],  # TAS Membership
-        ])
+        queue.extend(
+            [
+                [1],  # Weapon
+                [6],  # TAS Membership
+            ]
+        )
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
         result = runner.run_lifepath("navy", num_terms=2)
@@ -483,7 +560,12 @@ class TestMusteringOut:
     def test_zero_terms_mustering_out(self, pack):
         """Character with 0 terms gets no benefits."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [2, 1], [2, 1], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [2, 1],
+            [2, 1],
+            [4, 2],  # chars
             # Qualification: INT 3, DM -1, target 5 -> fail
             [1, 1],  # 2 + (-1) = 1 < 5 -> fail
             # Drifter qual: END 8, DM 0, target 3
@@ -508,7 +590,12 @@ class TestNoRanksCareer:
     def test_scout_advancement_no_rank_increase(self, pack):
         """Scout has empty ranks — advancement succeeds but rank stays 0."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [5, 4], [4, 3], [4, 2],  # chars
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [5, 4],
+            [4, 3],
+            [4, 2],  # chars
             # Scout qualification: INT 9, DM +1, target 6
             [4, 3],  # 7 + 1 = 8 >= 6 -> success
             # Term 1
@@ -539,23 +626,29 @@ class TestDeterminism:
     def test_same_queue_produces_identical_state(self, pack):
         """Two runners with the same ForcedRoller queue produce identical state."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [5, 4], [4, 3], [4, 2],
+            [5, 3],
             [4, 3],
-            [4, 3], [5, 3], [5, 3], [4, 3],
-            [3], [2],
+            [5, 3],
+            [5, 4],
+            [4, 3],
+            [4, 2],
+            [4, 3],
+            [4, 3],
+            [5, 3],
+            [5, 3],
+            [4, 3],
+            [3],
+            [2],
         ]
         engine_a = make_engine(list(queue))
         engine_b = make_engine(list(queue))
         runner_a = LifepathRunner(engine_a, pack)
         runner_b = LifepathRunner(engine_b, pack)
 
-        result_a = runner_a.run_lifepath("navy", num_terms=1)
-        result_b = runner_b.run_lifepath("navy", num_terms=1)
+        runner_a.run_lifepath("navy", num_terms=1)
+        runner_b.run_lifepath("navy", num_terms=1)
 
-        assert (
-            engine_a.state.model_dump_json()
-            == engine_b.state.model_dump_json()
-        )
+        assert engine_a.state.model_dump_json() == engine_b.state.model_dump_json()
 
 
 # ---------------------------------------------------------------------------
@@ -605,8 +698,12 @@ class TestAdvanceTermCommand:
         state = GameState.new(seed=42)
         state.campaign = CampaignConfig(death_mode="narrative")
         state.character.characteristics = {
-            "STR": 7, "DEX": 9, "END": 8,
-            "INT": 8, "EDU": 10, "SOC": 5,
+            "STR": 7,
+            "DEX": 9,
+            "END": 8,
+            "INT": 8,
+            "EDU": 10,
+            "SOC": 5,
         }
         state.character.career = "navy"
         # Queue: survival roll (low roll -> mishap, returns early after advance).
@@ -619,7 +716,8 @@ class TestAdvanceTermCommand:
 
         # The advance_term event should be in the log.
         advance_events = [
-            e for e in engine.state.events[initial_events:]
+            e
+            for e in engine.state.events[initial_events:]
             if e.command_type == "lifepath_advance_term"
         ]
         assert len(advance_events) == 1

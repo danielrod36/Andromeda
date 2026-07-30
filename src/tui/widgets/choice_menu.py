@@ -4,7 +4,10 @@ Options display fiction label + compact mechanics suffix (skill, difficulty,
 characteristic) so players make informed decisions. Number keys 1-9 select
 directly; Tab cycles focus between panels.
 """
+
 from __future__ import annotations
+
+from typing import ClassVar
 
 from textual.binding import Binding
 from textual.containers import Container
@@ -37,9 +40,8 @@ class ChoiceMenuWidget(Container):
     """
 
     # Number-key bindings for direct option selection.
-    BINDINGS = [
-        Binding(str(n), f"select_number({n - 1})", show=False)
-        for n in range(1, 10)
+    BINDINGS: ClassVar[list[Binding]] = [
+        Binding(str(n), f"select_number({n - 1})", show=False) for n in range(1, 10)
     ]
 
     def compose(self) -> None:

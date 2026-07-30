@@ -9,6 +9,7 @@ Covers:
 - Snapshot persistence: save game mid-scene, relaunch, rewind still works.
 - RNG hydration works correctly after model_copy.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -16,7 +17,6 @@ import pytest
 from src.engine.checkpoint import CheckpointManager
 from src.engine.persistence import load, save
 from src.engine.state import CampaignConfig, GameState, NarrativeFact
-
 
 # ---------------------------------------------------------------------------
 # Helpers.
@@ -30,8 +30,12 @@ def make_state(seed: int = 42, death_mode: str = "checkpoint") -> GameState:
     state.character.name = "Captain Vega"
     state.character.age = 34
     state.character.characteristics = {
-        "STR": 7, "DEX": 9, "END": 6,
-        "INT": 8, "EDU": 10, "SOC": 5,
+        "STR": 7,
+        "DEX": 9,
+        "END": 6,
+        "INT": 8,
+        "EDU": 10,
+        "SOC": 5,
     }
     state.character.skills = {"Gun Combat": 1, "Pilot": 2}
     state.narrative_log.append("Campaign started.")
@@ -198,12 +202,15 @@ class TestAuditLogPreserved:
 
         # Simulate events during the scene by appending directly.
         from src.engine.audit import Event
-        state.events.append(Event(
-            seq=0,
-            kind=EventKind.STATE_CHANGE,
-            command_type="test_event",
-            description="Something happened during the scene.",
-        ))
+
+        state.events.append(
+            Event(
+                seq=0,
+                kind=EventKind.STATE_CHANGE,
+                command_type="test_event",
+                description="Something happened during the scene.",
+            )
+        )
 
         restored = mgr.restore(state)
 
@@ -219,24 +226,28 @@ class TestAuditLogPreserved:
         state = make_state()
         # Add 3 events before snapshot.
         for i in range(3):
-            state.events.append(Event(
-                seq=i,
-                kind=EventKind.STATE_CHANGE,
-                command_type="pre",
-                description=f"Pre-scene event {i}",
-            ))
+            state.events.append(
+                Event(
+                    seq=i,
+                    kind=EventKind.STATE_CHANGE,
+                    command_type="pre",
+                    description=f"Pre-scene event {i}",
+                )
+            )
 
         mgr = CheckpointManager()
         mgr.take_snapshot(state)
 
         # Add 2 events during the scene.
         for i in range(2):
-            state.events.append(Event(
-                seq=3 + i,
-                kind=EventKind.STATE_CHANGE,
-                command_type="during",
-                description=f"During-scene event {i}",
-            ))
+            state.events.append(
+                Event(
+                    seq=3 + i,
+                    kind=EventKind.STATE_CHANGE,
+                    command_type="during",
+                    description=f"During-scene event {i}",
+                )
+            )
 
         restored = mgr.restore(state)
 
@@ -246,7 +257,7 @@ class TestAuditLogPreserved:
 
     def test_empty_events_at_snapshot_still_works(self):
         """Restore works when no events existed at snapshot time."""
-        from src.engine.audit import Event, EventKind
+        from src.engine.audit import EventKind
 
         state = make_state()
         mgr = CheckpointManager()

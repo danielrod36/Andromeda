@@ -9,9 +9,12 @@ and the narrative resolution profile (strong hit / weak hit / miss tiers).
 The characteristic DM ladder maps raw stat values (0-24+) to dice modifiers
 per the CE SRD.
 """
+
 from __future__ import annotations
 
-from src.rulesets.base import CheckOutcome, OutcomeQuality
+from typing import ClassVar
+
+from src.rulesets.base import CheckOutcome
 from src.rulesets.profiles import (
     ClassicProfile,
     NarrativeProfile,
@@ -57,7 +60,7 @@ class CepheusRuleSet:
 
     _characteristics: tuple[str, ...] = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 
-    _difficulty_ladder: dict[str, int] = {
+    _difficulty_ladder: ClassVar[dict[str, int]] = {
         "easy": 4,
         "routine": 2,
         "average": 0,
@@ -71,7 +74,7 @@ class CepheusRuleSet:
     _death_modes: tuple[str, ...] = ("narrative", "ironman", "checkpoint")
 
     #: Profile strategy instances keyed by profile name (U6 strategy pattern).
-    _profile_instances: dict[str, ResolutionProfile] = {
+    _profile_instances: ClassVar[dict[str, ResolutionProfile]] = {
         "classic": ClassicProfile(),
         "narrative": NarrativeProfile(),
     }
@@ -119,8 +122,7 @@ class CepheusRuleSet:
         """
         if difficulty not in self._difficulty_ladder:
             raise KeyError(
-                f"Unknown difficulty '{difficulty}'. "
-                f"Known: {sorted(self._difficulty_ladder)}"
+                f"Unknown difficulty '{difficulty}'. Known: {sorted(self._difficulty_ladder)}"
             )
         return self._difficulty_ladder[difficulty]
 
@@ -175,8 +177,7 @@ class CepheusRuleSet:
         """
         if profile not in self._profile_instances:
             raise ValueError(
-                f"Unknown resolution profile '{profile}'. "
-                f"Known: {sorted(self._profile_instances)}"
+                f"Unknown resolution profile '{profile}'. Known: {sorted(self._profile_instances)}"
             )
         dm = self.difficulty_modifier(difficulty)
         return self._profile_instances[profile].resolve(roll_total, dm)

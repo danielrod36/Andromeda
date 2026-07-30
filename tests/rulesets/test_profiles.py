@@ -8,9 +8,8 @@ Verifies:
 - Complication/consequence table lookup pattern (caller responsibility)
 - Integration with CepheusRuleSet.resolve_check delegation
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from src.rulesets.base import (
     CheckOutcome,
@@ -21,15 +20,11 @@ from src.rulesets.base import (
 )
 from src.rulesets.cepheus import CepheusRuleSet
 from src.rulesets.profiles import (
-    DM_CLAMP_MAX,
-    DM_CLAMP_MIN,
-    NARRATIVE_STRONG_HIT_THRESHOLD,
     ClassicProfile,
     NarrativeProfile,
     ResolutionProfile,
     clamp_dm,
 )
-
 
 # ---------------------------------------------------------------------------
 # Scenario 1: Band probabilities — PbtA-compatible distribution at DM +0.
@@ -204,10 +199,7 @@ def test_weak_hit_signals_complication_lookup():
     # Caller pattern: on WEAK_HIT, roll on complication table.
     # (Simulated here with a fixed roll of 7.)
     complication_roll = 7
-    entry = next(
-        e for e in table.entries.entries
-        if e.min <= complication_roll <= e.max
-    )
+    entry = next(e for e in table.entries.entries if e.min <= complication_roll <= e.max)
     assert entry.result == "Complication arises"
 
 
@@ -222,10 +214,7 @@ def test_miss_signals_consequence_lookup():
 
     # Caller pattern: on MISS, roll on consequence table.
     consequence_roll = 3
-    entry = next(
-        e for e in table.entries.entries
-        if e.min <= consequence_roll <= e.max
-    )
+    entry = next(e for e in table.entries.entries if e.min <= consequence_roll <= e.max)
     assert entry.result == "Minor setback"
 
 
@@ -377,9 +366,9 @@ def test_narrative_weak_hit_boundary():
 def test_narrative_success_flags():
     """Strong hit and weak hit are successes; miss is failure."""
     profile = NarrativeProfile()
-    assert profile.resolve(11, dm=0).success is True   # strong
-    assert profile.resolve(8, dm=0).success is True    # weak
-    assert profile.resolve(4, dm=0).success is False   # miss
+    assert profile.resolve(11, dm=0).success is True  # strong
+    assert profile.resolve(8, dm=0).success is True  # weak
+    assert profile.resolve(4, dm=0).success is False  # miss
 
 
 # ---------------------------------------------------------------------------

@@ -1,7 +1,9 @@
 """Campaign configuration screen — rule-set, theme pack, profile, death mode (R16)."""
+
 from __future__ import annotations
 
 import hashlib
+from typing import ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -62,7 +64,7 @@ class CampaignConfigScreen(Screen):
     }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("escape", "app.pop_screen", "Back"),
     ]
 
@@ -86,20 +88,14 @@ class CampaignConfigScreen(Screen):
             yield Label("Resolution Profile:", classes="config-label")
             yield OptionList(
                 Option("Classic [dim](2D6+DM >= 8)[/dim]", id="classic"),
-                Option(
-                    "Narrative [dim](PbtA three-tier)[/dim]", id="narrative"
-                ),
+                Option("Narrative [dim](PbtA three-tier)[/dim]", id="narrative"),
                 id="profile-list",
             )
 
             yield Label("Death Mode:", classes="config-label")
             yield OptionList(
-                Option(
-                    "Narrative [dim](mishap on failure)[/dim]", id="narrative"
-                ),
-                Option(
-                    "Ironman [dim](death on failure)[/dim]", id="ironman"
-                ),
+                Option("Narrative [dim](mishap on failure)[/dim]", id="narrative"),
+                Option("Ironman [dim](death on failure)[/dim]", id="ironman"),
                 Option(
                     "Checkpoint [dim](mishap, checkpoint save)[/dim]",
                     id="checkpoint",
@@ -115,9 +111,7 @@ class CampaignConfigScreen(Screen):
 
             with Horizontal(id="config-buttons"):
                 yield Button("Back", id="back-btn")
-                yield Button(
-                    "Start", id="start-btn", variant="primary"
-                )
+                yield Button("Start", id="start-btn", variant="primary")
 
         yield Footer()
 

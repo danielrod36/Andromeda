@@ -3,27 +3,20 @@
 Covers data validity, referential integrity, pack discovery, career table
 completeness, and edge cases for invalid data.
 """
+
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import patch
-
 import pytest
-import yaml
 
 from src.rulesets.base import (
-    CareerData,
-    OutcomeQuality,
     ThemePack,
 )
 from src.themepacks.base import (
     PackLoadError,
-    ThemePackLoader,
     discover_packs,
     validate_pack,
 )
 from src.themepacks.cepheus_scifi import load_scifi_pack
-
 
 # ---------------------------------------------------------------------------
 # Scenario 2: Sci-fi pack data validity — careers have required fields.
@@ -66,9 +59,19 @@ def test_all_expected_careers_present(scifi_pack):
     assert ids == expected, f"Missing: {expected - ids}, Extra: {ids - expected}"
 
 
-@pytest.mark.parametrize("career_id", [
-    "navy", "army", "marines", "merchant", "scout", "agent", "noble", "drifter",
-])
+@pytest.mark.parametrize(
+    "career_id",
+    [
+        "navy",
+        "army",
+        "marines",
+        "merchant",
+        "scout",
+        "agent",
+        "noble",
+        "drifter",
+    ],
+)
 def test_career_has_required_fields(scifi_pack, career_id):
     """Each career has qualification, survival, advancement, and skill tables."""
     career = scifi_pack.careers[career_id]
@@ -88,9 +91,19 @@ def test_career_has_required_fields(scifi_pack, career_id):
     assert len(career.skill_tables) == 3
 
 
-@pytest.mark.parametrize("career_id", [
-    "navy", "army", "marines", "merchant", "scout", "agent", "noble", "drifter",
-])
+@pytest.mark.parametrize(
+    "career_id",
+    [
+        "navy",
+        "army",
+        "marines",
+        "merchant",
+        "scout",
+        "agent",
+        "noble",
+        "drifter",
+    ],
+)
 def test_career_skill_tables_have_contiguous_ranges(scifi_pack, career_id):
     """Every skill table in every career covers 2D6 (2-12) contiguously."""
     career = scifi_pack.careers[career_id]
@@ -126,22 +139,19 @@ def test_all_career_skills_exist_in_skill_definitions(scifi_pack):
             for entry in table.entries.entries:
                 result = entry.result
                 # Skip characteristic increases (e.g. "+1 STR")
-                if result.startswith("+") or result.startswith("-"):
+                if result.startswith(("+", "-")):
                     continue
                 # Strip level suffixes like "Pilot-1" or "Gunnery (Turrets)"
                 skill_key = result.lower().replace(" ", "_").replace("(", "").replace(")", "")
                 assert skill_key in defined_skills or result in defined_skills, (
-                    f"Career '{career_id}' references skill '{result}' "
-                    f"not defined in skills"
+                    f"Career '{career_id}' references skill '{result}' not defined in skills"
                 )
 
 
 def test_oracle_tables_have_contiguous_ranges(scifi_pack):
     """Every oracle table covers its full die range contiguously."""
     for table_id, table in scifi_pack.oracle_tables.items():
-        assert table.entries.is_contiguous(), (
-            f"Oracle table '{table_id}' has non-contiguous ranges"
-        )
+        assert table.entries.is_contiguous(), f"Oracle table '{table_id}' has non-contiguous ranges"
 
 
 def test_complication_tables_have_contiguous_ranges(scifi_pack):
@@ -164,8 +174,7 @@ def test_skills_reference_valid_careers(scifi_pack):
     for skill_id, skill in scifi_pack.skills.items():
         if skill.career:
             assert skill.career in career_ids, (
-                f"Skill '{skill_id}' references career '{skill.career}' "
-                f"which does not exist"
+                f"Skill '{skill_id}' references career '{skill.career}' which does not exist"
             )
 
 

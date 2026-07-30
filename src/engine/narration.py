@@ -7,6 +7,7 @@ configured.
 Templates reference career name, skill names, characteristic names, and roll
 margins to produce contextual prose that reflects the mechanical outcome.
 """
+
 from __future__ import annotations
 
 from src.engine.lifepath import (
@@ -36,10 +37,7 @@ class Narrator:
                     f"exams and are accepted with honors."
                 )
             else:
-                return (
-                    f"You pass the {result.career_name} qualification "
-                    f"and begin your career."
-                )
+                return f"You pass the {result.career_name} qualification and begin your career."
         else:
             return (
                 f"Your application for the {result.career_name} is rejected "
@@ -52,10 +50,7 @@ class Narrator:
 
     def narrate_term(self, result: TermResult) -> str:
         """Produce one-line prose for a single term's mechanical outcome."""
-        parts: list[str] = [
-            f"Term {result.term_number}: "
-            f"You serve as a {result.career_name}."
-        ]
+        parts: list[str] = [f"Term {result.term_number}: You serve as a {result.career_name}."]
 
         # Survival outcome.
         if result.died:
@@ -100,9 +95,7 @@ class Narrator:
 
         # Aging effects.
         if result.aging_reductions:
-            reduced = ", ".join(
-                f"{k} -{v}" for k, v in result.aging_reductions.items()
-            )
+            reduced = ", ".join(f"{k} -{v}" for k, v in result.aging_reductions.items())
             parts.append(f"The years take their toll ({reduced}).")
 
         return " ".join(parts)
@@ -113,8 +106,10 @@ class Narrator:
 
     def narrate_mustering_out(self, result: MusteringOutResult) -> str:
         parts: list[str] = [
-            f"After {result.terms_served} term(s) of service as a "
-            f"{result.career_name}, you muster out."
+            (
+                f"After {result.terms_served} term(s) of service as a "
+                f"{result.career_name}, you muster out."
+            )
         ]
         if result.cash_benefits:
             parts.append(f"Cash: {', '.join(result.cash_benefits)}.")
@@ -131,9 +126,7 @@ class Narrator:
         lines: list[str] = []
 
         # Characteristics summary.
-        char_line = ", ".join(
-            f"{k} {v}" for k, v in result.characteristics.items()
-        )
+        char_line = ", ".join(f"{k} {v}" for k, v in result.characteristics.items())
         lines.append(f"Characteristics: {char_line}.")
 
         if result.qualification:

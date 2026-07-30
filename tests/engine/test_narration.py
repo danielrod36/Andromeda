@@ -3,6 +3,7 @@
 Verifies that the Narrator produces contextual one-line prose referencing
 the mechanical outcome — no LLM required.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -11,11 +12,10 @@ from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.lifepath import (
     LifepathRunner,
+    MusteringOutResult,
     QualificationResult,
     SkillGain,
     TermResult,
-    MusteringOutResult,
-    LifepathResult,
 )
 from src.engine.narration import Narrator
 from src.engine.state import CampaignConfig, GameState
@@ -115,10 +115,8 @@ class TestNarrateTerm:
             rank_after=1,
             rank_title="Ensign",
             skill_gains=[
-                SkillGain("Personal Development", 8, "+1 EDU",
-                          "characteristic", "EDU"),
-                SkillGain("Service Skills", 7, "pilot_small_craft",
-                          "skill", "pilot_small_craft"),
+                SkillGain("Personal Development", 8, "+1 EDU", "characteristic", "EDU"),
+                SkillGain("Service Skills", 7, "pilot_small_craft", "skill", "pilot_small_craft"),
             ],
         )
         line = narrator.narrate_term(result)
@@ -240,12 +238,25 @@ class TestNarrateLifepath:
     def test_full_lifepath_produces_multiple_lines(self, pack):
         """End-to-end lifepath with narration produces coherent prose (AE7)."""
         queue = [
-            [6, 3], [4, 3], [5, 3], [5, 4], [4, 3], [4, 2],  # chars
+            [6, 3],
+            [4, 3],
+            [5, 3],
+            [5, 4],
+            [4, 3],
+            [4, 2],  # chars
             [3, 2],  # qual
-            [4, 3], [5, 3], [5, 3], [4, 3],  # term 1: surv + adv + 2 skills
-            [3, 3], [4, 4], [6, 3], [6, 4],  # term 2: surv + adv + 2 skills
-            [1], [1],  # cash
-            [3], [5],  # material
+            [4, 3],
+            [5, 3],
+            [5, 3],
+            [4, 3],  # term 1: surv + adv + 2 skills
+            [3, 3],
+            [4, 4],
+            [6, 3],
+            [6, 4],  # term 2: surv + adv + 2 skills
+            [1],
+            [1],  # cash
+            [3],
+            [5],  # material
         ]
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
@@ -256,19 +267,24 @@ class TestNarrateLifepath:
 
         assert len(lines) >= 4  # chars, qual, 2 terms, mustering out
         # Characteristics line.
-        assert any("STR" in l for l in lines)
+        assert any("STR" in line for line in lines)
         # Qualification line.
-        assert any("Navy" in l for l in lines)
+        assert any("Navy" in line for line in lines)
         # Term lines.
-        assert any("Term 1" in l for l in lines)
-        assert any("Term 2" in l for l in lines)
+        assert any("Term 1" in line for line in lines)
+        assert any("Term 2" in line for line in lines)
         # Mustering out line.
-        assert any("muster out" in l.lower() for l in lines)
+        assert any("muster out" in line.lower() for line in lines)
 
     def test_death_lifepath_narration(self, pack):
         """Ironman death produces death narration."""
         queue = [
-            [5, 3], [4, 3], [5, 3], [4, 3], [4, 3], [4, 2],
+            [5, 3],
+            [4, 3],
+            [5, 3],
+            [4, 3],
+            [4, 3],
+            [4, 2],
             [4, 3],  # qual success
             [1, 1],  # survival -> death
         ]
@@ -279,5 +295,5 @@ class TestNarrateLifepath:
         narrator = Narrator()
         lines = narrator.narrate_lifepath(result)
 
-        assert any("do not survive" in l for l in lines)
-        assert any("did not survive" in l for l in lines)
+        assert any("do not survive" in line for line in lines)
+        assert any("did not survive" in line for line in lines)

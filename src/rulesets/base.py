@@ -9,13 +9,13 @@ Data models (CareerData, SkillData, etc.) are Pydantic BaseModels used at
 load time for validation. The loaded pack object exposes them through the
 ThemePack Protocol's properties.
 """
+
 from __future__ import annotations
 
 from enum import Enum
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Enums shared across rule-sets.
@@ -57,8 +57,7 @@ class SkillTableEntry(BaseModel):
     def _check_range(self) -> SkillTableEntry:
         if self.min > self.max:
             raise ValueError(
-                f"Table entry min ({self.min}) > max ({self.max}) "
-                f"for result '{self.result}'"
+                f"Table entry min ({self.min}) > max ({self.max}) for result '{self.result}'"
             )
         return self
 

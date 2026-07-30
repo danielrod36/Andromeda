@@ -8,6 +8,7 @@ The LifepathRunner orchestrates the sequence and handles death-mode branching.
 
 No LLM required — this is the standalone v0.1 chargen layer (AE7, R9, R10).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,7 +16,7 @@ from typing import ClassVar
 
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine, RollCharacteristicCommand
-from src.engine.dice import RollResult, Roller
+from src.engine.dice import Roller, RollResult
 from src.engine.state import Character, GameState
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
@@ -31,9 +32,7 @@ _AGING_TARGET = 8
 # ---------------------------------------------------------------------------
 
 
-def lookup_table_result(
-    entries: list[SkillTableEntry], roll: int
-) -> SkillTableEntry:
+def lookup_table_result(entries: list[SkillTableEntry], roll: int) -> SkillTableEntry:
     """Find the table entry matching the roll value.
 
     If the roll falls outside the table range (after DMs), clamp to the
@@ -321,10 +320,7 @@ class SkillTableRollCommand(Command):
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
-            description=(
-                f"Skill roll ({self.table_name}): "
-                f"{roll.total} -> {entry.result}"
-            ),
+            description=(f"Skill roll ({self.table_name}): {roll.total} -> {entry.result}"),
             roll=roll,
             changes={
                 "table_name": self.table_name,
@@ -350,10 +346,7 @@ class AgingCommand(Command):
         reductions: dict[str, int] = {}
         if not success:
             raw = sum(roll.rolls)
-            if raw <= 2:
-                stats = _CHARACTERISTICS
-            else:
-                stats = _PHYSICAL_CHARACTERISTICS
+            stats = _CHARACTERISTICS if raw <= 2 else _PHYSICAL_CHARACTERISTICS
             for stat in stats:
                 current = state.character.characteristics.get(stat, 0)
                 if current > 1:
@@ -387,9 +380,7 @@ class BenefitRollCommand(Command):
     dm: int = 0
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
-        return roller.roll(
-            "lifepath", self.num_dice, self.die_size, modifiers=self.dm
-        )
+        return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         assert roll is not None
@@ -572,9 +563,7 @@ class LifepathRunner:
         result.age_after = ac["age_after"]
         result.rank_after = result.rank_before
 
-    def run_advancement_step(
-        self, career_id: str, result: TermResult
-    ) -> None:
+    def run_advancement_step(self, career_id: str, result: TermResult) -> None:
         """Roll advancement check and update rank.
 
         Modifies *result* in place.  Should only be called after a
@@ -609,9 +598,7 @@ class LifepathRunner:
             num_rolls += 1
         return num_rolls
 
-    def run_skill_roll_step(
-        self, career_id: str, result: TermResult, table_name: str
-    ) -> SkillGain:
+    def run_skill_roll_step(self, career_id: str, result: TermResult, table_name: str) -> SkillGain:
         """Roll one skill on the chosen table.
 
         Appends a :class:`SkillGain` to ``result.skill_gains`` and
@@ -661,10 +648,7 @@ class LifepathRunner:
         """Set rank title based on current rank. Call after all steps."""
         career = self._get_career(career_id)
         if career.ranks:
-            matching = [
-                r for r in career.ranks
-                if r.rank == self.engine.state.character.rank
-            ]
+            matching = [r for r in career.ranks if r.rank == self.engine.state.character.rank]
             if matching:
                 result.rank_title = matching[0].title
 
@@ -697,10 +681,7 @@ class LifepathRunner:
         career = self._get_career(career_id)
         table_names = [t.name for t in career.skill_tables]
         if skill_table_choices is None:
-            skill_table_choices = [
-                table_names[i % len(table_names)]
-                for i in range(num_rolls)
-            ]
+            skill_table_choices = [table_names[i % len(table_names)] for i in range(num_rolls)]
 
         for table_name in skill_table_choices[:num_rolls]:
             self.run_skill_roll_step(career_id, result, table_name)
@@ -816,9 +797,7 @@ class LifepathRunner:
 
         # 3. Terms.
         for term_num in range(1, num_terms + 1):
-            term_result = self.run_term(
-                career_id, term_num, skill_table_choices
-            )
+            term_result = self.run_term(career_id, term_num, skill_table_choices)
             result.terms.append(term_result)
 
             if term_result.died:

@@ -4,6 +4,7 @@ These templates assemble the system prompt and user-turn prompts from the
 curated state view and mechanical events (R11, R19). They never expose raw
 dice, RNG state, or audit internals.
 """
+
 from __future__ import annotations
 
 import json
@@ -99,14 +100,10 @@ def build_term_facts(term_result) -> list[str]:
 
     # Survival.
     if term_result.died:
-        facts.append(
-            "You did not survive the term — killed in the line of duty."
-        )
+        facts.append("You did not survive the term — killed in the line of duty.")
         return facts  # No further events after death.
     if term_result.mishap:
-        facts.append(
-            "A serious mishap ended your career this term."
-        )
+        facts.append("A serious mishap ended your career this term.")
     else:
         facts.append("You survived the term without major incident.")
 
@@ -115,9 +112,7 @@ def build_term_facts(term_result) -> list[str]:
         rank_info = ""
         if term_result.rank_title:
             rank_info = f" (rank: {term_result.rank_title})"
-        facts.append(
-            f"You were promoted{rank_info}."
-        )
+        facts.append(f"You were promoted{rank_info}.")
     else:
         facts.append("You were not promoted this term.")
 
@@ -126,20 +121,12 @@ def build_term_facts(term_result) -> list[str]:
         if gain.gain_type == "skill":
             facts.append(f"You developed the skill: {gain.gain_name}.")
         else:
-            facts.append(
-                f"Your {gain.gain_name} characteristic improved "
-                f"(+1)."
-            )
+            facts.append(f"Your {gain.gain_name} characteristic improved (+1).")
 
     # Aging.
     if term_result.aging_reductions:
-        parts = [
-            f"{stat} reduced by {amt}"
-            for stat, amt in term_result.aging_reductions.items()
-        ]
-        facts.append(
-            f"Aging took its toll: {', '.join(parts)}."
-        )
+        parts = [f"{stat} reduced by {amt}" for stat, amt in term_result.aging_reductions.items()]
+        facts.append(f"Aging took its toll: {', '.join(parts)}.")
 
     return facts
 

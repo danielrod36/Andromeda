@@ -1,4 +1,5 @@
 """Tests for JSON save/load, atomic writes, and version migration (R17)."""
+
 from __future__ import annotations
 
 import hashlib
@@ -8,7 +9,6 @@ from pathlib import Path
 import pytest
 
 from src.engine.commands import Engine, RollCharacteristicCommand, SetFlagCommand
-from src.engine.dice import ForcedRoller
 from src.engine.persistence import (
     CURRENT_SAVE_VERSION,
     current_save_version,

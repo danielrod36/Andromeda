@@ -20,16 +20,18 @@ Phase flow::
 
 Phase state is reconstructable from GameState (AE8).
 """
+
 from __future__ import annotations
 
+from typing import ClassVar
+
+from rich.markup import escape
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Footer, Input, Label, OptionList
-
-from rich.markup import escape
 
 from src.engine.death import DefeatContext, get_death_strategy
 from src.engine.mission import Mission, MissionEnding, MissionEngine
@@ -97,7 +99,7 @@ class AdventureScreen(Screen):
     AdventureScreen.short #adv-choice-menu { height: 6; }
     """
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[Binding]] = [
         Binding("tab", "focus_next", "Next panel"),
         Binding("shift+tab", "focus_previous", "Prev panel"),
         Binding("c", "toggle_sheet", "Char sheet"),
@@ -328,8 +330,7 @@ class AdventureScreen(Screen):
         # Build choice list from the current scene's options (new or live).
         cm = self.query_one(ChoiceMenuWidget)
         choices = [
-            (f"{i+1}. {opt.label} ({opt.skill}, {opt.difficulty})",
-             f"option:{i}")
+            (f"{i + 1}. {opt.label} ({opt.skill}, {opt.difficulty})", f"option:{i}")
             for i, opt in enumerate(self._current_scene.options)
         ]
         choices.append(("Resolve Mission (attempt ending)", "resolve_mission"))
@@ -341,19 +342,12 @@ class AdventureScreen(Screen):
         option = self._current_scene.options[option_index]
 
         self._narrate(f"You attempt: {option.label}")
-        check_result = scene_engine.resolve_scene(
-            self._current_scene.scaffold, option
-        )
+        check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
 
-        self._narrate(
-            f"Result: {check_result.quality} "
-            f"(effect {check_result.effect:+d})"
-        )
+        self._narrate(f"Result: {check_result.quality} (effect {check_result.effect:+d})")
 
         # Apply consequences.
-        consequences = scene_engine.apply_consequences(
-            check_result, self._current_scene.scaffold
-        )
+        consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
         for c in consequences:
             self._narrate(f"  -> {c}")
 
@@ -376,9 +370,7 @@ class AdventureScreen(Screen):
         ending = MissionEnding.SUCCESS
         consequences = ["Reputation increased.", "Payment received."]
 
-        mission_engine.resolve_mission(
-            self._current_mission, ending, consequences
-        )
+        mission_engine.resolve_mission(self._current_mission, ending, consequences)
 
         for c in consequences:
             self._narrate(f"  -> {c}")
@@ -413,9 +405,8 @@ class AdventureScreen(Screen):
         reason = ""
 
         # Condition 1: MISS on a life-threatening check.
-        if (
-            check_result.quality == OutcomeQuality.MISS.value
-            and getattr(option, "life_threatening", False)
+        if check_result.quality == OutcomeQuality.MISS.value and getattr(
+            option, "life_threatening", False
         ):
             is_defeat = True
             reason = f"a failed life-threatening {check_result.skill} check"
@@ -424,14 +415,16 @@ class AdventureScreen(Screen):
         if not is_defeat:
             state = self.app.engine.state
             has_severe = any(
-                isinstance(e, Injury) and e.severity == "severe"
-                for e in state.entities
+                isinstance(e, Injury) and e.severity == "severe" for e in state.entities
             )
-            if has_severe and check_result.quality == OutcomeQuality.MISS.value:
-                # Check if a severe injury was just added in this consequence.
-                if any("severe" in c.lower() or "serious" in c.lower() for c in consequences):
-                    is_defeat = True
-                    reason = f"accumulated severe injuries during {check_result.skill}"
+            # Check if a severe injury was just added in this consequence.
+            if (
+                has_severe
+                and check_result.quality == OutcomeQuality.MISS.value
+                and any("severe" in c.lower() or "serious" in c.lower() for c in consequences)
+            ):
+                is_defeat = True
+                reason = f"accumulated severe injuries during {check_result.skill}"
 
         if not is_defeat:
             return False
@@ -458,9 +451,7 @@ class AdventureScreen(Screen):
         )
         context = DefeatContext(
             reason=reason,
-            scene_label=getattr(
-                self._current_scene.scaffold, "focus", "unknown"
-            ),
+            scene_label=getattr(self._current_scene.scaffold, "focus", "unknown"),
         )
         result = strategy.handle_defeat(state, context)
 
@@ -516,9 +507,7 @@ class AdventureScreen(Screen):
             return
 
         scene_engine = self._get_scene_engine()
-        classification = scene_engine.classify_freetext(
-            text, self._current_scene.scaffold
-        )
+        classification = scene_engine.classify_freetext(text, self._current_scene.scaffold)
 
         if classification is None:
             # Escape user text: the log renders Rich markup, and raw input
@@ -533,8 +522,7 @@ class AdventureScreen(Screen):
         # Show the interpreted check to the player (AE5).
         check = classification.interpreted_check
         self._narrate(
-            f"Interpreted as: {check.label} "
-            f"(skill: {check.skill}, difficulty: {check.difficulty})"
+            f"Interpreted as: {check.label} (skill: {check.skill}, difficulty: {check.difficulty})"
         )
 
         # Offer accept/reject choices.
@@ -557,17 +545,10 @@ class AdventureScreen(Screen):
         option = self._pending_freetext
 
         self._narrate(f"You attempt: {option.label}")
-        check_result = scene_engine.resolve_scene(
-            self._current_scene.scaffold, option
-        )
-        self._narrate(
-            f"Result: {check_result.quality} "
-            f"(effect {check_result.effect:+d})"
-        )
+        check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
+        self._narrate(f"Result: {check_result.quality} (effect {check_result.effect:+d})")
 
-        consequences = scene_engine.apply_consequences(
-            check_result, self._current_scene.scaffold
-        )
+        consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
         for c in consequences:
             self._narrate(f"  -> {c}")
 
@@ -596,9 +577,7 @@ class AdventureScreen(Screen):
     # Event handlers.
     # ------------------------------------------------------------------
 
-    def on_option_list_option_selected(
-        self, event: OptionList.OptionSelected
-    ) -> None:
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Dispatch choice selection to the appropriate handler."""
         option_id = event.option.id
         if option_id is None:
@@ -630,9 +609,7 @@ class AdventureScreen(Screen):
 
     def _update_character_sheet(self) -> None:
         """Refresh the character sheet from engine state."""
-        self.query_one(CharacterSheetWidget).update_from_state(
-            self.app.engine.state
-        )
+        self.query_one(CharacterSheetWidget).update_from_state(self.app.engine.state)
 
     def _post_step(self) -> None:
         """Common post-step actions: update sheet, auto-save (AE8)."""
@@ -646,17 +623,13 @@ class AdventureScreen(Screen):
     def _get_mission_engine(self) -> MissionEngine:
         """Get or create a mission engine."""
         if not hasattr(self, "_mission_engine_cache") or self._mission_engine_cache is None:
-            self._mission_engine_cache = MissionEngine(
-                self.app.engine, self.app.pack
-            )
+            self._mission_engine_cache = MissionEngine(self.app.engine, self.app.pack)
         return self._mission_engine_cache
 
     def _get_scene_engine(self) -> SceneEngine:
         """Get or create a scene engine."""
         if not hasattr(self, "_scene_engine_cache") or self._scene_engine_cache is None:
-            self._scene_engine_cache = SceneEngine(
-                self.app.engine, self.app.pack
-            )
+            self._scene_engine_cache = SceneEngine(self.app.engine, self.app.pack)
         return self._scene_engine_cache
 
     # ------------------------------------------------------------------

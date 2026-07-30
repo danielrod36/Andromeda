@@ -1,4 +1,5 @@
 """Character sheet sidebar widget — displays character stats and skills (R16)."""
+
 from __future__ import annotations
 
 from textual.widgets import Static

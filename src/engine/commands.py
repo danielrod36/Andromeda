@@ -15,6 +15,7 @@ number and appends it to the log.
 The funnel is the engine's trust boundary: nothing outside it mutates state,
 and every roll is recorded with its inputs and outcome (R1, R4, AE1).
 """
+
 from __future__ import annotations
 
 from typing import ClassVar
@@ -22,7 +23,7 @@ from typing import ClassVar
 from pydantic import BaseModel
 
 from src.engine.audit import Event, EventKind
-from src.engine.dice import LiveRoller, RollResult, Roller
+from src.engine.dice import LiveRoller, Roller, RollResult
 from src.engine.state import GameState
 
 # Canonical Cepheus characteristics.
@@ -56,9 +57,7 @@ class Command(BaseModel):
         preconditions. Must not mutate state.
         """
 
-    def resolve(
-        self, state: GameState, roller: Roller
-    ) -> RollResult | None:
+    def resolve(self, state: GameState, roller: Roller) -> RollResult | None:
         """Roll dice if the command needs them. Default: no roll.
 
         Returning ``None`` marks the command as non-dice; returning a
@@ -164,13 +163,10 @@ class RollCharacteristicCommand(Command):
         if self.characteristic not in _CHARACTERISTICS:
             known = ", ".join(_CHARACTERISTICS)
             raise ValueError(
-                f"Unknown characteristic {self.characteristic!r}; "
-                f"expected one of: {known}"
+                f"Unknown characteristic {self.characteristic!r}; expected one of: {known}"
             )
 
-    def resolve(
-        self, state: GameState, roller: Roller
-    ) -> RollResult:
+    def resolve(self, state: GameState, roller: Roller) -> RollResult:
         return roller.roll("lifepath", ndice=2, sides=6)
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
@@ -180,9 +176,7 @@ class RollCharacteristicCommand(Command):
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
-            description=(
-                f"Rolled 2D6={roll.rolls}={value} for {self.characteristic}"
-            ),
+            description=(f"Rolled 2D6={roll.rolls}={value} for {self.characteristic}"),
             roll=roll,
             changes={"characteristic": self.characteristic, "value": value},
         )
