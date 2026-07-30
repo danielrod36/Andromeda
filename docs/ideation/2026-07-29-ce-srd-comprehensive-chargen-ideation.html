@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ideation: Comprehensive CE SRD Character Creation</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface-hover: #1c2330;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --border: #30363d;
+  --accent: #d29922;
+  --accent-text: #e3b341;
+  --accent-soft: rgba(210, 153, 34, 0.12);
+  --success: #3fb950;
+  --success-soft: rgba(63, 185, 80, 0.12);
+  --danger: #f85149;
+  --danger-soft: rgba(248, 81, 73, 0.10);
+  --code-bg: #1c2128;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 48px 24px 80px; }
+h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
+h2 { font-size: 20px; font-weight: 600; margin-top: 48px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); letter-spacing: -0.01em; }
+h3 { font-size: 17px; font-weight: 600; margin-bottom: 12px; }
+p { margin-bottom: 12px; max-width: 72ch; }
+ul, ol { margin-bottom: 12px; padding-left: 24px; max-width: 72ch; }
+li { margin-bottom: 4px; }
+strong { font-weight: 600; }
+code { font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace; font-size: 0.88em; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; color: var(--accent-text); }
+pre { background: var(--code-bg); padding: 12px 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); }
+pre code { background: none; padding: 0; color: var(--text); }
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.metadata { margin-bottom: 32px; }
+.metadata dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 13px; }
+.metadata dt { color: var(--muted); font-weight: 500; }
+.metadata dd { color: var(--text); }
+.metadata dt::after { content: ":"; }
+
+/* Jump list */
+.jump-list { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; }
+.jump-list h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+.jump-list ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.jump-list li { margin: 0; }
+.jump-list a { font-size: 14px; }
+
+/* Idea cards */
+article.idea-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px 28px; margin-bottom: 24px; }
+article.idea-card h3 { font-size: 18px; margin-bottom: 16px; }
+.idea-meta { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.chip.axis { background: var(--accent-soft); color: var(--accent-text); }
+.chip.conf-high { background: var(--success-soft); color: var(--success); }
+.chip.conf-med { background: var(--accent-soft); color: var(--accent-text); }
+.chip.cx-low { background: rgba(63, 185, 80, 0.1); color: var(--success); }
+.chip.cx-med { background: var(--accent-soft); color: var(--accent-text); }
+.chip.cx-high { background: var(--danger-soft); color: var(--danger); }
+.field-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-top: 14px; margin-bottom: 4px; display: block; }
+.basis-tag { font-family: monospace; font-size: 12px; font-weight: 600; color: var(--accent-text); }
+
+/* Comparison tables */
+table.cmp { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+table.cmp th { text-align: left; padding: 8px 12px; background: var(--code-bg); font-weight: 600; color: var(--muted); border: 1px solid var(--border); }
+table.cmp td { padding: 8px 12px; border: 1px solid var(--border); }
+table.cmp td.wrong { color: var(--danger); }
+table.cmp td.right { color: var(--success); }
+
+/* Rejection table */
+table.rejections { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+table.rejections th { text-align: left; padding: 8px 12px; background: var(--code-bg); font-weight: 600; color: var(--muted); border: 1px solid var(--border); }
+table.rejections td { padding: 8px 12px; border: 1px solid var(--border); vertical-align: top; }
+
+/* SVG diagrams */
+.diagram { margin: 16px 0; overflow-x: auto; }
+.diagram-caption { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* Footer */
+footer.composition-signal { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+footer.composition-signal code { font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+<h1>Ideation: Comprehensive CE SRD Character Creation</h1>
+<div class="metadata">
+<dl>
+<dt>Date</dt><dd>2026-07-29</dd>
+<dt>Topic</dt><dd>ce-srd-comprehensive-chargen</dd>
+<dt>Focus</dt><dd>Make CE SRD character creation FULLY comprehensive — find everything missing</dd>
+<dt>Mode</dt><dd>repo-grounded</dd>
+</dl>
+</div>
+</header>
+
+<section id="grounding">
+<h2>Grounding Context</h2>
+<p><strong>Project:</strong> Cepheus Adventure — a Python TUI app implementing the Cepheus Engine SRD (System Reference Document) character creation pipeline as an interactive lifepath mini-game. Built on four architectural layers: an Engine (command funnel, state models, seeded dice, event audit log), Rulesets (protocol-based CE SRD constants and resolution logic), Themepacks (YAML-driven careers, skills, oracles, complications, missions), and a Textual TUI (interactive screens, character sheet, choice menu, narrative log with optional LLM narration).</p>
+<p><strong>Current chargen flow:</strong> <code>roll_characteristics → choose_career → qualification → run_survival → run_advancement → choose_skills → run_aging → re_enlist → mustering_out → complete</code></p>
+<p><strong>Key model constraints:</strong> <code>Character</code> stores a single career string, flat skill dict (always +1), no credits/equipment/homeworld. <code>CareerData</code> has no commission or re-enlistment fields. <code>TableRange</code> forces 2D6 on all tables. The difficulty ladder and characteristic DM ladder have wrong values. Only 8 of 24 SRD careers exist, and 6 of those 8 have wrong check values.</p>
+<p><strong>External context:</strong> The canonical CE SRD chargen pipeline has 13 steps. All 24 careers are defined (17 ranked with commission/advancement, 7 non-hierarchy with 2 skill rolls/term). The SRD uses 1D6 for skill tables, a graduated 8-row aging table, an injury table with crisis mechanics, commission as a separate step from advancement, draft on failed qualification, career change with DM penalties, re-enlistment rolls with natural-12 forced stays, and mustering-out with rank-based bonus rolls. No comprehensive open-source CE chargen exists — every tool found (Blue Sun Consulting, justinaquinoGITB) is partial.</p>
+</section>
+
+<section id="axes">
+<h2>Topic Axes</h2>
+<ol>
+<li><strong>Pre-career setup</strong> — characteristics rolling, homeworld/world generation, background skills, basic training</li>
+<li><strong>Career progression</strong> — qualification, commission, advancement, re-enlistment, draft, career change, mustering out</li>
+<li><strong>Skill development</strong> — skill tables (all 4 types), specialist skills, advanced education, skill computation</li>
+<li><strong>Risk and consequences</strong> — survival mishaps, injuries, aging, death modes</li>
+<li><strong>Post-chargen and beyond</strong> — equipment, starting gear, psionics, connections, world gen</li>
+</ol>
+</section>
+
+<section id="ranked-ideas">
+<h2>Ranked Ideas</h2>
+
+<nav class="jump-list">
+<h4>Jump to idea</h4>
+<ul>
+<li><a href="#idea-1">1. Fix Foundational Resolution Math · Risk · 98% · Low</a></li>
+<li><a href="#idea-2">2. Universal Table Engine · Skills · 95% · Medium</a></li>
+<li><a href="#idea-3">3. Career Lifecycle Model · Career · 96% · High</a></li>
+<li><a href="#idea-4">4. Skill System Rebuild · Skills · 94% · Medium</a></li>
+<li><a href="#idea-5">5. Risk Engine with Teeth · Risk · 95% · Medium</a></li>
+<li><a href="#idea-6">6. Pre-Career Foundation · Pre-career · 85% · Medium</a></li>
+<li><a href="#idea-7">7. Benefits Persistence + Career Data Integrity · Post-chargen · 92% · Medium</a></li>
+</ul>
+</nav>
+
+<article class="idea-card" id="idea-1">
+<h3>1. Fix Foundational Resolution Math</h3>
+<div class="idea-meta">
+<span class="chip axis">Risk and consequences</span>
+<span class="chip conf-high">Conf 98%</span>
+<span class="chip cx-low">Cx Low</span>
+</div>
+<p>Two functions in <code>cepheus.py</code> are wrong, and together they corrupt every die roll in the entire game. The difficulty ladder has Easy at +1 (SRD: +4), Difficult at −1 (SRD: −2), and Very Difficult at −2 (SRD: −4). The characteristic DM ladder returns −3 at score 0 (SRD: −2) and caps at +3 for all scores 15+ (SRD: +4 at 18–20, scaling to +6 at 24–26). Every qualification, survival, advancement, commission, aging, and future psionics check routes through these two functions. Fixing them is the prerequisite for trusting any check result.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> <code>cepheus.py:58-65</code> — difficulty ladder: <code>"easy": 1, "difficult": -1, "very_difficult": -2</code> (SRD: +4, −2, −4). <code>cepheus.py:131-144</code> — <code>if value &lt;= 0: return -3</code> (should be −2), <code>else: return 3</code> (caps at +3 for 15+, should reach +6). Docstring at <code>cepheus.py:128-129</code> enshrines wrong values as authoritative.</p>
+<span class="field-label">Rationale</span>
+<p>These are the most compound fixes by affected-call-site count. An "Easy" qualification check is currently 3 DM points harder than intended — turning trivial checks into risky ones. Low-stat characters (score 0–2) are penalized more harshly than the SRD intends (−3 vs −2), making survival checks deadlier for the most vulnerable characters. High-stat characters (18+) lose their reward (capped at +3 instead of +4+). The docstring's self-reinforcing wrongness means developers reading the code think the ladder is correct. Fixing these two functions corrects every past and future check simultaneously.</p>
+<span class="field-label">Downsides</span>
+<p>Existing tests assert the old wrong values (e.g., aging tests that assume binary behavior) — they must be updated. Characters generated before the fix will have different skill sets and survival outcomes than post-fix characters, breaking any saved replays.</p>
+
+<table class="cmp">
+<tr><th>Difficulty</th><th>Current DM</th><th>SRD DM</th></tr>
+<tr><td>Easy</td><td class="wrong">+1</td><td class="right">+4</td></tr>
+<tr><td>Routine</td><td class="right">+2</td><td class="right">+2</td></tr>
+<tr><td>Average</td><td class="right">0</td><td class="right">0</td></tr>
+<tr><td>Difficult</td><td class="wrong">−1</td><td class="right">−2</td></tr>
+<tr><td>Very Difficult</td><td class="wrong">−2</td><td class="right">−4</td></tr>
+<tr><td>Formidable</td><td class="right">−6</td><td class="right">−6</td></tr>
+</table>
+</article>
+
+<article class="idea-card" id="idea-2">
+<h3>2. Universal Table Engine</h3>
+<div class="idea-meta">
+<span class="chip axis">Skill development</span>
+<span class="chip conf-high">Conf 95%</span>
+<span class="chip cx-med">Cx Medium</span>
+</div>
+<p>The <code>TableRange</code> model already has <code>num_dice</code> and <code>die_size</code> fields, and <code>is_contiguous()</code> already computes ranges dynamically from those fields — it works correctly for 1D6. But the defaults lock to <code>num_dice=2, die_size=6</code>, the docstring declares "All die tables use 2D6," and all 24 skill tables across 8 careers are forced into 2D6 ranges. This single phantom invariant (wrong defaults + wrong docstring, not wrong logic) blocks: 1D6 skill tables (audit B3), the 1D6 injury table (B13), correct benefit tables, future psionics tables, and the 4th Specialist Skills table (B14). Additionally, <code>SkillTableRollCommand</code> and <code>BenefitRollCommand</code> are near-duplicate roll→lookup→event pipelines that should be unified into a single generic <code>TableRollCommand</code>.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> <code>base.py:66-76</code> — fields default to <code>die_size: int = 6, num_dice: int = 2</code>. <code>base.py:78-95</code> — <code>is_contiguous()</code> computes <code>expected_min = self.num_dice</code> and <code>expected_max = self.num_dice * self.die_size</code> (already die-agnostic). <code>base.py:113-114</code> — SkillTable docstring: "One of a career's three skill tables." Benefit tables already use <code>num_dice: 1</code> successfully (<code>careers.yaml:71-72</code>), proving the fields work for 1D6.</p>
+<span class="field-label">Rationale</span>
+<p>This is the highest-leverage single change in the codebase. Every table-based system — skill tables, injury tables, aging tables, benefit tables, psionics tables — flows through this one model. Today, adding a new table type requires cramming it into 2D6 ranges (silently wrong) or bypassing validation. After this fix, the entire table subsystem becomes data-driven: a contributor adds a new table as YAML only, with no Python changes. The generic <code>TableRollCommand</code> eliminates the ~30-line boilerplate pattern that each new Command class currently duplicates.</p>
+<span class="field-label">Downsides</span>
+<p>All 24 existing skill tables need data correction (2D6→1D6 ranges). The <code>lookup_table_result</code> function currently <em>silently clamps</em> out-of-range rolls — this latent bug must be surfaced as an error rather than silently folded. Test assertions that assume 2D6 skill table behavior must be updated.</p>
+
+<div class="diagram">
+<svg width="100%" height="180" viewBox="0 0 600 180" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="arr2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+<polygon points="0,0 8,4 0,8" fill="#d29922"/>
+</marker>
+</defs>
+<!-- Central node -->
+<rect x="220" y="10" width="160" height="36" rx="6" fill="rgba(210,153,34,0.15)" stroke="#d29922" stroke-width="1.5"/>
+<text x="300" y="33" text-anchor="middle" fill="#e3b341" font-size="13" font-weight="600" font-family="sans-serif">TableRange + Generic Roll</text>
+<!-- Lines -->
+<line x1="300" y1="46" x2="110" y2="80" stroke="#d29922" stroke-width="1.5" marker-end="url(#arr2)" opacity="0.7"/>
+<line x1="300" y1="46" x2="250" y2="80" stroke="#d29922" stroke-width="1.5" marker-end="url(#arr2)" opacity="0.7"/>
+<line x1="300" y1="46" x2="390" y2="80" stroke="#d29922" stroke-width="1.5" marker-end="url(#arr2)" opacity="0.7"/>
+<line x1="300" y1="46" x2="510" y2="80" stroke="#d29922" stroke-width="1.5" marker-end="url(#arr2)" opacity="0.7"/>
+<!-- Children -->
+<rect x="40" y="84" width="140" height="28" rx="5" fill="#161b22" stroke="#30363d"/>
+<text x="110" y="102" text-anchor="middle" fill="#e6edf3" font-size="11" font-family="sans-serif">Skill Tables (1D6)</text>
+<rect x="180" y="84" width="140" height="28" rx="5" fill="#161b22" stroke="#30363d"/>
+<text x="250" y="102" text-anchor="middle" fill="#e6edf3" font-size="11" font-family="sans-serif">Injury Table (1D6)</text>
+<rect x="320" y="84" width="140" height="28" rx="5" fill="#161b22" stroke="#30363d"/>
+<text x="390" y="102" text-anchor="middle" fill="#e6edf3" font-size="11" font-family="sans-serif">Aging Table (2D6−DM)</text>
+<rect x="440" y="84" width="140" height="28" rx="5" fill="#161b22" stroke="#30363d"/>
+<text x="510" y="102" text-anchor="middle" fill="#e6edf3" font-size="11" font-family="sans-serif">Psionics (future)</text>
+<!-- Benefit table -->
+<line x1="300" y1="46" x2="300" y2="130" stroke="#d29922" stroke-width="1.5" marker-end="url(#arr2)" opacity="0.7"/>
+<rect x="230" y="134" width="140" height="28" rx="5" fill="#161b22" stroke="#30363d"/>
+<text x="300" y="152" text-anchor="middle" fill="#e6edf3" font-size="11" font-family="sans-serif">Benefit Tables (1D6+DM)</text>
+</svg>
+</div>
+<p class="diagram-caption">One model change unlocks every table system in the SRD.</p>
+</article>
+
+<article class="idea-card" id="idea-3">
+<h3>3. Career Lifecycle Model</h3>
+<div class="idea-meta">
+<span class="chip axis">Career progression</span>
+<span class="chip conf-high">Conf 96%</span>
+<span class="chip cx-high">Cx High</span>
+</div>
+<p>Two model changes unlock 8 of the 20 audit findings. First, replace <code>career: str</code> on <code>Character</code> with <code>career_history: list[CareerTerm]</code> — each entry records career id, terms served, rank achieved, commission status, and exit reason. This makes multi-career lifepaths (draft, career change, re-enlistment) structurally possible. Second, complete <code>CareerData</code> by adding <code>commission: CheckRef | None</code>, <code>re_enlistment: int</code>, and <code>has_hierarchy: bool</code>, and making <code>advancement</code> optional. Commission becomes a separate roll (officer-track fork) from advancement (rank progression). Non-hierarchy careers (Scout, Drifter, etc.) get 2 skill rolls per term instead of wrong advancement checks.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> <code>state.py:34</code> — <code>career: str = ""</code>, set once at <code>lifepath.py:182</code> (<code>if success: state.character.career = self.career_id</code>). <code>base.py:140-157</code> — CareerData has qualification/survival/advancement (all required CheckRefs) but no commission, re_enlistment, or has_hierarchy. <code>AdvancementCommand</code> at <code>lifepath.py:258-282</code> conflates commission with promotion. Scout and Drifter have advancement data they shouldn't (<code>careers.yaml:362-364, 612-614</code>).</p>
+<span class="field-label">Rationale</span>
+<p>The single-string career field is the structural root cause blocking draft (B16), career change (B17), re-enlistment rolls (B12), commission separation (B8), the 2-skill-roll bonus for non-hierarchy careers (B9), and multi-career mustering-out. You cannot implement any of these by editing a phase — the model itself must change. The conflation of commission with advancement produces cascading errors: non-hierarchy careers roll advancement they shouldn't, they don't get the 2-roll bonus, and officer commissioning as a player choice doesn't exist. Once the model is correct, the engine changes are mechanical.</p>
+<span class="field-label">Downsides</span>
+<p>High complexity — touches Character model, CareerData model, QualificationCommand, AdvancementCommand, compute_num_skill_rolls, TUI phase machine, narrator, character sheet widget, and LLM state view. Breaking change to save-file format. All existing tests that assume single-career must be updated.</p>
+
+<div class="diagram">
+<svg width="100%" height="140" viewBox="0 0 600 140" xmlns="http://www.w3.org/2000/svg">
+<!-- Before -->
+<rect x="20" y="20" width="250" height="100" rx="8" fill="rgba(248,81,73,0.08)" stroke="#f85149" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="145" y="40" text-anchor="middle" fill="#f85149" font-size="12" font-weight="600" font-family="sans-serif">BEFORE (single career)</text>
+<text x="35" y="65" fill="#8b949e" font-size="11" font-family="monospace">Character.career = "navy"</text>
+<text x="35" y="85" fill="#8b949e" font-size="11" font-family="monospace">Character.rank = 3</text>
+<text x="35" y="105" fill="#8b949e" font-size="11" font-family="monospace">→ cannot represent change</text>
+<!-- Arrow -->
+<polygon points="285,70 305,60 305,65 320,65 320,75 305,75 305,80" fill="#d29922"/>
+<!-- After -->
+<rect x="330" y="20" width="250" height="100" rx="8" fill="rgba(63,185,80,0.08)" stroke="#3fb950" stroke-width="1"/>
+<text x="455" y="40" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600" font-family="sans-serif">AFTER (career history)</text>
+<text x="345" y="62" fill="#e6edf3" font-size="11" font-family="monospace">career_history: [</text>
+<text x="355" y="78" fill="#e3b341" font-size="10" font-family="monospace">{navy, 3 terms, rank 3, exit}</text>
+<text x="355" y="92" fill="#e3b341" font-size="10" font-family="monospace">{scout, 1 term, rank 0, mishap}</text>
+<text x="345" y="108" fill="#e6edf3" font-size="11" font-family="monospace">]</text>
+</svg>
+</div>
+</article>
+
+<article class="idea-card" id="idea-4">
+<h3>4. Skill System Rebuild</h3>
+<div class="idea-meta">
+<span class="chip axis">Skill development</span>
+<span class="chip conf-high">Conf 94%</span>
+<span class="chip cx-med">Cx Medium</span>
+</div>
+<p>Three changes to the skill subsystem unlock basic training (B11), background skills (B10), cascade specialization, the Specialist Skills 4th table (B14), and the Advanced Education EDU 8+ prerequisite (B7). First, extend <code>apply_skill_result</code> to support level-0 assignment (for basic training) and cascade choice resolution (e.g., "Gun Combat" → "Slug Rifle"). Second, add a <code>prerequisite</code> predicate to <code>SkillTable</code> so Advanced Education can gate on EDU 8+ and basic training can gate on first-term-only. Third, add the Specialist Skills table type and allow 3–4 tables per career instead of the hardcoded three.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> <code>lifepath.py:51-69</code> — <code>apply_skill_result</code> always does <code>character.skills[result] = current + 1</code>; no level-0 path, no cascade. <code>base.py:113-117</code> — <code>SkillTable</code> has only <code>name</code> and <code>entries</code>; no prerequisite field. <code>base.py:160-170</code> — <code>SkillData</code> has no parent/cascade field. TUI offers all tables freely (<code>lifepath.py:412-426</code>). The string "Specialist" does not appear anywhere in <code>careers.yaml</code>.</p>
+<span class="field-label">Rationale</span>
+<p>Basic training is the most impactful skill mechanic after the tables themselves — it gives first-term characters all service skills at level 0 as baseline competence. Without it, a first-term Navy character starts with the same skills as a fifth-term one (minus rank bonus). The level-0 concept also underpins background skills: those skills start at 0, representing broad-but-shallow competence. The EDU 8+ gate creates a meaningful build decision: prioritize raising EDU to unlock Advanced Education, or take Service Skills now. The Specialist table holds the most career-defining skill content — it's what differentiates a Navy character from an Army character beyond flavor text.</p>
+<span class="field-label">Downsides</span>
+<p>Cascade skills require TUI UX for specialization selection (a sub-choice when a cascade skill is rolled). The <code>SkillData</code> model gains a <code>parent</code> field — all 47 skills in <code>skills.yaml</code> need re-categorization. The Specialist table requires authoring new skill data for all careers.</p>
+</article>
+
+<article class="idea-card" id="idea-5">
+<h3>5. Risk Engine with Teeth</h3>
+<div class="idea-meta">
+<span class="chip axis">Risk and consequences</span>
+<span class="chip conf-high">Conf 95%</span>
+<span class="chip cx-med">Cx Medium</span>
+</div>
+<p>Replace the binary aging check (2D6 vs static 8) with the SRD's 8-row graduated table: roll 2D6, subtract total terms as a negative DM, compare to a table where penalties scale from "reduce 1 physical by 1" (margin 0) to "reduce 3 physical by 2, reduce 1 mental by 1" (margin −6 or worse). Then wire the injury table into survival mishap resolution: survival failure rolls 1D6 on the injury table with specific characteristic reductions, and if any characteristic hits 0, an injury crisis occurs (pay Cr10,000 or die). Mishap becomes a cascading consequence chain, not a career-exit flag. The existing <code>Injury</code> model gets real mechanics instead of being display-only.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> <code>lifepath.py:26</code> — <code>_AGING_TARGET = 8</code>. <code>lifepath.py:344-361</code> — binary check with no terms-as-negative-DM; only distinction is natural-2 reduces all 6 vs 3 physical. <code>lifepath.py:233</code> — mishap just sets <code>mishap = True</code> and breaks the term loop. <code>state.py:73-83</code> — <code>Injury</code> model has <code>severity: str</code> (display-only, no stat reduction). Audit B4: "Neither the mechanic nor the table matches the SRD." Audit B13: "No injury table, no injury crisis."</p>
+<span class="field-label">Rationale</span>
+<p>Aging is the risk/reward governor that makes chargen a "game within a game" rather than a deterministic generator. The binary implementation eliminates all tension: roll 7 and nothing happens, roll 6 and you lose 3 stats — a cliff edge with no graduated middle ground. The SRD's graduated table creates a smooth ramp where a 2-term character (age 26, margin −2) loses 1 stat while a 6-term character (age 38, margin −6) loses 5 stats — fundamentally different consequences. The injury table makes survival failure meaningful without being instantly fatal: the character who survives a crash, loses 1D6 DEX, and faces a crisis with no credits is in a dramatically different position than one who simply musters out.</p>
+<span class="field-label">Downsides</span>
+<p>The TUI button label hard-codes the wrong target (<code>"Roll Aging (2D6 vs 8)"</code>) and must be updated. Tests that assert binary aging behavior must be rewritten. The injury crisis mechanic requires a credits field on Character (depends on idea 7) to make the "pay Cr10K" decision meaningful.</p>
+
+<table class="cmp">
+<tr><th>Margin (2D6 − Terms)</th><th>SRD Effect</th><th>Current Behavior</th></tr>
+<tr><td>1+</td><td class="right">No effect</td><td class="wrong">Same (if roll ≥ 8)</td></tr>
+<tr><td>0</td><td class="right">Reduce 1 physical by 1</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+<tr><td>−1</td><td class="right">Reduce 2 physical by 1</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+<tr><td>−2</td><td class="right">Reduce 3 physical by 1</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+<tr><td>−3</td><td class="right">Reduce 1 physical by 2, 2 by 1</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+<tr><td>−4</td><td class="right">Reduce 2 physical by 2, 1 by 1</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+<tr><td>−5</td><td class="right">Reduce 3 physical by 2</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+<tr><td>≤ −6</td><td class="right">Reduce 3 physical by 2, 1 mental by 1</td><td class="wrong">Reduce ALL 3 physical by 1</td></tr>
+</table>
+</article>
+
+<article class="idea-card" id="idea-6">
+<h3>6. Pre-Career Foundation</h3>
+<div class="idea-meta">
+<span class="chip axis">Pre-career setup</span>
+<span class="chip conf-med">Conf 85%</span>
+<span class="chip cx-med">Cx Medium</span>
+</div>
+<p>Add the missing phase between characteristics and career choice: background skills and basic training. Background skills grant <code>3 + Education DM</code> skill picks — the first 2 from a lightweight origin archetype (Spacer, Colonist, Belter, Frontier, Urban) that pre-resolves homeworld trade-code skills without requiring a full world-generation subsystem, and the remainder from the education skill list. Basic training grants all service skills at level 0 on first career entry (first career: all; subsequent careers: one). This makes characteristics consequential beyond roll modifiers: EDU determines the skill budget, INT gates education tracks, and the archetype provides origin identity.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> TUI phase machine at <code>lifepath.py:199-204</code> jumps directly from <code>roll_characteristics</code> to <code>choose_career</code> — no background phase exists. <code>characteristic_dm()</code> at <code>cepheus.py:125-144</code> is only called for qualification/survival/advancement, never for skill allocation. <code>apply_skill_result</code> at <code>lifepath.py:51-69</code> has no level-0 path. Audit B10: "SRD: Before careers, gain skills = 3 + Education DM. Our code: Not implemented." Audit B11: "First term = ALL Service Skills at Level 0. Not implemented."</p>
+<span class="field-label">Rationale</span>
+<p>Without background skills and basic training, every character enters career choice at age 18 with zero skills — a blank slate who somehow joined the Navy without knowing anything. Background skills give characters their pre-career identity (homeworld origin, education). Basic training gives them baseline competence (all service skills at level 0). The archetype lookup avoids the disproportionate scope of building a full world-generation engine (UWP codes, starports, trade codes) to extract 2 skill slots — the project's own research docs flag world-gen as "high-code, low-narrative-yield under an LLM." This also makes the initial 2D6 characteristic rolls the most strategically important moment in chargen, since EDU directly determines skill count.</p>
+<span class="field-label">Downsides</span>
+<p>Requires a new themepack YAML structure for origin archetypes and education skill lists. The TUI phase machine gains 2 new phases (background_skills, basic_training). Depends on idea 4 (apply_skill_result level-0 support) and idea 1 (correct EDU DM for skill budget calculation). The archetype approach is a simplification of the SRD's trade-code system — purists may want full world generation instead.</p>
+</article>
+
+<article class="idea-card" id="idea-7">
+<h3>7. Benefits Persistence + Career Data Integrity</h3>
+<div class="idea-meta">
+<span class="chip axis">Post-chargen and beyond</span>
+<span class="chip conf-high">Conf 92%</span>
+<span class="chip cx-med">Cx Medium</span>
+</div>
+<p>Two critical post-chargen fixes. First, parse mustering-out benefit strings into persistent Character state: cash amounts (<code>"5,000 Cr"</code>) become a numeric <code>credits: int</code> field, material benefits (<code>"Weapon"</code>, <code>"Ship Share"</code>) become typed inventory entries. Currently the entire mustering-out phase produces zero persistent state — <code>BenefitRollCommand.mutate</code> generates Events but never modifies <code>state.character</code>, and the <code>MusteringOutResult</code> is discarded after narration. Second, systematically regenerate career data for all 24 SRD careers with a validation harness that checks qualification/survival/commission/advancement/re-enlistment targets against SRD references — 6 of the 8 existing careers have wrong check values, 2 have advancement they shouldn't, and 16 careers are entirely missing.</p>
+<span class="field-label">Basis</span>
+<p><span class="basis-tag">direct:</span> <code>lifepath.py:379-411</code> — <code>BenefitRollCommand.mutate</code> produces an Event with <code>result_text</code> but does NOT modify <code>state.character</code>. <code>state.py:29-36</code> — Character has no <code>credits</code> or <code>equipment</code> field. <code>lifepath.py:803-835</code> — <code>_finish_mustering_out</code> only sets <code>SetFlagCommand(key="mustered_out", value="true")</code>. Agent career at <code>careers.yaml:435-443</code>: qualification INT 5 (SRD: SOC 6), survival INT 5 (SRD: INT 6), advancement INT 7 (SRD: EDU 6). Only 8 of 24 careers exist (audit B20).</p>
+<span class="field-label">Rationale</span>
+<p>From the player's perspective, mustering out feels broken: you watch benefits get announced, then the character sheet shows nothing. The character enters the adventure loop structurally identical to one who mustered out with nothing. This is the bridge between chargen and play — without it, the career-progression arc is a narrative exercise with no mechanical payoff. The career data integrity issue is equally critical: a character who qualifies for Agent rolls against the wrong characteristic, survives at the wrong target, and advances through the wrong stat. Hand-fixing 8 careers is manageable; hand-authoring 24 correctly without a validation harness is not — the audit already documents transcription errors in the existing data.</p>
+<span class="field-label">Downsides</span>
+<p>Benefits persistence requires deciding on the equipment/gear model (typed entities vs. string list). The 24-career regeneration is a significant data-entry effort requiring careful SRD verification. The <code>dm_per_rank</code> and benefit table structures need to be re-verified for correctness (only 3 of 8 careers currently set <code>dm_per_rank</code>).</p>
+</article>
+
+</section>
+
+<section id="rejections">
+<h2>Rejection Summary</h2>
+<table class="rejections">
+<tr><th>#</th><th>Idea</th><th>Reason Rejected</th></tr>
+<tr><td>2</td><td>Homeworld as "Career Zero" (full UWP world-gen pipeline)</td><td>Scope explosion — project's own research docs flag world-gen as high-code, low-narrative-yield; the archetype lookup in survivor 6 delivers the same mechanical outcome</td></tr>
+<tr><td>7</td><td>Data-Driven Phase Pipeline (declarative phase registry)</td><td>Implementation approach, not a product direction — better handled in ce-plan as an architecture decision</td></tr>
+<tr><td>8</td><td>Lifepath-as-DAG (Burning Wheel directed graph)</td><td>Basis refuted — Burning Wheel lifepaths are linear sequences with prerequisites, not DAGs with explicit graph edges as described; direct basis only shows absence of graph code</td></tr>
+<tr><td>9</td><td>Event-Sourced Career History (Git-style replay)</td><td>Overstates the gap — audit log is already purpose-built for replay per its docstrings; better as an implementation note within survivor 3</td></tr>
+<tr><td>16</td><td>Aging as Power Source / Veteran Track</td><td>Homebrew design direction with no SRD basis — the SRD aging system is purely a cost, not a risk/reward trade; interesting but better as a brainstorm variant</td></tr>
+<tr><td>18</td><td>Entity-Agnostic Engine (ships, crews, organizations)</td><td>Scope overrun — user asked about chargen comprehensiveness; ship generation is a separate SRD system, not a chargen gap</td></tr>
+<tr><td>19</td><td>Parallel Party Generation with Connections</td><td>Basis refuted — speculative infrastructure; GameState.character is singular, no multi-character support exists or is planned</td></tr>
+</table>
+</section>
+
+<footer class="composition-signal">
+Composed 2026-07-29 by ce-ideate. Source: user prompt "We're looking into expanding the character creation to be FULLY comprehensive."
+</footer>
+
+</div>
+</body>
+</html>
