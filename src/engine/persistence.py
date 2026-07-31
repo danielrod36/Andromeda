@@ -18,13 +18,32 @@ from pathlib import Path
 from src.engine.state import GameState
 
 #: Current save-file version. Bump when the schema changes; add a migrator.
-CURRENT_SAVE_VERSION = 1
+CURRENT_SAVE_VERSION = 2
+
+
+def _migrate_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
+    """Add v2 fields (Tasks 1–12 state) with defaults to v1 saves."""
+    char = data.setdefault("character", {})
+    assert isinstance(char, dict)
+    char.setdefault("credits", 0)
+    char.setdefault("inventory", [])
+    char.setdefault("unassigned_rolls", [])
+    char.setdefault("pool_rerolled", False)
+    char.setdefault("career_history", [])
+    char.setdefault("drafted", False)
+    char.setdefault("background_picks_remaining", -1)
+    char.setdefault("basic_training_done", False)
+    char.setdefault("pending_aging", [])
+    data.setdefault("open_threads", [])
+    data.setdefault("mission_counter", 0)
+    data["save_version"] = 2
+    return data
+
 
 #: Migration functions keyed by source version. Each takes raw dict data at
 #: version N and returns dict data at version N+1. ``migrate`` walks the chain.
 _MIGRATIONS: dict[int, Callable[[dict[str, object]], dict[str, object]]] = {
-    # Example for when v2 lands:
-    # 1: _migrate_v1_to_v2,
+    1: _migrate_v1_to_v2,
 }
 
 
@@ -39,6 +58,11 @@ def migrate(data: dict[str, object], from_version: int) -> dict[str, object]:
     Walks the ``_MIGRATIONS`` chain one step at a time. Raises if a required
     migrator is missing. Returns data unchanged if already current.
     """
+    if from_version > CURRENT_SAVE_VERSION:
+        raise ValueError(
+            f"Save version {from_version} is newer than supported "
+            f"({CURRENT_SAVE_VERSION}); upgrade the game."
+        )
     version = from_version
     while version < CURRENT_SAVE_VERSION:
         migrator = _MIGRATIONS.get(version)

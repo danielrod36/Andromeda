@@ -40,8 +40,10 @@ from src.engine.narration import Narrator
 from src.engine.state import GameState
 from src.llm.prompts import (
     SYSTEM_PROMPT,
+    build_classification_prompt,
     build_full_lifepath_prompt,
     build_lifepath_prompt,
+    build_scene_prompt,
     build_term_facts,
 )
 from src.llm.state_view import CuratedView, build_curated_view
@@ -91,6 +93,63 @@ class FullLifepathNarration(BaseModel):
         return v.strip()
 
 
+class SceneNarration(BaseModel):
+    """Structured narration output for a scene (R14, AE5).
+
+    Like lifepath narration, the only field is ``prose`` — no fields that
+    could alter mechanical outcomes.
+    """
+
+    prose: str
+
+    @field_validator("prose")
+    @classmethod
+    def prose_must_be_nonempty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ModelRetry("Scene narration prose must be non-empty. Please write 2-4 sentences.")
+        return v.strip()
+
+
+# Difficulty ladder used by FreeTextCheck validation.
+_VALID_DIFFICULTIES: frozenset[str] = frozenset(
+    {"easy", "routine", "average", "difficult", "very_difficult", "formidable"}
+)
+
+
+class FreeTextCheck(BaseModel):
+    """Structured LLM output for free-text classification (R14, AE5).
+
+    The LLM interprets free-text player input into an engine-known check.
+    ``field_validator``\\ s enforce difficulty membership and non-empty label;
+    the adapter additionally validates ``skill_id`` against the caller-provided
+    ``valid_skill_ids`` set (post-call).
+    """
+
+    skill_id: str
+    difficulty: str
+    label: str
+    characteristic: str = "SOC"
+    life_threatening: bool = False
+
+    @field_validator("difficulty")
+    @classmethod
+    def difficulty_must_be_in_ladder(cls, v: str) -> str:
+        v_norm = v.strip().lower().replace(" ", "_")
+        if v_norm not in _VALID_DIFFICULTIES:
+            raise ModelRetry(
+                f"Difficulty '{v}' is not a valid difficulty. "
+                f"Choose from: {sorted(_VALID_DIFFICULTIES)}."
+            )
+        return v_norm
+
+    @field_validator("label")
+    @classmethod
+    def label_must_be_nonempty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ModelRetry("Label must be non-empty.")
+        return v.strip()
+
+
 # ---------------------------------------------------------------------------
 # Narration result — what the engine receives back.
 # ---------------------------------------------------------------------------
@@ -107,12 +166,18 @@ class NarrationResult:
         retries_used: How many retries were needed (0 = first attempt).
         llm_failed: True if the LLM exhausted all retries and fell back to
             template narration. The caller should log an audit flag.
+        failure_kind: When ``llm_failed`` is True, categorises the failure:
+            ``"retry_exhausted"`` (LLM kept producing invalid output),
+            ``"provider_error"`` (network/API/timeout), or ``None`` (success
+            or template-only). Callers use this to select the correct
+            degraded-mode status surface.
     """
 
     prose: str
     source: str = "llm"
     retries_used: int = 0
     llm_failed: bool = False
+    failure_kind: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +249,8 @@ class LLMAdapter:
         self._narrator = Narrator()  # Template fallback.
         self._agent: Agent[ToolDeps, LifepathNarration] | None = None
         self._full_agent: Agent[ToolDeps, FullLifepathNarration] | None = None
+        self._scene_agent: Agent[ToolDeps, SceneNarration] | None = None
+        self._classify_agent: Agent[ToolDeps, FreeTextCheck] | None = None
 
         if self._test_model is not None or self.config.model is not None:
             self._setup_agents()
@@ -220,6 +287,26 @@ class LLMAdapter:
         )
         for tool_func in TOOL_REGISTRY.values():
             self._full_agent.tool(tool_func)
+
+        # Scene narration agent (R14). No tools — narration is read-only.
+        self._scene_agent = Agent(
+            model,
+            output_type=SceneNarration,
+            system_prompt=SYSTEM_PROMPT,
+            deps_type=ToolDeps,
+            retries=self.config.max_retries,
+            defer_model_check=defer,
+        )
+
+        # Free-text classification agent (R14, AE5). No tools — read-only.
+        self._classify_agent = Agent(
+            model,
+            output_type=FreeTextCheck,
+            system_prompt=SYSTEM_PROMPT,
+            deps_type=ToolDeps,
+            retries=self.config.max_retries,
+            defer_model_check=defer,
+        )
 
     @property
     def llm_configured(self) -> bool:
@@ -287,15 +374,18 @@ class LLMAdapter:
         except Exception as exc:
             # AE11: LLM failure (invalid output, retry exhaustion) falls back
             # to template narration. State is unchanged.
+            failure_kind = self._classify_failure(exc)
             logger.warning(
-                "LLM narration failed for term %d, falling back to template: %s",
+                "LLM narration failed for term %d (%s), falling back to template: %s",
                 term_result.term_number,
+                failure_kind,
                 exc,
             )
             return NarrationResult(
                 prose=self._narrator.narrate_term(term_result),
                 source="template",
                 llm_failed=True,
+                failure_kind=failure_kind,
             )
 
     # ------------------------------------------------------------------
@@ -346,14 +436,17 @@ class LLMAdapter:
                 source="llm",
             )
         except Exception as exc:
+            failure_kind = self._classify_failure(exc)
             logger.warning(
-                "LLM qualification narration failed, falling back to template: %s",
+                "LLM qualification narration failed (%s), falling back to template: %s",
+                failure_kind,
                 exc,
             )
             return NarrationResult(
                 prose=self._narrator.narrate_qualification(qual_result),
                 source="template",
                 llm_failed=True,
+                failure_kind=failure_kind,
             )
 
     # ------------------------------------------------------------------
@@ -411,14 +504,17 @@ class LLMAdapter:
                 source="llm",
             )
         except Exception as exc:
+            failure_kind = self._classify_failure(exc)
             logger.warning(
-                "LLM mustering out narration failed, falling back to template: %s",
+                "LLM mustering out narration failed (%s), falling back to template: %s",
+                failure_kind,
                 exc,
             )
             return NarrationResult(
                 prose=self._narrator.narrate_mustering_out(mo_result),
                 source="template",
                 llm_failed=True,
+                failure_kind=failure_kind,
             )
 
     # ------------------------------------------------------------------
@@ -461,8 +557,10 @@ class LLMAdapter:
                 source="llm",
             )
         except Exception as exc:
+            failure_kind = self._classify_failure(exc)
             logger.warning(
-                "LLM full lifepath narration failed, falling back to template: %s",
+                "LLM full lifepath narration failed (%s), falling back to template: %s",
+                failure_kind,
                 exc,
             )
             lines = self._narrator.narrate_lifepath(lifepath_result)
@@ -470,7 +568,171 @@ class LLMAdapter:
                 prose="\n".join(lines),
                 source="template",
                 llm_failed=True,
+                failure_kind=failure_kind,
             )
+
+    # ------------------------------------------------------------------
+    # Scene narration (R14, AE5 — Task 24).
+    # ------------------------------------------------------------------
+
+    async def narrate_scene(
+        self,
+        scaffold,
+        outcome_facts: list[str],
+        view: CuratedView,
+    ) -> NarrationResult:
+        """Narrate a scene's events using the LLM (R14).
+
+        Mirrors the lifepath narration pattern: structured prose via the
+        scene agent, retry, template fallback, never raises. On failure,
+        ``failure_kind`` distinguishes retry exhaustion from provider errors
+        so the caller can display the appropriate degraded-mode surface.
+
+        Args:
+            scaffold: :class:`SceneScaffold` with focus/situation/NPC hints.
+            outcome_facts: Mechanical outcome facts as human-readable strings.
+            view: The curated state view for this scene.
+
+        Returns:
+            :class:`NarrationResult` with prose and metadata.
+        """
+        if not self.llm_configured:
+            return NarrationResult(
+                prose=self._template_scene(scaffold, outcome_facts),
+                source="template",
+            )
+
+        prompt = build_scene_prompt(view, scaffold, outcome_facts)
+        deps = ToolDeps(engine=None, state=None)  # Read-only context.
+
+        try:
+            result = await self._scene_agent.run(
+                prompt,
+                deps=deps,
+                usage_limits=self._usage_limits(),
+            )
+            return NarrationResult(
+                prose=result.output.prose,
+                source="llm",
+            )
+        except Exception as exc:
+            failure_kind = self._classify_failure(exc)
+            logger.warning(
+                "LLM scene narration failed (%s), falling back to template: %s",
+                failure_kind,
+                exc,
+            )
+            return NarrationResult(
+                prose=self._template_scene(scaffold, outcome_facts),
+                source="template",
+                llm_failed=True,
+                failure_kind=failure_kind,
+            )
+
+    def classify_freetext(
+        self,
+        text: str,
+        scaffold,
+        view: CuratedView,
+        valid_skill_ids: set[str],
+    ) -> FreeTextCheck | None:
+        """Classify free-text input into an engine-known check (R14, AE5).
+
+        Runs the classification agent synchronously (via thread-pool when
+        inside a running event loop, e.g. Textual). Validates ``skill_id``
+        against ``valid_skill_ids`` post-call — an invalid skill triggers
+        ``ModelRetry``. On exhaustion or any error, returns ``None`` so the
+        caller falls back to the keyword map.
+
+        Args:
+            text: The free-text player input.
+            scaffold: The current :class:`SceneScaffold`.
+            view: The curated state view.
+            valid_skill_ids: Engine-known skill ids the LLM may choose from.
+
+        Returns:
+            :class:`FreeTextCheck` on success, ``None`` on failure/exhaustion.
+        """
+        if not self.llm_configured:
+            return None
+
+        prompt = build_classification_prompt(text, scaffold, view, valid_skill_ids)
+        deps = ToolDeps(engine=None, state=None)
+
+        try:
+            result = self._run_agent_sync(
+                self._classify_agent,
+                prompt,
+                deps=deps,
+                usage_limits=self._usage_limits(),
+            )
+            # Post-call validation: skill_id must be in the valid set.
+            if result.output.skill_id not in valid_skill_ids:
+                raise ModelRetry(
+                    f"skill_id '{result.output.skill_id}' is not in the valid set: "
+                    f"{sorted(valid_skill_ids)}"
+                )
+            return result.output
+        except Exception as exc:
+            logger.warning("Free-text classification failed, returning None: %s", exc)
+            return None
+
+    # ------------------------------------------------------------------
+    # Internal helpers (Task 24).
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _classify_failure(exc: Exception) -> str:
+        """Categorise an LLM failure for degraded-mode surfaces.
+
+        Returns ``"retry_exhausted"`` for ``ModelRetry`` / validation
+        exhaustion and ``"provider_error"`` for network/API/timeout errors.
+        """
+        exc_name = type(exc).__name__
+        # ModelRetry, UsageLimitExceeded, ValidationError → retry exhaustion.
+        if exc_name in ("ModelRetry", "UsageLimitExceeded", "ValidationError"):
+            return "retry_exhausted"
+        # Any subclass of these also counts.
+        from pydantic_ai import ModelRetry as _MR
+        from pydantic_core import ValidationError as _VE
+
+        if isinstance(exc, (_MR, _VE)):
+            return "retry_exhausted"
+        # If the exception message mentions retries/exhaustion/usage, treat
+        # as retry exhaustion. Covers "Exceeded maximum output retries (N)".
+        msg = str(exc).lower()
+        if "retr" in msg or "exhaust" in msg or "usage" in msg or "exceed" in msg:
+            return "retry_exhausted"
+        return "provider_error"
+
+    @staticmethod
+    def _run_agent_sync(agent, prompt, **kwargs):
+        """Run a Pydantic AI agent synchronously.
+
+        When called from inside a running event loop (e.g. a Textual TUI),
+        ``agent.run_sync`` raises ``RuntimeError``. This helper falls back
+        to a thread pool so the call succeeds without blocking the TUI's
+        loop.
+        """
+        import concurrent.futures
+
+        try:
+            return agent.run_sync(prompt, **kwargs)
+        except RuntimeError:
+            # Event loop already running — run in a separate thread.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(agent.run_sync, prompt, **kwargs)
+                return future.result(timeout=30)
+
+    @staticmethod
+    def _template_scene(scaffold, outcome_facts: list[str]) -> str:
+        """Build template (fallback) scene narration from scaffold + facts."""
+        lines = [f"[{scaffold.focus}] {scaffold.situation}"]
+        if getattr(scaffold, "npc_hint", None):
+            lines.append(scaffold.npc_hint)
+        for fact in outcome_facts:
+            lines.append(fact)
+        return " ".join(lines)
 
     # ------------------------------------------------------------------
     # Curated view access.

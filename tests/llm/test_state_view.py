@@ -17,9 +17,11 @@ from src.engine.state import Character, GameState
 from src.llm.state_view import (
     PROHIBITED_KEYS,
     CharacterSheet,
+    FactSummary,
     NpcSummary,
     assert_no_prohibited_fields,
     build_curated_view,
+    build_curated_view_for_scene,
 )
 
 # ---------------------------------------------------------------------------
@@ -222,3 +224,61 @@ class TestCuratedViewExcludesProhibited:
             "chapter_summaries",
             "relevant_facts",
         }
+
+
+# ---------------------------------------------------------------------------
+# Task 21 — open threads default + scene-aware retrieval (R25, R15).
+# ---------------------------------------------------------------------------
+
+
+def test_open_threads_default_to_state():
+    """build_curated_view reads state.open_threads when not explicitly given."""
+    from src.engine.state import GameState
+
+    state = GameState.new(seed=1)
+    state.open_threads = ["Find the missing courier"]
+    view = build_curated_view(state)
+    assert view.open_threads == ["Find the missing courier"]
+
+
+def test_curated_view_includes_open_threads_and_facts():
+    """Explicit relevant_facts + default open_threads populate the view."""
+    from src.engine.state import GameState
+
+    state = GameState.new(seed=1)
+    state.open_threads = ["Find the missing courier"]
+    view = build_curated_view(
+        state,
+        relevant_facts=[FactSummary(name="Dock Officer", description="bribable")],
+    )
+    assert view.open_threads == ["Find the missing courier"]
+    assert [f.name for f in view.relevant_facts] == ["Dock Officer"]
+
+
+def test_build_curated_view_for_scene_resurfaces_referenced_fact():
+    """A fact whose name appears in the scaffold text is re-surfaced (R25)."""
+    from src.engine.state import GameState, NarrativeFact
+
+    state = GameState.new(seed=1)
+    state.entities.append(NarrativeFact(name="Dock Officer", description="bribable"))
+    view = build_curated_view_for_scene(
+        state,
+        scaffold_texts=["social", "You meet the Dock Officer at the port."],
+        player_input="I bribe the dock officer",
+    )
+    assert any(f.name == "Dock Officer" for f in view.relevant_facts)
+
+
+def test_build_curated_view_for_scene_includes_npc_disposition():
+    """A ratified NpcRecord referenced by the scene appears with disposition (R15)."""
+    from src.engine.state import GameState, NpcRecord
+
+    state = GameState.new(seed=1)
+    state.entities.append(NpcRecord(name="Harbor Master", disposition=-1, description="bored"))
+    view = build_curated_view_for_scene(
+        state,
+        scaffold_texts=["social", "The Harbor Master blocks your way."],
+    )
+    assert any(n.name == "Harbor Master" for n in view.scene_npcs)
+    npc = next(n for n in view.scene_npcs if n.name == "Harbor Master")
+    assert npc.disposition == "unfriendly"

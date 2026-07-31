@@ -159,3 +159,77 @@ def build_full_lifepath_prompt(
         f"Maintain a consistent voice throughout. "
         f"Do not contradict any mechanical outcome."
     )
+
+
+# ---------------------------------------------------------------------------
+# Scene narration + free-text classification prompts (R14, AE5 — Task 24).
+# ---------------------------------------------------------------------------
+
+
+def build_scene_prompt(
+    view: CuratedView,
+    scaffold,
+    outcome_facts: list[str],
+) -> str:
+    """Build the user-turn prompt for scene narration (R14).
+
+    Parameters:
+        view: The curated state view for this scene (R2, R25).
+        scaffold: :class:`SceneScaffold` with focus, situation, NPC hints.
+        outcome_facts: Mechanical outcome facts as human-readable strings.
+    """
+    view_json = json.dumps(view.model_dump(), indent=2)
+    facts_block = "\n".join(f"  - {f}" for f in outcome_facts)
+
+    npc_hint = getattr(scaffold, "npc_hint", None)
+    npc_line = f"\nNPC: {npc_hint}" if npc_hint else ""
+
+    return (
+        f"## Character State\n"
+        f"{view_json}\n\n"
+        f"## Scene Context\n"
+        f"Focus: {scaffold.focus} — {scaffold.focus_description}\n"
+        f"Situation: {scaffold.situation}{npc_line}\n\n"
+        f"## Scene Outcome Facts\n"
+        f"{facts_block}\n\n"
+        f"Write engaging second-person narration (2-4 sentences) for this "
+        f"scene. Faithfully reflect the mechanical outcomes above. "
+        f"Do not mention dice or game mechanics."
+    )
+
+
+def build_classification_prompt(
+    text: str,
+    scaffold,
+    view: CuratedView,
+    valid_skill_ids: set[str],
+) -> str:
+    """Build the user-turn prompt for free-text classification (R14, AE5).
+
+    The LLM must choose a ``skill_id`` from the enumerated valid set and a
+    ``difficulty`` from the Cepheus Engine difficulty ladder. Validators on
+    :class:`FreeTextCheck` enforce both; the adapter validates ``skill_id``
+    membership post-call.
+    """
+    view_json = json.dumps(view.model_dump(), indent=2)
+    skills_block = "\n".join(f"  - {s}" for s in sorted(valid_skill_ids))
+
+    return (
+        f"## Character State\n"
+        f"{view_json}\n\n"
+        f"## Scene Context\n"
+        f"Focus: {scaffold.focus} — {scaffold.focus_description}\n"
+        f"Situation: {scaffold.situation}\n\n"
+        f"## Player Free-Text Input\n"
+        f'"{text}"\n\n'
+        f"## Valid Skill IDs\n"
+        f"{skills_block}\n\n"
+        f"Interpret the player's input as an engine-known check. Choose:\n"
+        f"- skill_id: exactly one from the Valid Skill IDs list above.\n"
+        f"- difficulty: one of easy, routine, average, difficult, "
+        f"very_difficult, formidable.\n"
+        f"- label: a short player-facing description of the action.\n"
+        f"- characteristic: the most fitting characteristic (STR, DEX, END, "
+        f"INT, EDU, SOC).\n"
+        f"- life_threatening: true if the action involves mortal combat."
+    )

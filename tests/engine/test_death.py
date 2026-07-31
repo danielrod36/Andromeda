@@ -54,6 +54,16 @@ def make_state(
     return state
 
 
+def make_engine(
+    seed: int = 42,
+    death_mode: str = "narrative",
+    alive: bool = True,
+) -> Engine:
+    """Create an Engine wrapping a fresh GameState for defeat testing."""
+    state = make_state(seed=seed, death_mode=death_mode, alive=alive)
+    return Engine(state, roller=ForcedRoller([]))
+
+
 # ---------------------------------------------------------------------------
 # AE2: Ironman permanent death.
 # ---------------------------------------------------------------------------
@@ -64,52 +74,53 @@ class TestIronmanStrategy:
 
     def test_character_alive_set_false(self):
         """Ironman defeat sets character.alive = False."""
-        state = make_state(death_mode="ironman")
+        engine = make_engine(death_mode="ironman")
+        state = engine.state
         assert state.character.alive is True
 
-        strategy = IronmanStrategy()
+        strategy = IronmanStrategy(engine=engine)
         strategy.handle_defeat(state, DefeatContext(reason="pirate ambush"))
 
         assert state.character.alive is False
 
     def test_play_does_not_continue(self):
         """Ironman defeat ends play."""
-        state = make_state(death_mode="ironman")
-        strategy = IronmanStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="ironman")
+        strategy = IronmanStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
 
         assert result.play_continues is False
 
     def test_restart_offered(self):
         """Ironman defeat offers a new lifepath restart."""
-        state = make_state(death_mode="ironman")
-        strategy = IronmanStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="ironman")
+        strategy = IronmanStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
 
         assert result.restart_offered is True
 
     def test_mode_is_ironman(self):
         """The strategy identifies as 'ironman'."""
         assert IronmanStrategy.mode == "ironman"
-        state = make_state()
-        strategy = IronmanStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine()
+        strategy = IronmanStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
         assert result.mode == "ironman"
 
     def test_message_includes_character_name(self):
         """The defeat message includes the character's name."""
-        state = make_state(death_mode="ironman")
-        state.character.name = "Captain Reyes"
-        strategy = IronmanStrategy()
-        result = strategy.handle_defeat(state, DefeatContext(reason="disease"))
+        engine = make_engine(death_mode="ironman")
+        engine.state.character.name = "Captain Reyes"
+        strategy = IronmanStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext(reason="disease"))
 
         assert "Captain Reyes" in result.message
 
     def test_no_restored_state(self):
         """Ironman does not produce a restored state (death is final)."""
-        state = make_state(death_mode="ironman")
-        strategy = IronmanStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="ironman")
+        strategy = IronmanStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
 
         assert result.restored_state is None
 
@@ -120,10 +131,11 @@ class TestIronmanStrategy:
         already been marked dead. Ironman mode ensures the death is
         permanent — alive remains False and restart is offered.
         """
-        state = make_state(death_mode="ironman", alive=False)
+        engine = make_engine(death_mode="ironman", alive=False)
+        state = engine.state
         assert state.character.alive is False
 
-        strategy = IronmanStrategy()
+        strategy = IronmanStrategy(engine=engine)
         result = strategy.handle_defeat(state, DefeatContext(reason="chargen mishap"))
 
         # Death is permanent: alive stays False.
@@ -222,10 +234,11 @@ class TestNarrativeStrategy:
 
     def test_injury_added_to_entities(self):
         """Narrative defeat adds an Injury entity to the character sheet."""
-        state = make_state(death_mode="narrative")
+        engine = make_engine(death_mode="narrative")
+        state = engine.state
         initial_entity_count = len(state.entities)
 
-        strategy = NarrativeStrategy()
+        strategy = NarrativeStrategy(engine=engine)
         strategy.handle_defeat(state, DefeatContext(reason="a duel"))
 
         assert len(state.entities) == initial_entity_count + 1
@@ -235,64 +248,64 @@ class TestNarrativeStrategy:
 
     def test_injury_is_severe(self):
         """The defeat consequence is a severe injury."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        strategy.handle_defeat(state, DefeatContext(reason="ambush"))
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        strategy.handle_defeat(engine.state, DefeatContext(reason="ambush"))
 
-        injury = state.entities[-1]
+        injury = engine.state.entities[-1]
         assert injury.severity == "severe"
 
     def test_injury_has_descriptive_text(self):
         """The injury description explains what happened."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        strategy.handle_defeat(state, DefeatContext(reason="a fall"))
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        strategy.handle_defeat(engine.state, DefeatContext(reason="a fall"))
 
-        injury = state.entities[-1]
+        injury = engine.state.entities[-1]
         assert "fall" in injury.description
         assert len(injury.description) > 10
 
     def test_character_still_alive(self):
         """The character survives a narrative defeat."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        strategy.handle_defeat(engine.state, DefeatContext())
 
-        assert state.character.alive is True
+        assert engine.state.character.alive is True
 
     def test_play_continues(self):
         """Narrative defeat allows continued play."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
 
         assert result.play_continues is True
 
     def test_no_restored_state(self):
         """Narrative mode does not rewind (no restored state)."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
 
         assert result.restored_state is None
 
     def test_restart_not_offered(self):
         """Narrative mode does not offer restart."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        result = strategy.handle_defeat(state, DefeatContext())
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        result = strategy.handle_defeat(engine.state, DefeatContext())
 
         assert result.restart_offered is False
 
     def test_multiple_defeats_accumulate_injuries(self):
         """Each narrative defeat adds a new injury (consequences accumulate)."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
 
-        strategy.handle_defeat(state, DefeatContext(reason="first defeat"))
-        strategy.handle_defeat(state, DefeatContext(reason="second defeat"))
+        strategy.handle_defeat(engine.state, DefeatContext(reason="first defeat"))
+        strategy.handle_defeat(engine.state, DefeatContext(reason="second defeat"))
 
-        injuries = [e for e in state.entities if isinstance(e, Injury)]
+        injuries = [e for e in engine.state.entities if isinstance(e, Injury)]
         assert len(injuries) == 2
 
     def test_injury_visible_on_character_sheet(self):
@@ -301,12 +314,12 @@ class TestNarrativeStrategy:
         The entities list is what the LLM adapter (U5) uses to build the
         character sheet view. An Injury here means it shows up on the sheet.
         """
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        strategy.handle_defeat(state, DefeatContext(reason="explosion"))
+        engine = make_engine(death_mode="narrative")
+        strategy = NarrativeStrategy(engine=engine)
+        strategy.handle_defeat(engine.state, DefeatContext(reason="explosion"))
 
         # The injury is in entities, which feeds the character sheet view.
-        injuries = [e for e in state.entities if isinstance(e, Injury)]
+        injuries = [e for e in engine.state.entities if isinstance(e, Injury)]
         assert len(injuries) == 1
         assert injuries[0].severity == "severe"
         assert "explosion" in injuries[0].name
@@ -321,34 +334,40 @@ class TestGetDeathStrategy:
     """Factory returns the correct strategy for each death mode."""
 
     def test_returns_ironman_strategy(self):
-        strategy = get_death_strategy("ironman")
+        engine = make_engine()
+        strategy = get_death_strategy("ironman", engine=engine)
         assert isinstance(strategy, IronmanStrategy)
         assert strategy.mode == "ironman"
 
     def test_returns_narrative_strategy(self):
-        strategy = get_death_strategy("narrative")
+        engine = make_engine()
+        strategy = get_death_strategy("narrative", engine=engine)
         assert isinstance(strategy, NarrativeStrategy)
         assert strategy.mode == "narrative"
 
     def test_returns_checkpoint_strategy(self):
+        engine = make_engine()
         mgr = CheckpointManager()
-        strategy = get_death_strategy("checkpoint", checkpoint=mgr)
+        strategy = get_death_strategy("checkpoint", engine=engine, checkpoint=mgr)
         assert isinstance(strategy, CheckpointStrategy)
         assert strategy.mode == "checkpoint"
 
     def test_checkpoint_without_manager_raises(self):
+        engine = make_engine()
         with pytest.raises(ValueError, match="CheckpointManager"):
-            get_death_strategy("checkpoint")
+            get_death_strategy("checkpoint", engine=engine)
 
     def test_unknown_mode_raises(self):
+        engine = make_engine()
         with pytest.raises(ValueError, match="Unknown death mode"):
-            get_death_strategy("permadeath")
+            get_death_strategy("permadeath", engine=engine)
 
     def test_all_death_modes_valid(self):
         """Every mode in DEATH_MODES produces a valid strategy."""
+        engine = make_engine()
         mgr = CheckpointManager()
         for mode in DEATH_MODES:
-            strategy = get_death_strategy(mode, checkpoint=mgr)
+            strategy = get_death_strategy(mode, engine=engine, checkpoint=mgr)
             assert strategy.mode == mode
 
 
@@ -361,21 +380,24 @@ class TestStrategyProtocol:
     """All strategies conform to the DeathStrategy protocol."""
 
     def test_ironman_satisfies_protocol(self):
-        assert isinstance(IronmanStrategy(), DeathStrategy)
+        engine = make_engine()
+        assert isinstance(IronmanStrategy(engine=engine), DeathStrategy)
 
     def test_checkpoint_satisfies_protocol(self):
         mgr = CheckpointManager()
         assert isinstance(CheckpointStrategy(mgr), DeathStrategy)
 
     def test_narrative_satisfies_protocol(self):
-        assert isinstance(NarrativeStrategy(), DeathStrategy)
+        engine = make_engine()
+        assert isinstance(NarrativeStrategy(engine=engine), DeathStrategy)
 
     def test_all_strategies_return_defeat_result(self):
         """handle_defeat returns a DefeatResult in all modes."""
+        engine = make_engine()
         mgr = CheckpointManager()
         for mode in DEATH_MODES:
             state = make_state(death_mode=mode)
-            strategy = get_death_strategy(mode, checkpoint=mgr)
+            strategy = get_death_strategy(mode, engine=engine, checkpoint=mgr)
             if mode == "checkpoint":
                 mgr.take_snapshot(state)
             result = strategy.handle_defeat(state, DefeatContext(reason="test"))
@@ -390,12 +412,12 @@ class TestStrategyProtocol:
 
 
 class TestFunnelRoutedDeathStrategies:
-    """Death strategies route mutations through Engine.apply when given an engine."""
+    """Death strategies route mutations through Engine.apply."""
 
-    def test_ironman_with_engine_logs_event(self):
+    def test_ironman_logs_event(self):
         """Ironman defeat via funnel produces an audit event."""
-        state = make_state(death_mode="ironman")
-        engine = Engine(state, roller=ForcedRoller([]))
+        engine = make_engine(death_mode="ironman")
+        state = engine.state
         initial_events = len(state.events)
 
         strategy = IronmanStrategy(engine=engine)
@@ -407,20 +429,12 @@ class TestFunnelRoutedDeathStrategies:
         assert event.command_type == "set_character_dead"
         assert event.changes["alive"] is False
 
-    def test_ironman_without_engine_legacy_path(self):
-        """Ironman without engine still works (backward-compatible direct mutation)."""
-        state = make_state(death_mode="ironman")
-        strategy = IronmanStrategy()
-        strategy.handle_defeat(state, DefeatContext(reason="test"))
-
-        assert state.character.alive is False
-
-    def test_narrative_with_engine_logs_event(self):
+    def test_narrative_logs_event(self):
         """Narrative defeat via funnel produces an audit event."""
         from src.engine.state import Injury
 
-        state = make_state(death_mode="narrative")
-        engine = Engine(state, roller=ForcedRoller([]))
+        engine = make_engine(death_mode="narrative")
+        state = engine.state
         initial_events = len(state.events)
 
         strategy = NarrativeStrategy(engine=engine)
@@ -433,26 +447,24 @@ class TestFunnelRoutedDeathStrategies:
         assert isinstance(injury, Injury)
         assert "duel" in injury.name
 
-    def test_narrative_without_engine_legacy_path(self):
-        """Narrative without engine still works (backward-compatible)."""
-        state = make_state(death_mode="narrative")
-        strategy = NarrativeStrategy()
-        strategy.handle_defeat(state, DefeatContext(reason="test"))
-
-        from src.engine.state import Injury
-
-        assert any(isinstance(e, Injury) for e in state.entities)
-
     def test_factory_passes_engine_to_ironman(self):
         """get_death_strategy passes engine to IronmanStrategy."""
-        state = make_state(death_mode="ironman")
-        engine = Engine(state, roller=ForcedRoller([]))
+        engine = make_engine(death_mode="ironman")
         strategy = get_death_strategy("ironman", engine=engine)
         assert strategy._engine is engine
 
     def test_factory_passes_engine_to_narrative(self):
         """get_death_strategy passes engine to NarrativeStrategy."""
-        state = make_state(death_mode="narrative")
-        engine = Engine(state, roller=ForcedRoller([]))
+        engine = make_engine(death_mode="narrative")
         strategy = get_death_strategy("narrative", engine=engine)
         assert strategy._engine is engine
+
+    def test_ironman_requires_engine(self):
+        """IronmanStrategy requires an engine (no legacy direct-mutation path)."""
+        with pytest.raises(TypeError):
+            IronmanStrategy()  # type: ignore[call-arg]
+
+    def test_narrative_requires_engine(self):
+        """NarrativeStrategy requires an engine (no legacy direct-mutation path)."""
+        with pytest.raises(TypeError):
+            NarrativeStrategy()  # type: ignore[call-arg]

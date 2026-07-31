@@ -20,18 +20,21 @@ mechanic:
   name: "Mechanic"
   description: "Repair and maintain machinery and vehicles."
   career: ""
+  background: true
 
 electronics_comms:
   id: electronics_comms
   name: "Electronics (Comms)"
   description: "Operate communications systems and jammers."
   career: ""
+  background: true
 
 electronics_sensors:
   id: electronics_sensors
   name: "Electronics (Sensors)"
   description: "Operate sensor arrays and scanning equipment."
   career: ""
+  background: true
 
 electronics_remote_ops:
   id: electronics_remote_ops
@@ -74,6 +77,7 @@ medic:
   name: "Medic"
   description: "Treat injuries, diagnose illness, and perform surgery."
   career: ""
+  background: true
 
 leadership:
   id: leadership
@@ -104,18 +108,21 @@ computers:
   name: "Computers"
   description: "Programming, hacking, and computer system operation."
   career: ""
+  background: true
 
 drive_ground_vehicle:
   id: drive_ground_vehicle
   name: "Drive (Ground Vehicle)"
   description: "Operate wheeled and tracked ground vehicles."
   career: army
+  background: true
 
 drive_hovercraft:
   id: drive_hovercraft
   name: "Drive (Hovercraft)"
   description: "Operate hover and air-cushion vehicles."
   career: army
+  background: true
 
 heavy_wpn_vehicle:
   id: heavy_wpn_vehicle
@@ -134,6 +141,7 @@ gun_combat_slug_rifle:
   name: "Gun Combat (Slug Rifle)"
   description: "Use projectile rifles and carbines."
   career: marines
+  background: true
 
 gun_combat_slug_pistol:
   id: gun_combat_slug_pistol
@@ -236,6 +244,7 @@ athletics:
   name: "Athletics"
   description: "Running, jumping, climbing, and physical exertion."
   career: ""
+  background: true
 
 survival:
   id: survival
@@ -248,6 +257,7 @@ stealth:
   name: "Stealth"
   description: "Move silently, hide, and avoid detection."
   career: scout
+  background: true
 
 science_physics:
   id: science_physics
@@ -284,3 +294,71 @@ flyer_rotor:
   name: "Flyer (Rotor)"
   description: "Pilot rotorcraft and helicopter equivalents."
   career: drifter
+  background: true
+
+# Additional CE SRD skills needed for 1D6 career tables (Task 3).
+
+vacc_suit:
+  id: vacc_suit
+  name: "Vacc Suit"
+  description: "Operate in vacuum and hazardous-environment suits."
+  career: navy
+  background: true
+
+bribery:
+  id: bribery
+  name: "Bribery"
+  description: "Offer and negotiate bribes effectively."
+  career: agent
+
+jack_of_trades:
+  id: jack_of_trades
+  name: "Jack of Trades"
+  description: "Broad but shallow competence across many fields."
+  career: noble
+
+survey:
+  id: survey
+  name: "Survey"
+  description: "Explore, map, and catalog newly discovered worlds."
+  career: scout
+
+linguistics:
+  id: linguistics
+  name: "Linguistics"
+  description: "Understand and translate languages, known and alien."
+  career: agent
+
+seafarer:
+  id: seafarer
+  name: "Seafarer"
+  description: "Operate watercraft and survive at sea."
+  career: scout
+
+# Additional CE SRD skills needed for Specialist Skills tables (Task 13).
+
+gravitics:
+  id: gravitics
+  name: "Gravitics"
+  description: "Operate and maintain gravity-based technology and drive systems."
+  career: navy
+
+# Additional CE SRD skills needed for the 24-career set (Task 14).
+
+aircraft:
+  id: aircraft
+  name: "Aircraft"
+  description: "Pilot atmospheric craft including fixed-wing, rotor-wing, and grav vehicles."
+  career: aerospace_defense
+
+battle_dress:
+  id: battle_dress
+  name: "Battle Dress"
+  description: "Operate powered armor and battle dress exoskeletons."
+  career: marines
+
+prospecting:
+  id: prospecting
+  name: "Prospecting"
+  description: "Locate and evaluate mineral deposits and salvageable material."
+  career: belter

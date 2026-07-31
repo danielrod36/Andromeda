@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from src.engine.checkpoint import CheckpointManager
 from src.engine.commands import Engine, SetCharacterDeadCommand
 from src.engine.scene import AddInjuryCommand
-from src.engine.state import GameState, Injury
+from src.engine.state import GameState
 
 if TYPE_CHECKING:
     pass
@@ -89,24 +89,19 @@ class IronmanStrategy:
     Sets ``character.alive = False`` and signals that the game should offer a
     new lifepath restart. The character is dead; the save may be retired.
 
-    When an :class:`Engine` is provided, the mutation is routed through the
-    command funnel via :class:`SetCharacterDeadCommand`, producing an audit
-    event and preserving replay/reconstruct guarantees. Without an engine
-    (legacy/test path), the mutation is applied directly for backward
-    compatibility.
+    The mutation is routed through the command funnel via
+    :class:`SetCharacterDeadCommand`, producing an audit event and preserving
+    replay/reconstruct guarantees.
     """
 
     mode: str = "ironman"
 
-    def __init__(self, engine: Engine | None = None) -> None:
+    def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
     def handle_defeat(self, state: GameState, context: DefeatContext) -> DefeatResult:
         reason = context.reason or "an encounter"
-        if self._engine is not None:
-            self._engine.apply(SetCharacterDeadCommand(reason=reason))
-        else:
-            state.character.alive = False
+        self._engine.apply(SetCharacterDeadCommand(reason=reason))
         name = state.character.name or "the traveler"
         return DefeatResult(
             mode=self.mode,
@@ -151,16 +146,14 @@ class NarrativeStrategy:
     representing the lasting consequence of the defeat. The character
     survives and play continues with the setback visible in canonical state.
 
-    When an :class:`Engine` is provided, the injury is applied through the
-    command funnel via :class:`AddInjuryCommand`, producing an audit event
-    and preserving replay/reconstruct guarantees. Without an engine
-    (legacy/test path), the mutation is applied directly for backward
-    compatibility.
+    The injury is applied through the command funnel via
+    :class:`AddInjuryCommand`, producing an audit event and preserving
+    replay/reconstruct guarantees.
     """
 
     mode: str = "narrative"
 
-    def __init__(self, engine: Engine | None = None) -> None:
+    def __init__(self, engine: Engine) -> None:
         self._engine = engine
 
     def handle_defeat(self, state: GameState, context: DefeatContext) -> DefeatResult:
@@ -170,21 +163,13 @@ class NarrativeStrategy:
             f"A lasting consequence from {reason}. The character was "
             f"defeated but survived with a serious injury."
         )
-        if self._engine is not None:
-            self._engine.apply(
-                AddInjuryCommand(
-                    name=injury_name,
-                    severity="severe",
-                    description=injury_desc,
-                )
-            )
-        else:
-            injury = Injury(
+        self._engine.apply(
+            AddInjuryCommand(
                 name=injury_name,
                 severity="severe",
                 description=injury_desc,
             )
-            state.entities.append(injury)
+        )
         return DefeatResult(
             mode=self.mode,
             message=(f"Defeat from {reason} — a lasting consequence is applied. Play continues."),
@@ -202,18 +187,18 @@ DEATH_MODES: tuple[str, ...] = ("ironman", "checkpoint", "narrative")
 
 def get_death_strategy(
     mode: str,
+    engine: Engine,
     checkpoint: CheckpointManager | None = None,
-    engine: Engine | None = None,
 ) -> DeathStrategy:
     """Return the death strategy for the given campaign mode (R8).
 
     Args:
         mode: One of ``"ironman"``, ``"checkpoint"``, ``"narrative"``.
-        checkpoint: Required for ``"checkpoint"`` mode; ignored otherwise.
-        engine: When provided, Ironman and Narrative strategies route their
-            state mutations through the command funnel via
+        engine: Required for Ironman and Narrative strategies, which route
+            their state mutations through the command funnel via
             :meth:`Engine.apply`, producing audit events and preserving
             replay/reconstruct guarantees.
+        checkpoint: Required for ``"checkpoint"`` mode; ignored otherwise.
 
     Raises:
         ValueError: if *mode* is not a recognized death mode, or if

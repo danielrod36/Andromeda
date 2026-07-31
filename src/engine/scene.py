@@ -19,18 +19,19 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 from src.engine.audit import Event, EventKind
-from src.engine.commands import Command, Engine
+from src.engine.commands import Command, Engine, FlagDegradationCommand
 from src.engine.dice import Roller, RollResult
 from src.engine.lifepath import lookup_table_result
+from src.engine.skills import skill_display_name, skill_level_for
 from src.engine.state import GameState, Injury, NarrativeFact
-from src.rulesets.base import OutcomeQuality
+from src.rulesets.base import OutcomeQuality, SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
 from src.rulesets.profiles import (
     ClassicProfile,
     NarrativeProfile,
     ResolutionProfile,
 )
-from src.themepacks.base import LoadedThemePack
+from src.themepacks.base import ComplicationMap, LoadedThemePack, OptionTemplate
 
 # ---------------------------------------------------------------------------
 # Commands — oracle rolls, scene checks, consequence application.
@@ -61,6 +62,45 @@ class OracleRollCommand(Command):
         )
 
 
+class ComplicationRollCommand(Command):
+    """Roll 2D6 on a pack complication/consequence table (Task 18, R7).
+
+    Used on the weak-hit path (complication table) and the miss path
+    (consequence table). Rolls on the ``oracle`` stream so determinism is
+    preserved alongside other scene-oracle rolls. The rolled entry text is
+    registered as a :class:`NarrativeFact` (persists per R15) and returned as
+    the consequence description in the event ``changes``.
+    """
+
+    command_type: ClassVar[str] = "complication_roll"
+    table_id: str
+    entries: list[SkillTableEntry]
+
+    def resolve(self, state: GameState, roller: Roller) -> RollResult:
+        return roller.roll("oracle", ndice=2, sides=6)
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        assert roll is not None
+        entry = lookup_table_result(self.entries, roll.total)
+        state.entities.append(
+            NarrativeFact(
+                name=entry.result,
+                description=f"Complication from {self.table_id}",
+            )
+        )
+        return Event(
+            kind=EventKind.ROLL,
+            command_type=self.command_type,
+            description=f"{self.table_id}: {roll.total} -> {entry.result}",
+            roll=roll,
+            changes={
+                "table_id": self.table_id,
+                "roll_total": roll.total,
+                "result_text": entry.result,
+            },
+        )
+
+
 class SceneCheckCommand(Command):
     """Roll a skill check for a scene action (R13, R15).
 
@@ -75,6 +115,7 @@ class SceneCheckCommand(Command):
     characteristic: str
     difficulty: str
     profile: str = "narrative"
+    ratified: tuple[str, ...] = ()
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
         return roller.roll("combat", ndice=2, sides=6)
@@ -85,7 +126,10 @@ class SceneCheckCommand(Command):
 
         char_value = state.character.characteristics.get(self.characteristic, 7)
         char_dm = ruleset.characteristic_dm(char_value)
-        skill_level = state.character.skills.get(self.skill, 0)
+        # Skill lookup canonicalizes to lifepath-stored IDs: exact match wins,
+        # then the best cascade specialization ({skill_id}_*), else the CE SRD
+        # untrained DM (-3). Level 0 counts as trained (FR1).
+        skill_level, trained = skill_level_for(state.character, self.skill)
         difficulty_dm = ruleset.difficulty_modifier(self.difficulty)
         total_dm = char_dm + skill_level + difficulty_dm
 
@@ -110,14 +154,17 @@ class SceneCheckCommand(Command):
                 "difficulty": self.difficulty,
                 "profile": self.profile,
                 "raw_roll": roll.total,
+                "dice": list(roll.rolls),
                 "char_dm": char_dm,
                 "skill_level": skill_level,
+                "trained": trained,
                 "difficulty_dm": difficulty_dm,
                 "total_dm": total_dm,
                 "success": outcome.success,
                 "effect": outcome.effect,
                 "quality": outcome.quality.value,
                 "description": outcome.description,
+                "ratified": list(self.ratified),
             },
         )
 
@@ -150,6 +197,50 @@ class RegisterFactCommand(Command):
             command_type=self.command_type,
             description=f"Registered narrative fact: {self.name}",
             changes={"name": self.name, "description": self.description},
+        )
+
+
+class AddOpenThreadCommand(Command):
+    """Add an open narrative thread to canonical state (R15, R25).
+
+    Mission hooks are added as open threads on accept so the curated view
+    and fact retrieval can reference them; resolved on mission end.
+    """
+
+    command_type: ClassVar[str] = "add_open_thread"
+    thread: str
+
+    def validate(self, state: GameState) -> None:
+        if not self.thread or not self.thread.strip():
+            raise ValueError("Open thread must be non-empty")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        thread = self.thread.strip()
+        if thread not in state.open_threads:
+            state.open_threads.append(thread)
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Open thread added: {thread}",
+            changes={"thread": thread},
+        )
+
+
+class RemoveOpenThreadCommand(Command):
+    """Remove an open narrative thread (on mission resolve)."""
+
+    command_type: ClassVar[str] = "remove_open_thread"
+    thread: str
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        thread = self.thread.strip()
+        if thread in state.open_threads:
+            state.open_threads.remove(thread)
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Open thread removed: {thread}",
+            changes={"thread": thread},
         )
 
 
@@ -282,6 +373,11 @@ class SceneCheckResult:
     effect: int
     quality: str
     description: str
+    # Task 16/20: dice values and trained flag for inline mechanics display.
+    dice: list[int] = field(default_factory=list)
+    trained: bool = True
+    # Task 23: facts ratified as NPCs because the check targeted them (AE9).
+    ratified: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -297,102 +393,32 @@ class SceneResult:
 
 
 # ---------------------------------------------------------------------------
-# Focus-to-option mapping (derives structured options from scaffold).
+# Generic fallback templates (R13 degradation path).
 # ---------------------------------------------------------------------------
+#
+# These two OptionTemplate constants are the deterministic last-resort options
+# used when pack option data is missing or yields fewer than two options. They
+# reference skills that ship in every pack (athletics is present in both the
+# sci-fi and fantasy packs' skills.yaml). When this path is taken, the engine
+# also appends a FlagDegradationCommand so the degraded behavior is visible in
+# the audit log.
 
-#: Each tuple is (keyword, list of option templates).
-#: The keyword is matched against the scene_focus oracle result to determine
-#: which set of options to present. Each template provides a label, skill,
-#: characteristic, difficulty, and life_threatening flag for the pre-mapped check.
-_FOCUS_OPTION_MAP: list[tuple[str, list[tuple[str, str, str, str, bool]]]] = [
-    (
-        "combat",
-        [
-            ("Engage in combat", "Gun Combat", "DEX", "average", True),
-            ("Use stealth to gain advantage", "Stealth", "DEX", "difficult", False),
-            ("Intimidate them into backing down", "Streetwise", "SOC", "average", False),
-        ],
+_GENERIC_FALLBACK_OPTIONS: tuple[OptionTemplate, OptionTemplate] = (
+    OptionTemplate(
+        label="Take direct action",
+        skill="athletics",
+        characteristic="END",
+        difficulty="average",
+        life_threatening=False,
     ),
-    (
-        "social",
-        [
-            ("Persuade them to cooperate", "Persuade", "SOC", "average", False),
-            ("Deceive them with a cover story", "Deception", "SOC", "difficult", False),
-            ("Negotiate a mutually beneficial deal", "Broker", "INT", "average", False),
-        ],
+    OptionTemplate(
+        label="Push through regardless",
+        skill="athletics",
+        characteristic="STR",
+        difficulty="difficult",
+        life_threatening=False,
     ),
-    (
-        "exploration",
-        [
-            ("Investigate the area thoroughly", "Investigate", "INT", "average", False),
-            ("Scan with ship sensors", "Sensors", "EDU", "average", False),
-            ("Navigate difficult terrain", "Survival", "END", "difficult", True),
-        ],
-    ),
-    (
-        "technical",
-        [
-            ("Repair or modify the system", "Mechanic", "EDU", "average", False),
-            ("Hack into the computer", "Computers", "INT", "difficult", False),
-            ("Apply engineering expertise", "Engineer", "EDU", "average", False),
-        ],
-    ),
-    (
-        "political",
-        [
-            ("Use diplomacy to resolve the situation", "Diplomat", "SOC", "average", False),
-            ("Leverage administrative connections", "Admin", "SOC", "difficult", False),
-            ("Research the political background", "Research", "EDU", "average", False),
-        ],
-    ),
-    (
-        "plot twist",
-        [
-            ("Adapt quickly to the new situation", "Leadership", "SOC", "difficult", False),
-            ("Investigate the unexpected development", "Investigate", "INT", "average", False),
-            ("Negotiate from a position of strength", "Persuade", "SOC", "average", False),
-        ],
-    ),
-]
-
-
-#: Keyword-based free-text classifier (v0.3b template fallback, AE5).
-#: Each tuple is (keyword, skill, characteristic, difficulty, label,
-#: life_threatening). Combat keywords are life-threatening, mirroring the
-#: structured combat-focus options, so free-text combat can trigger the
-#: defeat loop (F5) exactly like structured options.
-_FREETEXT_KEYWORD_MAP: list[tuple[str, str, str, str, str, bool]] = [
-    ("bribe", "Broker", "SOC", "average", "Bribe the target", False),
-    ("pay off", "Broker", "SOC", "average", "Bribe the target", False),
-    ("fight", "Gun Combat", "DEX", "average", "Fight the target", True),
-    ("attack", "Gun Combat", "DEX", "average", "Attack the target", True),
-    ("shoot", "Gun Combat", "DEX", "average", "Shoot at the target", True),
-    ("sneak", "Stealth", "DEX", "difficult", "Sneak past", False),
-    ("hide", "Stealth", "DEX", "average", "Hide from view", False),
-    ("hack", "Computers", "INT", "difficult", "Hack the system", False),
-    ("repair", "Mechanic", "EDU", "average", "Repair the system", False),
-    ("persuade", "Persuade", "SOC", "average", "Persuade the target", False),
-    ("convince", "Persuade", "SOC", "average", "Convince the target", False),
-    ("lie", "Deception", "SOC", "difficult", "Deceive the target", False),
-    ("deceive", "Deception", "SOC", "difficult", "Deceive the target", False),
-    ("negotiate", "Broker", "INT", "average", "Negotiate a deal", False),
-    ("intimidate", "Streetwise", "SOC", "difficult", "Intimidate the target", False),
-    ("threaten", "Streetwise", "SOC", "difficult", "Threaten the target", False),
-    ("investigate", "Investigate", "INT", "average", "Investigate the situation", False),
-    ("search", "Investigate", "INT", "average", "Search the area", False),
-    ("scan", "Sensors", "EDU", "average", "Scan with sensors", False),
-    ("pilot", "Pilot", "DEX", "average", "Pilot the vehicle", False),
-    ("fly", "Pilot", "DEX", "average", "Fly the vehicle", False),
-    ("drive", "Drive", "DEX", "average", "Drive the vehicle", False),
-    ("heal", "Medic", "EDU", "average", "Provide medical aid", False),
-    ("medicine", "Medic", "EDU", "average", "Provide medical aid", False),
-    ("climb", "Athletics", "STR", "difficult", "Climb the obstacle", False),
-    ("run", "Athletics", "END", "average", "Run to safety", False),
-    ("escape", "Athletics", "END", "difficult", "Escape the situation", False),
-    ("flee", "Athletics", "END", "average", "Flee from danger", False),
-    ("research", "Research", "EDU", "average", "Research the topic", False),
-    ("inspect", "Investigate", "INT", "average", "Inspect the target", False),
-]
+)
 
 
 # ---------------------------------------------------------------------------
@@ -473,46 +499,94 @@ class SceneEngine:
         )
 
     # ------------------------------------------------------------------
-    # Option generation (R12, R13).
+    # Option generation (R12, R13, AE10).
     # ------------------------------------------------------------------
 
     def generate_options(self, scaffold: SceneScaffold) -> list[SceneOption]:
         """Derive 2-4 structured options from the scaffold + theme-pack data.
 
-        Each option pre-maps to an engine-known check (skill + difficulty)
-        before display to the player. The player always has the additional
-        free-text slot (handled by the TUI, not this method).
+        Resolution order (R13 degradation fallback):
+
+        1. Look up ``pack.option_templates.focus_options`` by the scaffold's
+           focus keyword (case-insensitive substring match).
+        2. On no match, use ``pack.option_templates.default_options``.
+        3. If the pack has no option templates, or the resolved set has fewer
+           than two entries, fall back to the deterministic generic options
+           (``_GENERIC_FALLBACK_OPTIONS``) and append a
+           :class:`FlagDegradationCommand` to the audit log.
+
+        Each option pre-maps to an engine-known check (skill id + difficulty).
         """
-        focus_lower = scaffold.focus.lower()
-        templates = self._match_focus_options(focus_lower)
+        templates = self._resolve_option_templates(scaffold.focus)
+        options = [self._template_to_option(t) for t in templates]
 
-        options: list[SceneOption] = []
-        for label, skill, char, diff, life_threatening in templates:
-            options.append(
-                SceneOption(
-                    label=label,
-                    skill=skill,
-                    characteristic=char,
-                    difficulty=diff,
-                    description=f"{skill} check ({diff}) using {char}",
-                    life_threatening=life_threatening,
-                )
-            )
-
-        # Ensure at least 2 options.
+        # R13: fewer than 2 options triggers the deterministic degradation
+        # path. Flag the audit log so the degraded behavior is inspectable.
         if len(options) < 2:
-            options.append(
-                SceneOption(
-                    label="Take direct action",
-                    skill="Gun Combat",
-                    characteristic="DEX",
-                    difficulty="average",
-                    description="Direct confrontation",
-                    life_threatening=True,
+            self.engine.apply(
+                FlagDegradationCommand(
+                    area="options",
+                    reason=(
+                        f"pack={self.pack.id!r} focus={scaffold.focus!r} "
+                        f"yielded {len(options)} option(s); using generic fallback"
+                    ),
                 )
             )
+            # Use the generic fallback templates; preserve any pack-derived
+            # option we did get (it is still a valid pack id).
+            fallback = [self._template_to_option(t) for t in _GENERIC_FALLBACK_OPTIONS]
+            seen_skills = {o.skill for o in options}
+            for opt in fallback:
+                if len(options) >= 4:
+                    break
+                if opt.skill not in seen_skills:
+                    options.append(opt)
+                    seen_skills.add(opt.skill)
+            # Absolute floor: if even the fallback templates collided, top up
+            # deterministically from the fallback list without the dedup gate.
+            i = 0
+            while len(options) < 2 and i < len(fallback):
+                options.append(fallback[i])
+                i += 1
 
         return options[:4]  # Cap at 4.
+
+    def _template_to_option(self, template: OptionTemplate) -> SceneOption:
+        """Convert a pack :class:`OptionTemplate` into a runtime :class:`SceneOption`.
+
+        Uses :func:`skill_display_name` so the ``description`` shows a
+        human-readable skill name rather than the raw pack id (e.g.
+        "Gun Combat (Slug Rifle)" instead of "gun_combat_slug_rifle").
+        """
+        display = skill_display_name(self.pack, template.skill)
+        return SceneOption(
+            label=template.label,
+            skill=template.skill,
+            characteristic=template.characteristic,
+            difficulty=template.difficulty,
+            description=f"{display} check ({template.difficulty}) using {template.characteristic}",
+            life_threatening=template.life_threatening,
+        )
+
+    def _resolve_option_templates(self, focus: str) -> list[OptionTemplate]:
+        """Pick the pack option-template list for ``focus`` (R13 fallback chain).
+
+        1. Pack ``focus_options`` matched case-insensitively on the focus.
+        2. Pack ``default_options`` on no focus match.
+        3. Empty list — caller applies the generic degradation fallback.
+        """
+        templates = self.pack.option_templates
+        if templates is None:
+            return []
+
+        focus_lower = focus.lower()
+        for keyword, opts in templates.focus_options.items():
+            if keyword.lower() in focus_lower and opts:
+                return list(opts)
+
+        if templates.default_options:
+            return list(templates.default_options)
+        return []
 
     # ------------------------------------------------------------------
     # Check resolution (R13, R15).
@@ -528,12 +602,40 @@ class SceneEngine:
         Rolls 2D6 on the combat stream, applies the active resolution
         profile, and returns the outcome. The check is recorded in the
         event log via SceneCheckCommand.
+
+        Before resolving, if any unratified :class:`NarrativeFact` name
+        appears in the option label/description or scaffold text, the fact
+        is ratified as an NPC via :func:`ratify_fact_as_npc` (R24, AE9).
+        Ratified fact names are recorded on the check result so narration
+        can reference the mechanical activation.
         """
+        # Deferred import: retrieval.py imports RatifyFactCommand from this
+        # module, so a top-level import would create a circular dependency.
+        from src.engine.retrieval import ratify_fact_as_npc
+
+        # AE9: ratify facts whose names are targeted by this check.
+        ratified: list[str] = []
+        haystack = " ".join(
+            [
+                option.label,
+                option.description,
+                scaffold.focus_description,
+                scaffold.situation,
+            ]
+        ).lower()
+        for fact in [e for e in self.engine.state.entities if isinstance(e, NarrativeFact)]:
+            if "NPC stats" in fact.description:
+                continue  # already ratified
+            if fact.name.lower() in haystack:
+                ratify_fact_as_npc(fact, engine=self.engine)
+                ratified.append(fact.name)
+
         cmd = SceneCheckCommand(
             skill=option.skill,
             characteristic=option.characteristic,
             difficulty=option.difficulty,
             profile=self.engine.state.campaign.resolution_profile,
+            ratified=tuple(ratified),
         )
         event = self.engine.apply(cmd)
         c = event.changes
@@ -549,6 +651,9 @@ class SceneEngine:
             effect=c["effect"],
             quality=c["quality"],
             description=c["description"],
+            dice=list(c["dice"]),
+            trained=c["trained"],
+            ratified=list(c.get("ratified", [])),
         )
 
     # ------------------------------------------------------------------
@@ -556,26 +661,67 @@ class SceneEngine:
     # ------------------------------------------------------------------
 
     def classify_freetext(
-        self, text: str, scaffold: SceneScaffold
+        self,
+        text: str,
+        scaffold: SceneScaffold,
+        *,
+        llm_classifier=None,
     ) -> FreeTextClassification | None:
-        """Classify free-text input into an engine-known check (AE5).
+        """Classify free-text input into an engine-known check (AE5, R14).
 
-        Uses keyword matching as the template fallback. The LLM adapter
-        can override this with a smarter classification.
+        When ``llm_classifier`` is provided (a sync callable taking
+        ``(text, scaffold)`` and returning a :class:`FreeTextCheck` or
+        ``None``), the LLM classification is tried first. If it returns a
+        result, it is converted to a :class:`FreeTextClassification`.
 
-        Returns ``None`` if no interpretation could be derived.
+        If the LLM classifier returns ``None`` (exhaustion, failure, or not
+        provided), the pack keyword map (Task 17) is used as the fallback.
+        Keywords are matched as case-insensitive substrings of ``text``,
+        sorted by keyword length descending so longer phrases win.
+
+        Returns ``None`` if neither the LLM classifier nor the keyword map
+        produces a match.
         """
-        text_lower = text.lower().strip()
-
-        for keyword, skill, char, diff, label, life_threatening in _FREETEXT_KEYWORD_MAP:
-            if keyword in text_lower:
+        # R14: try LLM classifier first.
+        if llm_classifier is not None:
+            try:
+                check = llm_classifier(text, scaffold)
+            except Exception:
+                check = None
+            if check is not None:
                 option = SceneOption(
-                    label=f"[Free-text] {label}",
-                    skill=skill,
-                    characteristic=char,
-                    difficulty=diff,
+                    label=check.label,
+                    skill=check.skill_id,
+                    characteristic=check.characteristic,
+                    difficulty=check.difficulty,
                     description=f"Interpreted from: '{text}'",
-                    life_threatening=life_threatening,
+                    life_threatening=check.life_threatening,
+                )
+                return FreeTextClassification(
+                    original_text=text,
+                    interpreted_check=option,
+                )
+
+        # Keyword fallback (Task 17).
+        templates = self.pack.option_templates
+        if templates is None or not templates.freetext_keywords:
+            return None
+
+        text_lower = text.lower().strip()
+        # Longest keyword first to reduce false positives.
+        for template in sorted(
+            templates.freetext_keywords,
+            key=lambda t: len(t.keyword),
+            reverse=True,
+        ):
+            if template.keyword.lower() in text_lower:
+                option = SceneOption(
+                    label=f"[Free-text] {template.label}",
+                    skill=template.skill,
+                    characteristic=template.characteristic,
+                    difficulty=template.difficulty,
+                    description=f"Interpreted from: '{text}'",
+                    life_threatening=template.life_threatening,
                 )
                 return FreeTextClassification(
                     original_text=text,
@@ -585,7 +731,7 @@ class SceneEngine:
         return None
 
     # ------------------------------------------------------------------
-    # Consequence application (R15).
+    # Consequence application (R15, R7 — Task 18 pack-table complications).
     # ------------------------------------------------------------------
 
     def apply_consequences(
@@ -595,15 +741,21 @@ class SceneEngine:
     ) -> list[str]:
         """Apply consequences based on the check outcome via the funnel.
 
-        Misses and weak hits may produce injuries or complications.
-        Strong hits may register advantages as narrative facts.
-        Returns a list of human-readable consequence descriptions.
+        Weak hits roll the focus-mapped complication table; misses roll the
+        focus-mapped consequence table and *additionally* apply the existing
+        injury-by-effect tiers for severe misses. Strong hits register an
+        advantage as a narrative fact. When the pack supplies no table for
+        the resolved kind/focus, the engine falls back to a
+        :class:`FlagDegradationCommand` so the gap is inspectable in the
+        audit log (R13).
         """
         consequences: list[str] = []
         quality = check_result.quality
 
         if quality == OutcomeQuality.MISS.value:
-            # Failure: possible injury on severe misses.
+            # Failure: roll the consequence table, then keep the existing
+            # injury-by-effect tiers for severe misses.
+            self._roll_pack_table_into("consequence", scaffold, consequences)
             if check_result.effect <= -4:
                 self.engine.apply(
                     AddInjuryCommand(
@@ -622,12 +774,10 @@ class SceneEngine:
                     )
                 )
                 consequences.append("Moderate wound sustained.")
-            else:
-                consequences.append("The attempt failed with minor consequences.")
 
         elif quality == OutcomeQuality.WEAK_HIT.value:
-            # Weak hit: success with a cost.
-            consequences.append("Success with a complication.")
+            # Weak hit: roll the complication table; no hardcoded string.
+            self._roll_pack_table_into("complication", scaffold, consequences)
 
         elif quality == OutcomeQuality.STRONG_HIT.value:
             # Strong hit: register an advantage as a narrative fact.
@@ -644,6 +794,75 @@ class SceneEngine:
         self.engine.apply(_LogNarrationCommand(text=self._narrate_result(check_result, scaffold)))
 
         return consequences
+
+    def _roll_pack_table_into(
+        self,
+        kind: str,
+        scaffold: SceneScaffold,
+        consequences: list[str],
+    ) -> None:
+        """Resolve ``kind`` (complication/consequence) for ``scaffold.focus``.
+
+        Focus-mapped selection with default fallback, then any table whose id
+        contains the kind; if no table is available, a
+        :class:`FlagDegradationCommand` is appended and a generic line is
+        emitted so the caller still has a human-readable consequence (R13).
+        Rolled text is appended to ``consequences`` in place.
+        """
+        table_id = self._resolve_table_id(kind, scaffold.focus)
+        if table_id is None:
+            self.engine.apply(
+                FlagDegradationCommand(
+                    area=f"{kind}_table",
+                    reason=(
+                        f"pack={self.pack.id!r} focus={scaffold.focus!r} "
+                        f"kind={kind!r}: no table mapped and no id-contains "
+                        f"fallback; emitting generic consequence"
+                    ),
+                )
+            )
+            consequences.append(
+                "Complication arises."
+                if kind == "complication"
+                else "The attempt fails with consequences."
+            )
+            return
+
+        table = self.pack.complication_tables[table_id]
+        event = self.engine.apply(
+            ComplicationRollCommand(table_id=table_id, entries=table.entries.entries)
+        )
+        consequences.append(event.changes["result_text"])
+
+    def _resolve_table_id(self, kind: str, focus: str) -> str | None:
+        """Pick the pack table id for ``kind`` (complication/consequence) + focus.
+
+        Resolution chain (R7 + R13 fallback):
+
+        1. ``pack.complication_map.<kind>`` — case-insensitive substring match
+           on the focus keyword, then the ``default`` entry.
+        2. Any complication table whose id contains ``kind`` (so a pack with
+           only ``combat_complication`` still resolves the complication path).
+        3. ``None`` — caller flags degradation.
+        """
+        cmap: ComplicationMap | None = self.pack.complication_map
+        if cmap is not None:
+            kind_map = getattr(cmap, kind, {}) or {}
+            if kind_map:
+                focus_lower = focus.lower()
+                for keyword, table_id in kind_map.items():
+                    if keyword == "default":
+                        continue
+                    if keyword.lower() in focus_lower:
+                        return table_id
+                if "default" in kind_map:
+                    return kind_map["default"]
+
+        # Last-resort: any complication table whose id mentions the kind.
+        for candidate_id in sorted(self.pack.complication_tables):
+            if kind in candidate_id:
+                return candidate_id
+        return None
 
     # ------------------------------------------------------------------
     # Full scene cycle (convenience).
@@ -683,17 +902,6 @@ class SceneEngine:
         cmd = OracleRollCommand(table_id=table_id)
         event = self.engine.apply(cmd)
         return event.changes["roll_total"]
-
-    @staticmethod
-    def _match_focus_options(
-        focus_lower: str,
-    ) -> list[tuple[str, str, str, str]]:
-        """Match a focus string against the option templates."""
-        for keyword, templates in _FOCUS_OPTION_MAP:
-            if keyword in focus_lower:
-                return templates
-        # Default to social options if no match.
-        return _FOCUS_OPTION_MAP[1][1]
 
     @staticmethod
     def _narrate_result(check_result: SceneCheckResult, scaffold: SceneScaffold) -> str:

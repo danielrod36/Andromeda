@@ -4,6 +4,45 @@ name: "Cepheus Engine Sci-Fi"
 # Open Game Content — derived from the Cepheus Engine SRD. See LICENSE.OGL.
 license: "OGL-1.0a"
 description: >
-  Cepheus Engine SRD science-fiction content: 8 starter careers, skill
-  definitions, oracle tables for scene scaffolding, complication tables for
-  Narrative-profile weak hits, and mission hook tables.
+  Cepheus Engine SRD science-fiction content: 24 CE SRD careers + 1 alias
+  (army = Surface System Defense), skill definitions, oracle tables for scene
+  scaffolding, complication tables for Narrative-profile weak hits, and
+  mission hook tables.
+
+# Injury table — 1D6, SRD-verified 2026-07-30 (Cepheus Engine SRD, Character
+# Creation → Injury). The result field encodes the mechanical reduction parsed
+# by apply_injury_result: "-N PHYSICAL" means the player picks which physical
+# characteristic (STR/DEX/END) loses N points. SRD prose preserved in comments.
+# Row 1 ("nearly killed") and row 2 ("severely injured") both call for a 1D6
+# random amount; since apply_injury_result handles fixed amounts, a
+# representative fixed value is used (6 = worst-case 1D6 for "nearly killed",
+# 4 = average 1D6 for "severely injured"). The injury-crisis rule (stat at 0)
+# is handled by ResolveInjuryCrisisCommand in the engine.
+# Row-1 secondary reductions to other physical stats are deferred
+# (apply_injury_result is single-stat); re-visit when the injury grammar
+# supports multi-stat.
+injury_table:
+  num_dice: 1
+  die_size: 6
+  entries:
+    # SRD: "Nearly killed. Reduce one physical characteristic by 1D6, reduce
+    # both other physical characteristics by 2 (or one of them by 4)."
+    - {min: 1, max: 1, result: "-6 PHYSICAL"}
+    # SRD: "Severely injured. Reduce one physical characteristic by 1D6."
+    - {min: 2, max: 2, result: "-4 PHYSICAL"}
+    # SRD: "Missing eye or limb. Reduce Strength or Dexterity by 2."
+    - {min: 3, max: 3, result: "-2 PHYSICAL"}
+    # SRD: "Scarred. You are scarred and injured. Reduce any one physical
+    # characteristic by 2."
+    - {min: 4, max: 4, result: "-2 PHYSICAL"}
+    # SRD: "Injured. Reduce any physical characteristic by 1."
+    - {min: 5, max: 5, result: "-1 PHYSICAL"}
+    # SRD: "Lightly injured. No permanent effect."
+    - {min: 6, max: 6, result: "0 PHYSICAL"}
+
+# Draft table (B16) — 1D6 indexed by DraftCommand. The CE SRD draft table is:
+# 1=Aerospace System Defense, 2=Marine, 3=Maritime System Defense,
+# 4=Navy, 5=Scout, 6=Surface System Defense.
+# Slot 6 is "surface_defense" (Surface System Defense). The legacy alias
+# "army" also resolves to this career via the career_aliases map.
+draft_table: [aerospace_defense, marines, maritime_defense, navy, scout, surface_defense]

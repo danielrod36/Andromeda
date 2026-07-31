@@ -23,7 +23,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from src.engine.state import GameState
+from src.engine.retrieval import FactRetriever
+from src.engine.state import GameState, NarrativeFact, NpcRecord
 
 # ---------------------------------------------------------------------------
 # View sub-models — intentionally minimal to control what the LLM can see.
@@ -135,7 +136,7 @@ def build_curated_view(
         active_mission=active_mission,
         scene_npcs=list(scene_npcs or []),
         recent_log=log_slice,
-        open_threads=list(open_threads or []),
+        open_threads=list(open_threads if open_threads is not None else state.open_threads),
         chapter_summaries=summaries,
         relevant_facts=list(relevant_facts or []),
     )
@@ -180,3 +181,74 @@ def assert_no_prohibited_fields(view: CuratedView) -> None:
                 f"Curated view contains prohibited key '{key}' "
                 f"— violates AE13 (curated view safety)"
             )
+
+
+# ---------------------------------------------------------------------------
+# Scene-aware curated view (R25, R15) — retrieval + NPC dispositions.
+# ---------------------------------------------------------------------------
+
+
+def _disposition_label(value: int) -> str:
+    """Map a numeric disposition (-2..2) to a label for the LLM."""
+    if value <= -2:
+        return "hostile"
+    if value == -1:
+        return "unfriendly"
+    if value >= 2:
+        return "allied"
+    if value == 1:
+        return "friendly"
+    return "neutral"
+
+
+def build_curated_view_for_scene(
+    state: GameState,
+    scaffold_texts: list[str],
+    player_input: str | None = None,
+    *,
+    retriever: FactRetriever | None = None,
+    recent_log_count: int = 3,
+) -> CuratedView:
+    """Assemble a :class:`CuratedView` for a scene, with fact retrieval (R25)
+    and ratified-NPC dispositions (R15) populated.
+
+    Re-surfaces narrative facts whose entity names appear in the scaffold,
+    player input, or open threads (entity-matched + a recency slice), and
+    includes any ratified :class:`NpcRecord` referenced by the scene in
+    ``scene_npcs`` with its disposition label. This is the view Task 24's
+    adventure narration consumes.
+    """
+    retriever = retriever or FactRetriever()
+    open_threads = list(state.open_threads)
+
+    # R25: entity-matched + recency-ranked facts.
+    facts: list[NarrativeFact] = retriever.retrieve_for_scene(
+        state,
+        scaffold_texts=scaffold_texts,
+        player_input=player_input,
+        open_threads=open_threads,
+    )
+    relevant = [FactSummary(name=f.name, description=f.description) for f in facts]
+
+    # R15: ratified NPCs referenced by the scene → NpcSummary with disposition.
+    combined = " ".join(scaffold_texts + ([player_input] if player_input else [])).lower()
+    npc_summaries: list[NpcSummary] = []
+    for entity in state.entities:
+        if isinstance(entity, NpcRecord) and entity.name.lower() in combined:
+            npc_summaries.append(
+                NpcSummary(
+                    name=entity.name,
+                    disposition=_disposition_label(entity.disposition),
+                    description=entity.description,
+                )
+            )
+
+    active = state.active_mission.get("hook") if state.active_mission else None
+    return build_curated_view(
+        state,
+        scene_npcs=npc_summaries,
+        active_mission=active,
+        open_threads=open_threads,
+        recent_log_count=recent_log_count,
+        relevant_facts=relevant,
+    )

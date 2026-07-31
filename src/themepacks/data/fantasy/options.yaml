@@ -1,0 +1,344 @@
+# Fantasy scene option templates (Task 17, AE10/R12/R13).
+#
+# Structured-choice templates mapping scene foci to engine-known checks.
+# Every `skill` id must exist in skills.yaml; every `difficulty` must be in
+# the Cepheus difficulty ladder (easy/routine/average/difficult/very_difficult/
+# formidable). The loader validates both at pack-load time.
+#
+# Focus keys are matched case-insensitively as substrings of the scene_focus
+# oracle result. The fantasy scene_focus table uses "Magic" instead of
+# "Technical" (see oracles.yaml).
+
+# Default options used when no focus keyword matches. Always-in-pack skills
+# only, so the fallback is safe for any character.
+default_options:
+  - label: "Take decisive action"
+    skill: athletics
+    characteristic: END
+    difficulty: average
+    life_threatening: false
+  - label: "Assess the situation carefully"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - label: "Appeal to their better nature"
+    skill: persuasion
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+
+# Per-focus option sets. Skills reference real fantasy pack ids.
+focus_options:
+  combat:
+    - label: "Draw steel and engage"
+      skill: sword
+      characteristic: DEX
+      difficulty: average
+      life_threatening: true
+    - label: "Loose arrows from cover"
+      skill: bow
+      characteristic: DEX
+      difficulty: difficult
+      life_threatening: false
+    - label: "Slip into the shadows"
+      skill: stealth
+      characteristic: DEX
+      difficulty: difficult
+      life_threatening: false
+
+  social:
+    - label: "Persuade them to cooperate"
+      skill: persuasion
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+    - label: "Deceive them with a clever lie"
+      skill: deception
+      characteristic: SOC
+      difficulty: difficult
+      life_threatening: false
+    - label: "Intimidate them into backing down"
+      skill: intimidation
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+
+  exploration:
+    - label: "Investigate the area thoroughly"
+      skill: investigate
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+    - label: "Track signs of passage"
+      skill: tracking
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+    - label: "Navigate the wilds"
+      skill: survival
+      characteristic: END
+      difficulty: difficult
+      life_threatening: true
+
+  magic:
+    - label: "Cast a spell"
+      skill: spellcasting
+      characteristic: INT
+      difficulty: difficult
+      life_threatening: false
+    - label: "Decipher the arcane sigils"
+      skill: arcana
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+    - label: "Invoke a protective ritual"
+      skill: ritual
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+
+  political:
+    - label: "Court their favor with etiquette"
+      skill: etiquette
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+    - label: "Broker an alliance"
+      skill: persuasion
+      characteristic: SOC
+      difficulty: difficult
+      life_threatening: false
+    - label: "Consult the old histories"
+      skill: history
+      characteristic: EDU
+      difficulty: average
+      life_threatening: false
+
+  plot twist:
+    - label: "Rally your companions"
+      skill: leadership
+      characteristic: SOC
+      difficulty: difficult
+      life_threatening: false
+    - label: "Investigate the unexpected development"
+      skill: investigate
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+    - label: "Bargain from a position of strength"
+      skill: persuasion
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+
+# Complication/consequence table map (Task 18, R7). Focus keywords are matched
+# case-insensitively as substrings of the scaffold focus; `default` is the
+# fallback. Every table id must exist in complications.yaml (loader-validated).
+# The fantasy `magic` focus exercises the previously-unreachable
+# `magic_complication` table. Consequence tables reuse the complication tables
+# — they already describe what goes wrong; a future pack may split them.
+complication_map:
+  complication:
+    combat: combat_complication
+    social: social_complication
+    magic: magic_complication
+    exploration: exploration_complication
+    default: combat_complication
+  consequence:
+    combat: combat_complication
+    social: social_complication
+    magic: magic_complication
+    exploration: exploration_complication
+    default: combat_complication
+
+# Free-text keyword classifier (R14, AE5 template fallback). Keywords are
+# matched case-insensitively as substrings; longer keywords win over shorter
+# substrings.
+freetext_keywords:
+  - keyword: "pay off"
+    label: "Bribe the target"
+    skill: streetwise
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "bribe"
+    label: "Bribe the target"
+    skill: streetwise
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "fight"
+    label: "Fight the target"
+    skill: sword
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "attack"
+    label: "Attack the target"
+    skill: sword
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "strike"
+    label: "Strike the target"
+    skill: sword
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "shoot"
+    label: "Loose an arrow"
+    skill: bow
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "sneak"
+    label: "Sneak past"
+    skill: stealth
+    characteristic: DEX
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "hide"
+    label: "Hide from view"
+    skill: stealth
+    characteristic: DEX
+    difficulty: average
+    life_threatening: false
+  - keyword: "cast"
+    label: "Cast a spell"
+    skill: spellcasting
+    characteristic: INT
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "enchant"
+    label: "Enchant the target"
+    skill: enchant
+    characteristic: INT
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "decipher"
+    label: "Decipher the arcane"
+    skill: arcana
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "ritual"
+    label: "Perform a ritual"
+    skill: ritual
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "brew"
+    label: "Brew a potion"
+    skill: alchemy
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "heal"
+    label: "Heal the wounded"
+    skill: healing
+    characteristic: EDU
+    difficulty: average
+    life_threatening: false
+  - keyword: "persuade"
+    label: "Persuade the target"
+    skill: persuasion
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "convince"
+    label: "Convince the target"
+    skill: persuasion
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "deceive"
+    label: "Deceive the target"
+    skill: deception
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "lie"
+    label: "Deceive the target"
+    skill: deception
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "intimidate"
+    label: "Intimidate the target"
+    skill: intimidation
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "threaten"
+    label: "Threaten the target"
+    skill: intimidation
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "investigate"
+    label: "Investigate the situation"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "inspect"
+    label: "Inspect the target"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "search"
+    label: "Search the area"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "track"
+    label: "Track the target"
+    skill: tracking
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "ride"
+    label: "Ride into the fray"
+    skill: ride
+    characteristic: DEX
+    difficulty: average
+    life_threatening: false
+  - keyword: "climb"
+    label: "Climb the obstacle"
+    skill: climb
+    characteristic: STR
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "run"
+    label: "Run to safety"
+    skill: athletics
+    characteristic: END
+    difficulty: average
+    life_threatening: false
+  - keyword: "escape"
+    label: "Escape the situation"
+    skill: athletics
+    characteristic: END
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "flee"
+    label: "Flee from danger"
+    skill: athletics
+    characteristic: END
+    difficulty: average
+    life_threatening: false
+  - keyword: "navigate"
+    label: "Navigate the wilds"
+    skill: navigation
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "appraise"
+    label: "Appraise the item"
+    skill: appraisal
+    characteristic: INT
+    difficulty: average
+    life_threatening: false

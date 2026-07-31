@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import os
-import random
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
@@ -99,7 +99,6 @@ class CepheusApp(App):
         self.narrator = Narrator()
         self.pack = None
         self.campaign_name: str = ""
-        self.target_terms: int = 4
         self.checkpoint_mgr: CheckpointManager = CheckpointManager()
         self.llm_settings: LLMSettings = load_settings(self.settings_dir)
         self._apply_llm_env(self.llm_settings)
@@ -121,7 +120,6 @@ class CepheusApp(App):
         name: str,
         config: CampaignConfig,
         seed: int,
-        target_terms: int = 4,
     ) -> None:
         """Create a new game state and enter the lifepath screen."""
         state = GameState.new(seed=seed)
@@ -133,10 +131,33 @@ class CepheusApp(App):
         )
         self.runner = LifepathRunner(self.engine, self.pack)
         self.campaign_name = name or "unnamed"
-        self.target_terms = target_terms
 
         # Pop config screen and main menu, push lifepath.
         self.pop_screen()  # CampaignConfigScreen
+        self.push_screen(LifepathScreen())
+
+    def restart_lifepath(self) -> None:
+        """Discard the current (dead) character and start a fresh lifepath
+        with the same campaign configuration and character name (AE2, ironman).
+
+        A fresh seed is drawn with ``secrets`` so the new character does not
+        replay the dead one's roll sequence.
+        """
+        old = self.engine.state
+        config = old.campaign
+        name = old.character.name
+        new_seed = secrets.randbelow(2**31)
+        state = GameState.new(seed=new_seed)
+        state.campaign = config
+        state.character.name = name
+        self.engine = Engine(state)
+        self.pack = (
+            load_scifi_pack() if config.theme_pack == "scifi" else get_pack(config.theme_pack)
+        )
+        self.runner = LifepathRunner(self.engine, self.pack)
+        # Replace the lifepath screen (the one showing the death/complete state)
+        # with a fresh instance so phase determination starts clean.
+        self.pop_screen()
         self.push_screen(LifepathScreen())
 
     def load_campaign(self, save_path: str | Path) -> None:
@@ -150,7 +171,6 @@ class CepheusApp(App):
         )
         self.runner = LifepathRunner(self.engine, self.pack)
         self.campaign_name = Path(save_path).stem
-        self.target_terms = 4  # v0.1 default; could be stored in save metadata
 
         # Load checkpoint snapshot for checkpoint death mode (AE3).
         if state.campaign.death_mode == "checkpoint":
@@ -291,5 +311,5 @@ class CepheusApp(App):
 
     @staticmethod
     def generate_seed() -> int:
-        """Generate a random campaign seed."""
-        return random.randint(0, 2**31 - 1)
+        """Generate a random campaign seed using ``secrets`` for entropy."""
+        return secrets.randbelow(2**31)

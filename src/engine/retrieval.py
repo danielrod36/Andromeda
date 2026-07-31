@@ -210,37 +210,34 @@ def generate_npc_stats(
 
 
 def ratify_fact_as_npc(
-    state: GameState,
     fact: NarrativeFact,
+    engine: Engine,
     ruleset=None,
-    engine: Engine | None = None,
 ) -> dict:
     """Ratify a narrative fact as an NPC with mechanical stats (AE9).
 
     The fact remains in the entity list; this function returns the generated
     stats and marks the fact as mechanically active by updating its
-    description. The engine uses the returned stats when checks target this
-    NPC.
+    description via the command funnel. The engine uses the returned stats
+    when checks target this NPC.
 
-    When an :class:`Engine` is provided, the description update is routed
-    through the command funnel via :class:`RatifyFactCommand`, producing an
-    audit event and **logging the ratification** (R24/AE9). Without an
-    engine (legacy/test path), the description is updated directly for
-    backward compatibility.
+    The description update is always routed through the command funnel via
+    :class:`RatifyFactCommand`, producing an audit event and **logging the
+    ratification** (R24/AE9). The ``engine`` parameter is required — there
+    is no direct-mutation path.
+
+    Note: stat generation is math-neutral for now. Stats are recorded and
+    logged per AE9; opposed-check math using these stats is post-v1.
     """
     stats = generate_npc_stats(fact.name, ruleset)
     stats_description = (
         f"[NPC stats: all characteristics {stats['characteristics'].get('STR', 7)}, "
         f"skill level {stats['skill_level']}]"
     )
-    if engine is not None:
-        engine.apply(
-            RatifyFactCommand(
-                fact_name=fact.name,
-                stats_description=stats_description,
-            )
+    engine.apply(
+        RatifyFactCommand(
+            fact_name=fact.name,
+            stats_description=stats_description,
         )
-    else:
-        # Legacy path: update description directly.
-        fact.description = (f"{fact.description} {stats_description}").strip()
+    )
     return stats

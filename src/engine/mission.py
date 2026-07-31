@@ -22,11 +22,12 @@ from enum import Enum
 from typing import ClassVar
 
 from src.engine.audit import Event, EventKind
-from src.engine.commands import Command, Engine
+from src.engine.commands import Command, Engine, FlagDegradationCommand
 from src.engine.dice import Roller, RollResult
 from src.engine.lifepath import lookup_table_result
 from src.engine.scene import SceneEngine, SceneResult
 from src.engine.state import GameState
+from src.engine.summary import AddChapterSummaryCommand, SummaryValidator, build_template_summary
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import LoadedThemePack
 
@@ -82,6 +83,12 @@ class Mission:
     scene_results: list[SceneResult] = field(default_factory=list)
     ending: MissionEnding | None = None
     consequences: list[str] = field(default_factory=list)
+    # Task 19: progress gating + pack-supplied ending texts.
+    scenes_completed: int = 0
+    min_scenes: int = 3
+    success_text: str = ""
+    failure_text: str = ""
+    abandonment_text: str = ""
 
     @property
     def is_active(self) -> bool:
@@ -106,6 +113,11 @@ class Mission:
             "scenes_played": self.scenes_played,
             "ending": self.ending.value if self.ending else None,
             "consequences": list(self.consequences),
+            "scenes_completed": self.scenes_completed,
+            "min_scenes": self.min_scenes,
+            "success_text": self.success_text,
+            "failure_text": self.failure_text,
+            "abandonment_text": self.abandonment_text,
         }
 
     @classmethod
@@ -144,6 +156,11 @@ class Mission:
             scenes_played=data.get("scenes_played", 0),
             ending=ending,
             consequences=list(data.get("consequences", [])),
+            scenes_completed=data.get("scenes_completed", 0),
+            min_scenes=data.get("min_scenes", 3),
+            success_text=data.get("success_text", ""),
+            failure_text=data.get("failure_text", ""),
+            abandonment_text=data.get("abandonment_text", ""),
         )
 
 
@@ -204,6 +221,65 @@ class SetMissionStateCommand(Command):
         )
 
 
+class NextMissionIdCommand(Command):
+    """Claim the next mission ID from persisted state (Task 19, R23).
+
+    Increments ``state.mission_counter`` so the id survives save/load —
+    a resumed game cannot collide with ids issued before the save. The
+    returned id is ``mission_{N}`` where ``N`` is the post-increment counter.
+    """
+
+    command_type: ClassVar[str] = "next_mission_id"
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.mission_counter += 1
+        mission_id = f"mission_{state.mission_counter}"
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Mission id claimed: {mission_id}",
+            changes={"mission_id": mission_id, "counter": state.mission_counter},
+        )
+
+
+class ResolveMissionCommand(Command):
+    """End the active mission with an explicit ending (Task 19, R23, AE15).
+
+    Success/failure require ``scenes_completed >= min_scenes``; abandonment
+    is always allowed (player agency). The mission record is moved to
+    ``completed_missions`` with the ending stamped on it. Consequences are
+    the caller's responsibility — they should be sourced from the mission
+    hook's ending text (pack data), not hardcoded here.
+    """
+
+    command_type: ClassVar[str] = "resolve_mission"
+    ending: str  # "success" | "failure" | "abandonment"
+
+    def validate(self, state: GameState) -> None:
+        if not state.active_mission:
+            raise ValueError("No active mission")
+        if self.ending not in ("success", "failure", "abandonment"):
+            raise ValueError(f"Unknown ending {self.ending!r}")
+        if self.ending != "abandonment":
+            done = int(state.active_mission.get("scenes_completed", 0))
+            needed = int(state.active_mission.get("min_scenes", 3))
+            if done < needed:
+                raise ValueError(f"Mission needs {needed} scenes before resolution ({done} done)")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        mission = dict(state.active_mission)
+        mission["ending"] = self.ending
+        mission["status"] = "completed"
+        state.completed_missions.append(mission)
+        state.active_mission = None
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Mission {mission.get('id', '?')} ended: {self.ending}",
+            changes={"mission_id": mission.get("id", "?"), "ending": self.ending},
+        )
+
+
 # ---------------------------------------------------------------------------
 # Mission engine.
 # ---------------------------------------------------------------------------
@@ -233,12 +309,24 @@ class MissionEngine:
         self.engine = engine
         self.pack = pack
         self.ruleset = ruleset or CepheusRuleSet()
-        self._mission_counter = 0
         self._active_mission: Mission | None = None
+        # The in-memory counter is intentionally gone (Task 19): mission ids
+        # come from ``state.mission_counter`` via :class:`NextMissionIdCommand`
+        # so they survive save/load without collision.
 
     @property
     def active_mission(self) -> Mission | None:
         return self._active_mission
+
+    def _next_mission_id(self) -> str:
+        """Claim the next persisted mission id through the command funnel.
+
+        Wraps :class:`NextMissionIdCommand` so callers don't touch state
+        directly. The increment lands in ``state.mission_counter`` and is
+        therefore replayable from a save (Task 19).
+        """
+        event = self.engine.apply(NextMissionIdCommand())
+        return event.changes["mission_id"]
 
     # ------------------------------------------------------------------
     # Hook generation (R23, AE15).
@@ -287,17 +375,29 @@ class MissionEngine:
         """Accept a mission hook: transition to active state.
 
         Persists the mission in GameState so save/resume works mid-mission.
+        The mission id is claimed from ``state.mission_counter`` via the
+        command funnel so it survives save/load without collision (Task 19).
         """
-        self._mission_counter += 1
+        mission_id = self._next_mission_id()
         mission = Mission(
-            id=f"mission_{self._mission_counter}",
+            id=mission_id,
             hook=hook,
             state=MissionState.ACTIVE,
+            min_scenes=self._mission_min_scenes(),
+            success_text=self._mission_ending_text("success"),
+            failure_text=self._mission_ending_text("failure"),
+            abandonment_text=self._mission_ending_text("abandonment"),
         )
         self._active_mission = mission
 
         # Persist in canonical state.
         self.engine.apply(SetMissionStateCommand(mission_data=mission.to_dict()))
+
+        # Track the hook as an open thread (R25) so the curated view and fact
+        # retrieval can reference it; removed when the mission resolves.
+        from src.engine.scene import AddOpenThreadCommand
+
+        self.engine.apply(AddOpenThreadCommand(thread=hook.summary))
 
         # Log the acceptance.
         self.engine.apply(_LogMissionCommand(text=f"Mission accepted: {hook.summary}"))
@@ -321,11 +421,18 @@ class MissionEngine:
 
         Generates a scaffold and options. The caller (TUI) presents options
         to the player and resolves the chosen one. This method generates the
-        scaffold + options and records the scene in the mission.
+        scaffold + options and records the scene in the mission. The
+        ``scenes_completed`` counter on the persisted mission dict is
+        incremented so progress gating (Task 19) sees the latest value.
         """
         result = scene_engine.run_scene()
         mission.scenes_played += 1
         mission.scene_results.append(result)
+        # Task 19: increment the persisted progress counter kept in sync
+        # with ``scenes_played``. Storing both keeps older readers (which
+        # only know ``scenes_played``) working while the new
+        # :class:`ResolveMissionCommand` gating reads ``scenes_completed``.
+        mission.scenes_completed = mission.scenes_played
 
         # Update persisted state.
         self.engine.apply(SetMissionStateCommand(mission_data=mission.to_dict()))
@@ -333,7 +440,7 @@ class MissionEngine:
         return result
 
     # ------------------------------------------------------------------
-    # Mission resolution (R23, AE15).
+    # Mission resolution (R23, AE15, Task 19).
     # ------------------------------------------------------------------
 
     def resolve_mission(
@@ -344,17 +451,32 @@ class MissionEngine:
     ) -> None:
         """Resolve a mission with the given ending.
 
-        Transitions the mission to RESOLVED, records consequences, and
-        persists in canonical state. After resolution, the engine returns
-        to hook generation.
+        Routes through :class:`ResolveMissionCommand` so the funnel validates
+        progress gating (``scenes_completed >= min_scenes`` for success or
+        failure; abandonment always allowed) and records the move from
+        ``active_mission`` to ``completed_missions`` atomically (Task 19).
+
+        ``consequences`` are stamped onto the in-memory mission before the
+        pre-resolution :class:`SetMissionStateCommand` flush, so they land in
+        the completed-mission record carried through the funnel — no direct
+        state writes outside ``Engine.apply``.
         """
-        mission.state = MissionState.RESOLVED
+        # Keep the in-memory ``Mission`` in lock-step with canonical state.
         mission.ending = ending
+        mission.state = MissionState.RESOLVED
         if consequences:
             mission.consequences.extend(consequences)
+        # Persist the latest counter/text/consequences before resolving so
+        # the command's validate step sees the gate values and the mutate
+        # step carries consequences through to the completed record.
+        self.engine.apply(SetMissionStateCommand(mission_data=mission.to_dict()))
 
-        # Persist as completed mission; clears active_mission.
-        self.engine.apply(SetMissionStateCommand(completed_mission=mission.to_dict()))
+        self.engine.apply(ResolveMissionCommand(ending=ending.value))
+
+        # The mission's hook is no longer an open thread (R25).
+        from src.engine.scene import RemoveOpenThreadCommand
+
+        self.engine.apply(RemoveOpenThreadCommand(thread=mission.hook.summary))
 
         self.engine.apply(
             _LogMissionCommand(
@@ -363,11 +485,49 @@ class MissionEngine:
             )
         )
 
+        # Task 22 (R19, AE16): generate a deterministic chapter summary from
+        # the completed mission record + the narrative log, validate it with
+        # the mechanical-claim guard, and route it through the funnel. The
+        # template cannot fail by construction; the validator is a guard for
+        # future LLM-polished text. On validation failure we flag the
+        # degradation and ship the template anyway so the chapter always has
+        # a summary in the curated view.
+        self._record_chapter_summary(mission)
+
         self._active_mission = None
 
     # ------------------------------------------------------------------
     # Internal helpers.
     # ------------------------------------------------------------------
+
+    def _record_chapter_summary(self, mission: Mission) -> None:
+        """Build, validate, and persist a chapter summary (Task 22, R19, AE16).
+
+        Uses :func:`build_template_summary` on the canonical completed-mission
+        record plus the current narrative log, validates with
+        :class:`SummaryValidator`, then applies
+        :class:`AddChapterSummaryCommand` through the funnel. On validation
+        failure, applies :class:`FlagDegradationCommand` and ships the template
+        summary anyway — the template is safe by construction; the guard exists
+        for future LLM-polished text.
+        """
+        # The canonical completed record was just appended by
+        # ResolveMissionCommand; read it back so the summary reflects exactly
+        # what landed in state (ending, scenes, hook).
+        record = self.engine.state.completed_missions[-1]
+        summary = build_template_summary(record, list(self.engine.state.narrative_log))
+        result = SummaryValidator().validate(summary, self.engine.state)
+        if not result.valid:
+            self.engine.apply(
+                FlagDegradationCommand(
+                    area="summary",
+                    reason=(
+                        f"chapter summary validation failed; shipping template. "
+                        f"Errors: {result.error_summary}"
+                    ),
+                )
+            )
+        self.engine.apply(AddChapterSummaryCommand(summary=summary))
 
     def _get_mission_table(self, table_id: str):
         """Look up a mission table by id."""
@@ -404,6 +564,50 @@ class MissionEngine:
             f"However, there's a complication: {complication} "
             f"The reward: {reward}"
         )
+
+    # ------------------------------------------------------------------
+    # Pack-driven mission defaults (Task 19).
+    # ------------------------------------------------------------------
+
+    def _mission_min_scenes(self) -> int:
+        """Return the configured ``min_scenes`` for the active hook.
+
+        Pack authors can ship a ``mission_arc`` table whose matched row
+        carries ``min_scenes`` (see :class:`MissionHookEntry`). When the
+        pack doesn't ship one, the Cepheus default of three scenes applies
+        so resolve gating degrades gracefully on older packs.
+        """
+        entry = self._lookup_optional_arc_entry()
+        if entry is not None:
+            return int(getattr(entry, "min_scenes", 3))
+        return 3
+
+    def _mission_ending_text(self, ending: str) -> str:
+        """Return pack-supplied ending prose for ``ending`` (Task 19).
+
+        ``ending`` is one of ``"success"``, ``"failure"``, ``"abandonment"``.
+        Falls back to ``""`` when the pack ships no mission-arc data, so the
+        TUI's narrator can supply a sensible default instead of the engine
+        hardcoding strings.
+        """
+        entry = self._lookup_optional_arc_entry()
+        if entry is None:
+            return ""
+        field = f"{ending}_text"
+        return str(getattr(entry, field, "") or "")
+
+    def _lookup_optional_arc_entry(self):
+        """Return a ``mission_arc`` table row if the pack ships one.
+
+        The lookup rolls 2D6 on the oracle stream when the table exists.
+        Returns ``None`` for packs without a ``mission_arc`` table so
+        callers fall back to defaults without raising.
+        """
+        if "mission_arc" not in self.pack.mission_tables:
+            return None
+        roll = self._mission_table_roll("mission_arc")
+        table = self._get_mission_table("mission_arc")
+        return lookup_table_result(table.entries.entries, roll)
 
 
 class _LogMissionCommand(Command):

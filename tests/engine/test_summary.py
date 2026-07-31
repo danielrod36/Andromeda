@@ -7,11 +7,16 @@ up to retry limit), R19 (summary validated against canonical state).
 
 from __future__ import annotations
 
+import pytest
+
 from src.engine.audit import Event, EventKind
+from src.engine.commands import Engine
 from src.engine.state import CampaignConfig, GameState, NarrativeFact
 from src.engine.summary import (
+    AddChapterSummaryCommand,
     ChapterSummarizer,
     SummaryValidator,
+    build_template_summary,
     get_llm_context_summaries,
     has_raw_history_been_summarized,
 )
@@ -388,3 +393,111 @@ class TestValidationRegeneration:
         assert result.valid is True
         assert result.retries_used == 2
         assert len(attempts) == 3
+
+
+# ---------------------------------------------------------------------------
+# Task 22: deterministic template summary + AddChapterSummaryCommand (R19).
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def engine_and_pack():
+    """Minimal engine for command-funnel tests (no pack needed for summaries)."""
+    state = GameState.new(seed=1)
+    state.campaign = CampaignConfig()
+    state.character.characteristics = {
+        "STR": 7,
+        "DEX": 7,
+        "END": 7,
+        "INT": 7,
+        "EDU": 7,
+        "SOC": 7,
+    }
+    return Engine(state), None
+
+
+class TestBuildTemplateSummary:
+    """Deterministic summary from canonical mission data (R19, Task 22)."""
+
+    def test_template_summary_from_canonical_mission(self):
+        """Template summary embeds hook + ending and passes validation."""
+        record = {
+            "id": "mission_1",
+            "hook": "Rescue the courier",
+            "ending": "success",
+            "scenes_completed": 4,
+        }
+        summary = build_template_summary(record, ["You found the courier.", "The patron paid."])
+        assert "Rescue the courier" in summary
+        assert "success" in summary.lower()
+        assert SummaryValidator().validate(summary, GameState.new(seed=1)).valid
+
+    def test_template_summary_handles_nested_hook_dict(self):
+        """The canonical completed-mission record stores hook as a dict."""
+        record = {
+            "id": "mission_2",
+            "hook": {
+                "patron": "A noble",
+                "objective": "Recover the data core",
+                "complication": "Rival crew",
+                "reward": "50k credits",
+                "description": "A noble The mission: Recover the data core",
+            },
+            "ending": "failure",
+            "scenes_completed": 3,
+        }
+        summary = build_template_summary(record, ["The data core was lost."])
+        # The objective (not the whole dict repr) should appear.
+        assert "Recover the data core" in summary
+        assert "failure" in summary.lower()
+        assert "patron" not in summary  # dict keys must not leak
+
+    def test_template_summary_omits_beats_when_empty(self):
+        """Empty log entries produce a valid summary without trailing beats."""
+        record = {
+            "id": "mission_3",
+            "hook": "A short job",
+            "ending": "abandonment",
+            "scenes_completed": 0,
+        }
+        summary = build_template_summary(record, [])
+        assert "A short job" in summary
+        assert "abandonment" in summary
+        assert SummaryValidator().validate(summary, GameState.new(seed=1)).valid
+
+    def test_template_summary_uses_last_three_beats(self):
+        """Only the last three log entries make it into the summary."""
+        record = {"id": "mission_4", "hook": "Job", "ending": "success", "scenes_completed": 2}
+        logs = ["first", "second", "third", "fourth", "fifth"]
+        summary = build_template_summary(record, logs)
+        assert "fifth" in summary and "fourth" in summary and "third" in summary
+        assert "first" not in summary and "second" not in summary
+
+
+class TestAddChapterSummaryCommand:
+    """AddChapterSummaryCommand routes through the command funnel (R19, AE16)."""
+
+    def test_add_chapter_summary_via_funnel(self, engine_and_pack):
+        engine, _ = engine_and_pack
+        engine.apply(AddChapterSummaryCommand(summary="Chapter one done."))
+        assert engine.state.chapter_summaries == ["Chapter one done."]
+
+    def test_add_chapter_summary_appends_existing(self, engine_and_pack):
+        """Multiple summaries accumulate rather than overwrite."""
+        engine, _ = engine_and_pack
+        engine.apply(AddChapterSummaryCommand(summary="First chapter."))
+        engine.apply(AddChapterSummaryCommand(summary="Second chapter."))
+        assert engine.state.chapter_summaries == ["First chapter.", "Second chapter."]
+
+    def test_empty_summary_rejected(self, engine_and_pack):
+        """Empty or whitespace-only summaries are rejected by validate."""
+        engine, _ = engine_and_pack
+        with pytest.raises(ValueError):
+            engine.apply(AddChapterSummaryCommand(summary="   "))
+
+    def test_add_summary_emits_audit_event(self, engine_and_pack):
+        """The command appends a STATE_CHANGE event to the audit log."""
+        engine, _ = engine_and_pack
+        event = engine.apply(AddChapterSummaryCommand(summary="A tale."))
+        assert event.command_type == "add_chapter_summary"
+        assert event.changes["summary"] == "A tale."

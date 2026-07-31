@@ -20,13 +20,15 @@ from textual.widgets import (
 from textual.widgets.option_list import Option
 
 from src.engine.state import CampaignConfig
+from src.themepacks.base import discover_packs
 
 
 class CampaignConfigScreen(Screen):
     """Campaign creation screen.
 
-    Offers implemented options per phase (v0.1: sci-fi pack, Classic and
-    Narrative profiles). Unimplemented options are shown disabled.
+    Offers implemented options per phase: discoverable theme packs, Classic
+    and Narrative resolution profiles (Narrative is the default per the plan's
+    Key Decision), and three death modes.
     """
 
     CSS = """
@@ -50,7 +52,7 @@ class CampaignConfigScreen(Screen):
     #name-input {
         margin: 0 0 1 0;
     }
-    #profile-list, #death-list {
+    #pack-list, #profile-list, #death-list {
         height: 5;
         border: round $primary;
         margin: 0 0 1 0;
@@ -80,15 +82,14 @@ class CampaignConfigScreen(Screen):
             )
 
             yield Label("Theme Pack:", classes="config-label")
-            yield Label(
-                "Sci-Fi (Cepheus Engine SRD) [dim]— only pack available[/dim]",
-                classes="config-hint",
+            yield OptionList(
+                id="pack-list",
             )
 
             yield Label("Resolution Profile:", classes="config-label")
             yield OptionList(
-                Option("Classic [dim](2D6+DM >= 8)[/dim]", id="classic"),
                 Option("Narrative [dim](PbtA three-tier)[/dim]", id="narrative"),
+                Option("Classic [dim](2D6+DM >= 8)[/dim]", id="classic"),
                 id="profile-list",
             )
 
@@ -116,7 +117,25 @@ class CampaignConfigScreen(Screen):
         yield Footer()
 
     def on_mount(self) -> None:
-        # Pre-select defaults.
+        # Populate the pack dropdown from discover_packs() (Task 17, AE10/F1).
+        # Falls back to the bundled sci-fi pack if discovery finds nothing
+        # (defensive — discover_packs() should always find at least scifi).
+        pack_ol = self.query_one("#pack-list", OptionList)
+        packs = discover_packs()
+        if not packs:
+            packs = {}
+        pack_options = [
+            Option(f"{pack.name} [dim]({pid})[/dim]", id=pid) for pid, pack in packs.items()
+        ]
+        if not pack_options:
+            # Defensive default; should never trigger for the shipped app.
+            pack_options.append(Option("Sci-Fi (Cepheus Engine SRD)", id="scifi"))
+        pack_ol.add_options(pack_options)
+        pack_ol.highlighted = 0
+
+        # Pre-select defaults. Narrative is the plan-default profile (Key
+        # Decision): the three-tier PbtA resolution keeps play moving and
+        # avoids the binary pass/fail of Classic for new campaigns.
         self.query_one("#profile-list", OptionList).highlighted = 0
         self.query_one("#death-list", OptionList).highlighted = 0
 
@@ -136,13 +155,19 @@ class CampaignConfigScreen(Screen):
         if not name:
             name = "Campaign"
 
+        pack_ol = self.query_one("#pack-list", OptionList)
+        theme_pack = "scifi"
+        if pack_ol.highlighted is not None:
+            opt = pack_ol.options[pack_ol.highlighted]
+            theme_pack = opt.id or "scifi"
+
         profile_ol = self.query_one("#profile-list", OptionList)
         death_ol = self.query_one("#death-list", OptionList)
 
-        profile = "classic"
+        profile = "narrative"
         if profile_ol.highlighted is not None:
             opt = profile_ol.options[profile_ol.highlighted]
-            profile = opt.id or "classic"
+            profile = opt.id or "narrative"
 
         death_mode = "narrative"
         if death_ol.highlighted is not None:
@@ -162,7 +187,7 @@ class CampaignConfigScreen(Screen):
 
         config = CampaignConfig(
             ruleset="cepheus",
-            theme_pack="scifi",
+            theme_pack=theme_pack,
             resolution_profile=profile,
             death_mode=death_mode,
         )

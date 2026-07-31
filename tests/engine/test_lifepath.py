@@ -14,11 +14,24 @@ from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.lifepath import (
     AdvanceTermCommand,
+    DraftCommand,
+    EndCareerCommand,
     LifepathRunner,
+    QualificationCommand,
+    ResolveInjuryCrisisCommand,
+    SurvivalCommand,
+    TermResult,
     apply_skill_result,
     lookup_table_result,
 )
-from src.engine.state import CampaignConfig, Character, GameState
+from src.engine.state import (
+    AgingSlot,
+    CampaignConfig,
+    CareerTermRecord,
+    Character,
+    GameState,
+    Injury,
+)
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import get_pack
@@ -36,6 +49,16 @@ def pack():
 @pytest.fixture
 def ruleset():
     return CepheusRuleSet()
+
+
+@pytest.fixture
+def engine_and_pack():
+    """Fresh (engine, pack) for isolated command tests (narrative mode)."""
+    pack = get_pack("scifi")
+    state = GameState.new(seed=42)
+    state.campaign = CampaignConfig(death_mode="narrative")
+    engine = Engine(state, roller=ForcedRoller([]))
+    return engine, pack
 
 
 def make_engine(queue, death_mode="narrative", seed=42):
@@ -61,18 +84,11 @@ class TestLookupTableResult:
         assert lookup_table_result(entries, 2).result == "a"
         assert lookup_table_result(entries, 12).result == "c"
 
-    def test_clamps_overflow(self):
-        entries = [
-            SkillTableEntry(min=1, max=1, result="x"),
-            SkillTableEntry(min=2, max=6, result="y"),
-        ]
-        assert lookup_table_result(entries, 9).result == "y"
-
-    def test_clamps_underflow(self):
-        entries = [
-            SkillTableEntry(min=2, max=6, result="y"),
-        ]
-        assert lookup_table_result(entries, 1).result == "y"
+    def test_raises_out_of_range(self):
+        """Out-of-range rolls raise IndexError instead of clamping (N4)."""
+        entries = [SkillTableEntry(min=1, max=6, result="x")]
+        with pytest.raises(IndexError):
+            lookup_table_result(entries, 7)
 
 
 class TestApplySkillResult:
@@ -115,25 +131,26 @@ class TestCompleteLifepath:
             [5, 4],  # INT = 9
             [4, 3],  # EDU = 7
             [4, 2],  # SOC = 6
-            # Qualification (INT 9 -> DM +1, target 5)
-            [3, 2],  # 5 + 1 = 6 >= 5 -> success
-            # Term 1: survival, advancement, 2 skill rolls
-            [4, 3],  # Survival: 7 + 0 = 7 >= 5 -> success
-            [5, 3],  # Advancement: 8 + 0 = 8 >= 7 -> success (rank 1)
-            [5, 3],  # Skill (Personal Dev): 8 -> +1 EDU
-            [4, 3],  # Skill (Service): 7 -> pilot_small_craft
+            # Qualification (INT 9 -> DM +1, target 6)
+            [5, 4],  # 9 + 1 = 10 >= 6 -> success
+            # Term 1: survival, commission (fails), advancement, 2 skill rolls (1D6)
+            [4, 3],  # Survival: INT 9 + DM 1 = 8 >= 5 -> success
+            [1, 2],  # Commission: SOC 6 + DM 0 = 3 < 7 -> fail (rank stays 0)
+            [5, 3],  # Advancement: EDU 7 + DM 0 = 8 >= 6 -> success (rank 1)
+            [5],  # Skill (Personal Dev): 5 -> +1 EDU
+            [4],  # Skill (Service): 4 -> gunnery_turrets
             # Term 2
-            [3, 3],  # Survival: 6 + 0 = 6 >= 5 -> success
-            [4, 4],  # Advancement: 8 + 0 = 8 >= 7 -> success (rank 2)
-            [6, 3],  # Skill (Personal Dev): 9 -> +1 EDU
-            [6, 4],  # Skill (Service): 10 -> sensor_ops
+            [3, 3],  # Survival: 6 + 1 = 7 >= 5 -> success
+            [4, 4],  # Advancement: EDU 8 + DM 0 = 8 >= 6 -> success (rank 2)
+            [5],  # Skill (Personal Dev): 5 -> +1 EDU
+            [4],  # Skill (Service): 4 -> gunnery_turrets
             # Mustering out (2 terms, rank 2)
-            # Cash: DM = 1*2 + 1*2 = 4, 2 rolls
-            [1],  # 1 + 4 = 5 -> 40,000 Cr
-            [1],  # 1 + 4 = 5 -> 40,000 Cr
+            # Cash: DM = 0, 2 rolls
+            [1],  # 1 -> 1,000 Cr
+            [1],  # 1 -> 1,000 Cr
             # Material: 2 rolls, DM = 0
-            [3],  # 3 -> Middle Passage
-            [5],  # 5 -> Ship Share
+            [3],  # 3 -> Weapon
+            [5],  # 5 -> +1 SOC
         ]
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack, ruleset)
@@ -169,19 +186,21 @@ class TestCompleteLifepath:
         assert char.terms == 2
         assert char.age == 26  # 18 + 2*4
         assert char.rank == 2
-        assert "pilot_small_craft" in char.skills
+        assert "gunnery_turrets" in char.skills
         # EDU went from 7 -> 8 (term 1) -> 9 (term 2)
         assert char.characteristics["EDU"] == 9
 
-        # Mustering out completed.
+        # Mustering out completed (Task 12: benefit_rolls_for(2,2)=2 total,
+        # batch allocates cash-first → 2 cash, 0 material).
         assert result.mustering_out is not None
         assert len(result.mustering_out.cash_benefits) == 2
-        assert len(result.mustering_out.material_benefits) == 2
+        assert len(result.mustering_out.material_benefits) == 0
 
         # All rolls logged via the funnel (R9, AE7).
         rolls = audit_rolls(engine.state.events)
-        # 6 chars + 1 qual + (1 surv + 1 adv + 2 skill) * 2 terms + 2 cash + 2 material
-        assert len(rolls) == 6 + 1 + 4 * 2 + 2 + 2
+        # 6 chars + 1 qual + (1 surv + 1 comm + 1 adv + 2 skill) * term 1
+        # + (1 surv + 1 adv + 2 skill) * term 2 + 2 cash
+        assert len(rolls) == 6 + 1 + 5 + 4 + 2
 
     def test_all_events_are_audited(self, pack):
         """Every lifepath roll appears in the audit log with full inputs (AE1)."""
@@ -189,14 +208,15 @@ class TestCompleteLifepath:
             [5, 3],
             [4, 3],
             [5, 3],
+            [5, 4],
             [4, 3],
-            [4, 3],
-            [4, 2],  # chars
-            [4, 3],  # qualification (success)
-            [4, 3],  # survival (success)
-            [5, 3],  # advancement (success)
-            [5, 3],  # skill 1
-            [4, 3],  # skill 2 (advancement gives extra)
+            [4, 2],  # chars (INT = 9)
+            [5, 4],  # qualification: INT 9 + DM 1 = 10 >= 6 -> success
+            [4, 3],  # survival: INT 9 + DM 1 = 8 >= 5 -> success
+            [1, 2],  # commission: SOC 6 + DM 0 = 3 < 7 -> fail
+            [5, 3],  # advancement: EDU 7 + DM 0 = 8 >= 6 -> success
+            [5],  # skill 1 (1D6)
+            [4],  # skill 2 (advancement gives extra, 1D6)
             # mustering out (1 term, rank 1)
             [1],  # cash
             [2],  # material
@@ -225,11 +245,11 @@ class TestIronmanDeath:
             [5, 3],
             [4, 3],
             [5, 3],
+            [5, 4],
             [4, 3],
-            [4, 3],
-            [4, 2],  # chars
-            [4, 3],  # qualification: INT 7 + DM 0 = 7 >= 5 -> success
-            [1, 1],  # survival: END 8 + DM 0 = 2 < 5 -> DEATH
+            [4, 2],  # chars (INT = 9)
+            [5, 4],  # qualification: INT 9 + DM 1 = 10 >= 6 -> success
+            [1, 1],  # survival: INT 9 + DM 1 = 3 < 5 -> DEATH
         ]
         engine = make_engine(queue, death_mode="ironman")
         runner = LifepathRunner(engine, pack)
@@ -254,16 +274,17 @@ class TestNonIronmanMishap:
             [5, 3],
             [4, 3],
             [5, 3],
+            [5, 4],
             [4, 3],
-            [4, 3],
-            [4, 2],  # chars
-            [4, 3],  # qualification -> success
-            [1, 1],  # survival -> 2 < 5 -> mishap
+            [4, 2],  # chars (INT = 9)
+            [5, 4],  # qualification: INT 9 + DM 1 = 10 >= 6 -> success
+            [1, 1],  # survival: INT 9 + DM 1 = 3 < 5 -> mishap
+            [2],  # mishap roll (1D6): 2 -> honorably discharged (no injury)
             # Mustering out (1 term, rank 0)
-            # Cash: DM = 1*1 + 1*0 = 1, 1 roll
-            [3],  # 3 + 1 = 4 -> 30,000 Cr
+            # Cash: DM = 0, 1 roll
+            [3],  # 3 -> 10,000 Cr
             # Material: 1 roll, DM = 0
-            [2],  # 2 -> Low Passage
+            [2],  # 2 -> Mid Passage
         ]
         engine = make_engine(queue, death_mode="narrative")
         runner = LifepathRunner(engine, pack)
@@ -283,14 +304,15 @@ class TestNonIronmanMishap:
             [5, 3],
             [4, 3],
             [5, 3],
-            [4, 3],
+            [5, 4],
             [4, 3],
             [4, 2],
-            [4, 3],  # qual success
-            [1, 2],  # survival: 3 < 5 -> mishap
+            [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
+            [1, 2],  # survival: INT 9 + DM 1 = 4 < 5 -> mishap
+            [2],  # mishap roll (1D6): 2 -> honorably discharged (no injury)
             # Mustering out (1 term, rank 0)
-            [3],  # cash: 3 + 1 = 4 -> 30,000 Cr
-            [2],  # material: Low Passage
+            [3],  # cash: 3 -> 10,000 Cr
+            [2],  # material: Mid Passage
         ]
         engine = make_engine(queue, death_mode="checkpoint")
         runner = LifepathRunner(engine, pack)
@@ -301,13 +323,26 @@ class TestNonIronmanMishap:
 
 
 # ---------------------------------------------------------------------------
-# Scenario 5: Qualification failure -> drifter fallback.
+# Scenario 5: Qualification failure — player chooses retry / draft / drifter.
 # ---------------------------------------------------------------------------
 
 
 class TestQualificationFailure:
-    def test_qualification_failure_falls_back_to_drifter(self, pack):
-        """Failed qualification for navy -> tries drifter (easy target 3)."""
+    """Task 10 — qualification failure offers three explicit fallback paths.
+
+    The old silent auto-drifter fallback was removed from ``run_lifepath``;
+    batch callers must pass an explicit ``fallback_choice`` ("draft" |
+    "drifter" | career_id). When omitted, the failed qualification stands and
+    the lifepath ends with zero terms (mustering out) — no silent career
+    switch.
+    """
+
+    def test_qualification_failure_no_fallback_ends_with_zero_terms(self, pack):
+        """Without a fallback_choice, a failed qualification ends the lifepath.
+
+        The qualification result is recorded as a failure; the runner does not
+        silently switch careers.
+        """
         queue = [
             [2, 1],  # STR = 3
             [2, 1],  # DEX = 3
@@ -315,29 +350,253 @@ class TestQualificationFailure:
             [2, 1],  # INT = 3 -> DM -1
             [2, 1],  # EDU = 3
             [2, 1],  # SOC = 3
-            # Navy qualification: INT 3, DM -1, target 5
-            [2, 1],  # 3 + (-1) = 2 < 5 -> fail
-            # Drifter qualification: END 3, DM -1, target 3
-            [3, 2],  # 5 + (-1) = 4 >= 3 -> success
-            # Term 1 (drifter)
-            [4, 3],  # Survival: END 3 + DM -1 = 6 >= 5 -> success
-            [5, 3],  # Advancement: END 3 + DM -1 = 7 >= 7 -> success
-            [5, 3],  # Skill 1
-            [4, 3],  # Skill 2 (advancement success -> extra roll)
-            # Mustering out (1 term, rank 0, drifter has no ranks)
-            [1],  # cash
-            [1],  # material
+            # Navy qualification: INT 3, DM -1, target 6 -> 3 + (-1) = 2 < 6 fail
+            [2, 1],
         ]
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
         result = runner.run_lifepath("navy", num_terms=1)
 
-        # Navy qualification failed, fell back to drifter which succeeded.
-        # result.qualification holds the drifter result (the final attempt).
+        assert result.qualification is not None
+        assert result.qualification.career_id == "navy"
+        assert not result.qualification.success
+        assert result.career_id == "navy"
+        assert len(result.terms) == 0
+        # No career was assigned (qualification failed, no fallback).
+        assert engine.state.character.career == ""
+
+    def test_qualification_failure_fallback_drifter_explicit(self, pack):
+        """fallback_choice="drifter" qualifies drifter explicitly (F2)."""
+        queue = [
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            # Navy qualification fail.
+            [2, 1],
+            # Drifter qualification: SOC 3, DM -1, target 2 -> success
+            [3, 2],
+            # Term 1 (drifter, non-hierarchy -> 2 skill rolls)
+            [4, 3],  # Survival: END 3 + DM -1 = 6 >= 6 -> success
+            [5],
+            [5],
+            # Mustering out (1 term)
+            [1],
+            [1],
+        ]
+        engine = make_engine(queue)
+        runner = LifepathRunner(engine, pack)
+        result = runner.run_lifepath("navy", num_terms=1, fallback_choice="drifter")
+
+        # Final qualification is the drifter result (the explicit fallback).
         assert result.qualification.career_id == "drifter"
         assert result.qualification.success
         assert result.career_id == "drifter"
         assert len(result.terms) == 1
+
+    def test_qualification_failure_fallback_draft(self, pack):
+        """fallback_choice="draft" applies DraftCommand (1D6 -> pack table).
+
+        Uses a draft roll of 5 -> pack.draft_table[4] (scout, non-hierarchy)
+        so the term queue needs only survival + 2 skill rolls.
+        """
+        queue = [
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            # Navy qualification fail.
+            [2, 1],
+            # Draft roll: 1D6 = 5 -> pack.draft_table[4] (scout)
+            [5],
+            # Term 1 (scout is non-hierarchy -> 2 skill rolls, no commission).
+            [4, 3],  # Survival: INT 3 + DM -1 = 6 >= 6 -> success
+            [5],  # Skill 1 (1D6)
+            [5],  # Skill 2 (1D6)
+            # Mustering out (1 term, rank 0).
+            [1],  # cash
+            [1],  # material
+        ]
+        engine = make_engine(queue)
+        runner = LifepathRunner(engine, pack)
+        result = runner.run_lifepath("navy", num_terms=1, fallback_choice="draft")
+
+        assert result.career_id == pack.draft_table[4]
+        assert engine.state.character.drafted is True
+        assert len(result.terms) == 1
+
+    def test_qualification_failure_fallback_career_id(self, pack):
+        """fallback_choice=<career_id> attempts qualification for that career."""
+        queue = [
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            [2, 1],
+            # Navy qualification fail.
+            [2, 1],
+            # Agent qualification: INT 3 + DM -1 = 2 < 6 -> fail again
+            [2, 1],
+            # With no further fallback the lifepath ends with zero terms.
+        ]
+        engine = make_engine(queue)
+        runner = LifepathRunner(engine, pack)
+        # fallback to agent, which will also fail with these rolls.
+        result = runner.run_lifepath("navy", num_terms=1, fallback_choice="agent")
+
+        assert not result.qualification.success
+        assert result.qualification.career_id == "agent"
+        assert len(result.terms) == 0
+
+
+class TestDraftCommand:
+    """Task 10 — DraftCommand (B16) and run_draft runner method."""
+
+    def test_draft_assigns_career_and_marks_drafted(self, engine_and_pack):
+        """DraftCommand sets career + drafted; run_draft returns the career id."""
+        engine, pack = engine_and_pack
+        engine._roller = ForcedRoller([[2]])
+        runner = LifepathRunner(engine, pack)
+        career_id = runner.run_draft()
+        assert career_id == pack.draft_table[1]
+        assert engine.state.character.career == career_id
+        assert engine.state.character.drafted is True
+
+    def test_draft_only_once(self, engine_and_pack):
+        """A character with drafted=True cannot be drafted again."""
+        engine, pack = engine_and_pack
+        engine.state.character.drafted = True
+        runner = LifepathRunner(engine, pack)
+        with pytest.raises(ValueError, match="once"):
+            runner.run_draft()
+
+    def test_draft_command_validates_six_careers(self, engine_and_pack):
+        """DraftCommand rejects a draft table without exactly 6 entries."""
+        engine, _pack = engine_and_pack
+        with pytest.raises(ValueError, match="6"):
+            engine.apply(DraftCommand(careers=["navy", "army", "marines"]))
+
+    def test_draft_command_event_recorded(self, engine_and_pack):
+        """DraftCommand produces an audited event with the career and roll."""
+        engine, pack = engine_and_pack
+        engine._roller = ForcedRoller([[4]])
+        runner = LifepathRunner(engine, pack)
+        career_id = runner.run_draft()
+        # The last event is the draft.
+        last = engine.state.events[-1]
+        assert last.command_type == "lifepath_draft"
+        assert last.changes["career_id"] == career_id
+        assert last.changes["roll_total"] == 4
+        assert last.roll is not None
+        assert last.roll.stream == "lifepath"
+
+
+class TestQualificationExtraDM:
+    """Task 10 — QualificationCommand.extra_dm (career-change DM hook)."""
+
+    def test_qualification_extra_dm_applies(self, engine_and_pack):
+        """extra_dm is added to the characteristic DM in resolve."""
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"INT": 7}  # DM 0
+        engine._roller = ForcedRoller([[3, 4]])  # 7 + 0 - 2 = 5
+        event = engine.apply(
+            QualificationCommand(
+                career_id="navy",
+                characteristic="INT",
+                target=5,
+                extra_dm=-2,
+            )
+        )
+        assert event.changes["adjusted_total"] == 5
+        assert event.changes["success"] is True
+
+    def test_qualification_extra_dm_default_zero(self, engine_and_pack):
+        """extra_dm defaults to 0 — unchanged behaviour when omitted."""
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"INT": 7}  # DM 0
+        engine._roller = ForcedRoller([[3, 4]])  # 7 + 0 = 7
+        event = engine.apply(QualificationCommand(career_id="navy", characteristic="INT", target=5))
+        assert event.changes["adjusted_total"] == 7
+        assert event.changes["char_dm"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Scenario 6b: Career change + EndCareerCommand (B17, Task 11).
+# ---------------------------------------------------------------------------
+
+
+class TestCareerChange:
+    """Task 11 — EndCareerCommand records history; qualify honours B17."""
+
+    def test_end_career_records_history(self, engine_and_pack):
+        engine, _pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine.state.character.terms = 2
+        engine.state.character.rank = 3
+        engine.apply(EndCareerCommand(ended_by="mishap"))
+        assert engine.state.character.career == ""
+        assert engine.state.character.rank == 0
+        # terms (total) is intentionally NOT reset.
+        assert engine.state.character.terms == 2
+        record = engine.state.character.career_history[-1]
+        assert (record.career_id, record.terms, record.final_rank, record.ended_by) == (
+            "navy",
+            2,
+            3,
+            "mishap",
+        )
+
+    def test_end_career_rejects_no_active_career(self, engine_and_pack):
+        import pytest
+
+        engine, _pack = engine_and_pack
+        with pytest.raises(ValueError, match="none is active"):
+            engine.apply(EndCareerCommand(ended_by="muster_out"))
+
+    def test_career_change_dm_scales_with_previous_careers(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career_history = [
+            CareerTermRecord(career_id="navy", terms=2, final_rank=0, ended_by="muster_out")
+        ]
+        runner = LifepathRunner(engine, pack)
+        assert runner.career_change_dm() == -2
+
+    def test_career_change_dm_zero_for_first_career(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        runner = LifepathRunner(engine, pack)
+        assert runner.career_change_dm() == 0
+
+    def test_cannot_return_to_left_career_except_drifter(self, engine_and_pack):
+        import pytest
+
+        engine, pack = engine_and_pack
+        engine.state.character.career_history = [
+            CareerTermRecord(career_id="navy", terms=1, final_rank=0, ended_by="mishap")
+        ]
+        runner = LifepathRunner(engine, pack)
+        with pytest.raises(ValueError, match="already left"):
+            runner.qualify("navy")
+        # Drifter is always re-enterable, even with history.
+        engine._roller = ForcedRoller([[5, 2]])
+        runner.qualify("drifter")
+
+    def test_qualify_applies_career_change_dm(self, engine_and_pack):
+        """With one prior career, qualification gets an extra -2 DM."""
+        engine, pack = engine_and_pack
+        engine.state.character.career_history = [
+            CareerTermRecord(career_id="navy", terms=1, final_rank=0, ended_by="muster_out")
+        ]
+        engine.state.character.characteristics = {"INT": 7}  # DM 0
+        engine._roller = ForcedRoller([[5, 2]])  # 7 + 0 - 2 = 5
+        runner = LifepathRunner(engine, pack)
+        result = runner.qualify("agent")  # agent not in history
+        assert result.adjusted_total == 5
+        assert result.char_dm == -2
 
 
 # ---------------------------------------------------------------------------
@@ -346,38 +605,42 @@ class TestQualificationFailure:
 
 
 class TestAging:
-    def test_aging_reduces_physical_stats_on_failure(self, pack):
-        """At age 34+, failed aging roll reduces STR/DEX/END by 1 each."""
+    def test_aging_graduated_physical_reduction(self, pack):
+        """At age 34+, adjusted roll in the reduction zone produces physical
+        slots that the batch runner distributes to STR/DEX/END.
+
+        B4 graduated table: roll 2 at term 4 -> adjusted -2 -> three
+        physical x1 slots. Batch auto-assigns one each to the three
+        physical characteristics (all tied at 8, picked in STR/DEX/END order).
+        """
         queue = [
             [5, 3],  # STR = 8
             [5, 3],  # DEX = 8
             [5, 3],  # END = 8
-            [2, 1],  # INT = 3, DM -1, qualification target 3 -> need 4+
+            [2, 1],  # INT = 3
             [2, 1],  # EDU = 3
             [4, 2],  # SOC = 6
-            # Drifter qualification: END 8, DM 0, target 3
-            [3, 2],  # 5 >= 3 -> success
+            # Drifter qualification: SOC 6, DM 0, target 2 (auto-qualify)
+            [3, 2],  # 5 >= 2 -> success
         ]
-        # Terms 1-3 (ages 18->30): survival, advancement, skills each.
+        # Terms 1-3 (ages 18->30): survival, 2 skill rolls each (non-hierarchy, B9).
         # No aging checks (age < 34).
         for _term in range(3):
             queue.extend(
                 [
-                    [4, 3],  # Survival: END 8 + DM 0 = 7 >= 5 -> success
-                    [4, 3],  # Advancement: END 8 + DM 0 = 7 >= 7 -> success
-                    [5, 3],  # Skill 1
-                    [5, 3],  # Skill 2 (advancement -> extra)
+                    [4, 3],  # Survival: END 8 + DM 0 = 7 >= 6 -> success
+                    [5],  # Skill 1 (1D6)
+                    [5],  # Skill 2 (1D6) — non-hierarchy base 2 (B9)
                 ]
             )
-        # Term 4 (age 30->34): survival, advancement, skills, THEN aging.
+        # Term 4 (age 30->34): survival, skills, THEN aging.
         queue.extend(
             [
                 [4, 3],  # Survival
-                [4, 3],  # Advancement
-                [5, 3],  # Skill 1
-                [5, 3],  # Skill 2 (advancement -> extra)
-                # Aging check: roll 2D6 vs 8
-                [2, 3],  # 5 < 8 -> aging! Physical stats reduced.
+                [5],  # Skill 1 (1D6)
+                [5],  # Skill 2 (1D6) — non-hierarchy base 2 (B9)
+                # Aging: 2D6=2, terms=4, adjusted=2-4=-2 -> three physical x1
+                [1, 1],
             ]
         )
         # Mustering out (4 terms, rank 0 since drifter has no ranks)
@@ -400,64 +663,19 @@ class TestAging:
         term4 = result.terms[3]
         assert term4.age_after == 34
         assert not term4.aging_success
-        assert "STR" in term4.aging_reductions
-        assert "DEX" in term4.aging_reductions
-        assert "END" in term4.aging_reductions
-        # INT and EDU should NOT be reduced (not exceptional failure).
-        assert "INT" not in term4.aging_reductions
+        # Three physical x1 slots -> aggregated as {"physical": 3} for narration.
+        assert term4.aging_reductions == {"physical": 3}
 
-        # Verify state was mutated.
+        # Batch auto-applied one point each to STR, DEX, END (all tied at 8).
         char = engine.state.character
         assert char.characteristics["STR"] == 7  # 8 - 1
         assert char.characteristics["DEX"] == 7
         assert char.characteristics["END"] == 7
-
-    def test_aging_exceptional_failure_reduces_all(self, pack):
-        """Natural 2 on aging roll reduces ALL characteristics."""
-        queue = [
-            [5, 3],
-            [5, 3],
-            [5, 3],
-            [2, 1],
-            [2, 1],
-            [4, 2],  # chars
-            [3, 2],  # Drifter qualification success
-        ]
-        for _term in range(3):
-            queue.extend([[4, 3], [4, 3], [5, 3], [5, 3]])
-        # Term 4 with exceptional aging failure.
-        queue.extend(
-            [
-                [4, 3],  # survival
-                [4, 3],  # advancement
-                [5, 3],  # skill 1
-                [5, 3],  # skill 2
-                [1, 1],  # aging: natural 2 < 8 -> ALL reduced
-            ]
-        )
-        queue.extend(
-            [
-                [1],
-                [1],
-                [1],  # cash
-                [1],
-                [1],
-                [1],
-                [1],  # material
-            ]
-        )
-        engine = make_engine(queue)
-        runner = LifepathRunner(engine, pack)
-        result = runner.run_lifepath("drifter", num_terms=4)
-
-        term4 = result.terms[3]
-        assert not term4.aging_success
-        assert term4.aging_raw == 2
-        # All six characteristics reduced.
-        assert len(term4.aging_reductions) == 6
+        # Pending slots fully consumed by the batch runner.
+        assert char.pending_aging == []
 
     def test_aging_success_no_reduction(self, pack):
-        """Successful aging roll (>= 8) causes no reductions."""
+        """Adjusted roll >= 1 produces no pending aging slots."""
         queue = [
             [5, 3],
             [5, 3],
@@ -465,17 +683,17 @@ class TestAging:
             [2, 1],
             [2, 1],
             [4, 2],
-            [3, 2],  # qual
+            [3, 2],  # Drifter qualification: SOC 6 + DM 0 = 5 >= 2 -> success
         ]
         for _term in range(3):
-            queue.extend([[4, 3], [4, 3], [5, 3], [5, 3]])
+            queue.extend([[4, 3], [5], [5]])
         queue.extend(
             [
                 [4, 3],
-                [4, 3],
-                [5, 3],
-                [5, 3],
-                [5, 4],  # aging: 9 >= 8 -> no effect
+                [5],
+                [5],
+                # Aging: 2D6=9, terms=4, adjusted=9-4=5 >= 1 -> no effect
+                [5, 4],
             ]
         )
         queue.extend(
@@ -499,6 +717,77 @@ class TestAging:
         # Stats unchanged.
         char = engine.state.character
         assert char.characteristics["STR"] == 8
+        assert char.pending_aging == []
+
+
+# ---------------------------------------------------------------------------
+# Scenario 6b: Graduated aging table (B4) — terms as negative DM, player-chosen
+# reductions via ApplyAgingReductionCommand.
+# ---------------------------------------------------------------------------
+
+
+class TestGraduatedAging:
+    def test_aging_uses_terms_as_negative_dm_and_graduated_table(self, engine_and_pack):
+        """Adjusted roll = 2D6 - terms; -1 row yields two physical slots of 1."""
+        engine, pack = engine_and_pack
+        engine.state.character.terms = 5
+        engine.state.character.age = 42
+        engine._roller = ForcedRoller([[2, 2]])  # 4 - 5 = -1 -> two physical slots of 1
+        runner = LifepathRunner(engine, pack)
+        assert (
+            runner.run_aging_step(
+                TermResult(
+                    term_number=5,
+                    career_id="navy",
+                    career_name="Navy",
+                    age_before=38,
+                    age_after=42,
+                )
+            )
+            is True
+        )
+        slots = engine.state.character.pending_aging
+        assert [(s.group, s.points) for s in slots] == [("physical", 1), ("physical", 1)]
+
+    def test_aging_no_effect_at_1_plus(self, engine_and_pack):
+        """Adjusted roll >= 1 means no aging effect."""
+        engine, pack = engine_and_pack
+        engine.state.character.terms = 2
+        engine._roller = ForcedRoller([[2, 1]])  # 3 - 2 = 1 -> no effect
+        runner = LifepathRunner(engine, pack)
+        runner.run_aging_step(
+            TermResult(
+                term_number=2,
+                career_id="navy",
+                career_name="Navy",
+                age_before=26,
+                age_after=30,
+            )
+        )
+        assert engine.state.character.pending_aging == []
+
+    def test_apply_aging_reduction_consumes_slots(self, engine_and_pack):
+        """ApplyAgingReductionCommand reduces a stat and consumes matching slots."""
+        from src.engine.lifepath import ApplyAgingReductionCommand
+
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"STR": 8, "INT": 9}
+        engine.state.character.pending_aging = [AgingSlot(group="physical", points=2)]
+        engine.apply(ApplyAgingReductionCommand(characteristic="STR", points=2))
+        assert engine.state.character.characteristics["STR"] == 6
+        assert engine.state.character.pending_aging == []
+        with pytest.raises(ValueError):
+            engine.apply(ApplyAgingReductionCommand(characteristic="INT", points=1))
+
+    def test_aging_reduction_group_enforced(self, engine_and_pack):
+        """A mental characteristic cannot consume a physical slot."""
+        from src.engine.lifepath import ApplyAgingReductionCommand
+
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"INT": 9}
+        engine.state.character.pending_aging = [AgingSlot(group="physical", points=1)]
+        with pytest.raises(ValueError, match="physical"):
+            engine.apply(ApplyAgingReductionCommand(characteristic="INT", points=1))
 
 
 # ---------------------------------------------------------------------------
@@ -507,41 +796,46 @@ class TestAging:
 
 
 class TestMusteringOut:
-    def test_cash_benefits_with_dm_per_term_and_rank(self, pack):
-        """Cash benefit rolls include DM per term and per rank."""
+    def test_cash_benefits_neutralized_dm(self, pack):
+        """Cash benefit rolls use dm=0 (per-term/per-rank DM removed, N3).
+
+        Rank-based rolls and row-7 reachability will be handled in Task 12.
+        """
         queue = [
             [5, 3],
             [4, 3],
             [5, 3],
             [5, 4],
             [4, 3],
-            [4, 2],  # chars
-            [4, 3],  # qual: INT 9 + DM 1 = 7 >= 5 -> success
+            [4, 2],  # chars (INT = 9)
+            [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
         ]
-        # 2 terms with successful advancement each.
-        for _term in range(2):
-            queue.extend(
-                [
-                    [4, 3],  # survival
-                    [5, 3],  # advancement -> rank up
-                    [5, 3],  # skill 1
-                    [5, 3],  # skill 2 (advancement -> extra)
-                ]
-            )
-        # Mustering out: 2 terms, rank 2.
-        # Navy cash: dm_per_term=1, dm_per_rank=1. DM = 2 + 2 = 4.
-        # min(2, 3) = 2 rolls.
+        # Term 1: survival, commission (fails, rank 0), advancement, 2 skill rolls.
         queue.extend(
             [
-                [1],  # 1 + 4 = 5 -> "40,000 Cr"
-                [2],  # 2 + 4 = 6 -> "50,000 Cr"
+                [4, 3],  # survival: INT 9 + DM 1 = 8 >= 5 -> success
+                [1, 2],  # commission: INT 9 + DM 1 = 4 < 9 -> fail (rank stays 0)
+                [5, 3],  # advancement: INT 9 + DM 1 = 9 >= 6 -> rank up
+                [5],  # skill 1 (1D6)
+                [5],  # skill 2 (advancement -> extra, 1D6)
             ]
         )
-        # Material: 2 rolls, DM = 0.
+        # Term 2: rank > 0, so no commission available; advancement only.
         queue.extend(
             [
-                [1],  # Weapon
-                [6],  # TAS Membership
+                [4, 3],  # survival
+                [5, 3],  # advancement -> rank up
+                [5],  # skill 1 (1D6)
+                [5],  # skill 2 (advancement -> extra, 1D6)
+            ]
+        )
+        # Mustering out: 2 terms, rank 2.
+        # benefit_rolls_for(2, 2) = 2 total. Batch: cash-first (min(3,2)=2),
+        # then material (0 remaining). DM = 0.
+        queue.extend(
+            [
+                [1],  # 1 -> "1,000 Cr" (SRD Navy cash row 1)
+                [2],  # 2 -> "5,000 Cr"
             ]
         )
         engine = make_engine(queue)
@@ -552,33 +846,117 @@ class TestMusteringOut:
         assert mo is not None
         assert mo.terms_served == 2
         assert mo.final_rank == 2
+        assert mo.total_rolls == 2
         assert len(mo.cash_benefits) == 2
-        assert "40,000 Cr" in mo.cash_benefits
-        assert "50,000 Cr" in mo.cash_benefits
-        assert len(mo.material_benefits) == 2
+        assert "1,000 Cr" in mo.cash_benefits
+        assert "5,000 Cr" in mo.cash_benefits
+        assert len(mo.material_benefits) == 0
 
     def test_zero_terms_mustering_out(self, pack):
-        """Character with 0 terms gets no benefits."""
+        """Character with 0 terms gets no benefit rolls."""
+        engine = make_engine([])
+        runner = LifepathRunner(engine, pack)
+        # Directly call muster_out on a character with 0 terms.
+        mo = runner.muster_out("navy")
+        assert mo.total_rolls == 0
+        assert mo.cash_benefits == []
+        assert mo.material_benefits == []
+
+
+# ---------------------------------------------------------------------------
+# Task 12: Muster-out overhaul — rank bonuses, per-roll allocation, persist.
+# ---------------------------------------------------------------------------
+
+
+class TestMusterOutOverhaul:
+    """Task 12: benefit_rolls_for rank bonus, persist to credits/inventory,
+    cash cap, material_dm_for rank DM."""
+
+    def test_benefit_rolls_include_rank_bonus(self):
+        from src.engine.lifepath import benefit_rolls_for
+
+        assert benefit_rolls_for(terms=3, rank=0) == 3
+        assert benefit_rolls_for(terms=3, rank=4) == 4
+        assert benefit_rolls_for(terms=3, rank=5) == 5
+        assert benefit_rolls_for(terms=3, rank=6) == 6
+
+    def test_material_dm_for_rank(self):
+        from src.engine.lifepath import material_dm_for
+
+        assert material_dm_for(0) == 0
+        assert material_dm_for(4) == 0
+        assert material_dm_for(5) == 1
+        assert material_dm_for(6) == 1
+
+    def test_cash_benefit_persists_to_credits(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine._roller = ForcedRoller([[6]])  # top cash row = 50,000 Cr
+        runner = LifepathRunner(engine, pack)
+        runner.claim_benefit("navy", table="cash", dm=0)
+        assert engine.state.character.credits == 50_000
+
+    def test_material_benefit_persists_to_inventory(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine._roller = ForcedRoller([[6]])
+        runner = LifepathRunner(engine, pack)
+        runner.claim_benefit("navy", table="material", dm=1)  # 6+1=7 -> row 7
+        assert len(engine.state.character.inventory) == 1
+
+    def test_cash_rolls_capped_at_three(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine._roller = ForcedRoller([[1]])
+        runner = LifepathRunner(engine, pack)
+        runner._cash_rolls_taken = 3
+        with pytest.raises(ValueError, match="cash"):
+            runner.claim_benefit("navy", table="cash", dm=0)
+
+    def test_muster_out_returns_plan_without_rolling(self, engine_and_pack):
+        """muster_out computes total_rolls and DMs without rolling dice."""
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine.state.character.terms = 3
+        engine.state.character.rank = 5  # rank bonus: +2
+        runner = LifepathRunner(engine, pack)
+        plan = runner.muster_out("navy")
+        assert plan.total_rolls == 5  # 3 terms + 2 rank bonus
+        assert plan.cash_dm == 0
+        assert plan.material_dm == 1  # rank >= 5
+        assert plan.terms_served == 3
+        assert plan.final_rank == 5
+        # No rolls consumed — lists empty.
+        assert plan.cash_benefits == []
+        assert plan.material_benefits == []
+
+    def test_batch_muster_out_allocates_cash_first(self, pack):
+        """Batch path allocates cash-first (up to 3), then material."""
         queue = [
             [5, 3],
             [4, 3],
             [5, 3],
-            [2, 1],
-            [2, 1],
-            [4, 2],  # chars
-            # Qualification: INT 3, DM -1, target 5 -> fail
-            [1, 1],  # 2 + (-1) = 1 < 5 -> fail
-            # Drifter qual: END 8, DM 0, target 3
-            [1, 1],  # 2 < 3 -> fail (even drifter fails!)
+            [5, 4],
+            [4, 3],
+            [4, 2],  # chars (INT = 9)
+            [5, 4],  # qual
+            [4, 3],  # survival
+            [1, 2],  # commission fail
+            [5, 3],  # advancement -> rank 1
+            [5],
+            [4],  # skill rolls
         ]
+        # 1 term, rank 1: benefit_rolls_for(1, 1) = 1 total, 1 cash, 0 material.
+        queue.append([3])  # cash: 10,000 Cr
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
-        result = runner.run_lifepath("navy", num_terms=3)
-
-        assert result.num_terms == 0
-        assert result.mustering_out is not None
-        assert result.mustering_out.cash_benefits == []
-        assert result.mustering_out.material_benefits == []
+        result = runner.run_lifepath("navy", num_terms=1)
+        mo = result.mustering_out
+        assert mo is not None
+        assert mo.total_rolls == 1
+        assert len(mo.cash_benefits) == 1
+        assert mo.cash_benefits[0] == "10,000 Cr"
+        assert len(mo.material_benefits) == 0
+        assert engine.state.character.credits == 10_000
 
 
 # ---------------------------------------------------------------------------
@@ -588,21 +966,21 @@ class TestMusteringOut:
 
 class TestNoRanksCareer:
     def test_scout_advancement_no_rank_increase(self, pack):
-        """Scout has empty ranks — advancement succeeds but rank stays 0."""
+        """Scout is non-hierarchy: 2 skill rolls, no advancement/commission, rank stays 0."""
         queue = [
             [5, 3],
             [4, 3],
             [5, 3],
             [5, 4],
             [4, 3],
-            [4, 2],  # chars
+            [4, 2],  # chars (INT = 9)
             # Scout qualification: INT 9, DM +1, target 6
             [4, 3],  # 7 + 1 = 8 >= 6 -> success
-            # Term 1
-            [4, 3],  # Survival: END 8 + 0 = 7 >= 5 -> success
-            [5, 4],  # Advancement: INT 9 + 1 = 10 >= 7 -> success, but no rank
-            [5, 3],  # Skill 1
-            [4, 3],  # Skill 2 (advancement -> extra)
+            # Term 1: survival (INT 6+), no commission/advancement (non-hierarchy),
+            # 2 skill rolls (non-hierarchy base 2, B9).
+            [4, 3],  # Survival: INT 9 + DM 1 = 8 >= 6 -> success
+            [5],  # Skill 1 (1D6)
+            [4],  # Skill 2 (1D6)
             # Mustering out (1 term, rank 0)
             [1],  # cash
             [1],  # material
@@ -612,9 +990,12 @@ class TestNoRanksCareer:
         result = runner.run_lifepath("scout", num_terms=1)
 
         term1 = result.terms[0]
-        assert term1.advancement_success
+        assert not term1.advancement_success  # no advancement for non-hierarchy
+        assert not term1.commission_success  # no commission for non-hierarchy
         assert term1.rank_after == 0  # no ranks -> stays 0
         assert engine.state.character.rank == 0
+        # Non-hierarchy careers grant 2 skill rolls per term (B9).
+        assert len(term1.skill_gains) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -632,13 +1013,14 @@ class TestDeterminism:
             [5, 4],
             [4, 3],
             [4, 2],
-            [4, 3],
-            [4, 3],
-            [5, 3],
-            [5, 3],
-            [4, 3],
-            [3],
-            [2],
+            [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
+            [4, 3],  # survival
+            [1, 2],  # commission: INT 9 + DM 1 = 4 < 9 -> fail
+            [5, 3],  # advancement
+            [5],  # skill 1 (1D6)
+            [4],  # skill 2 (1D6)
+            [3],  # cash
+            [2],  # material
         ]
         engine_a = make_engine(list(queue))
         engine_b = make_engine(list(queue))
@@ -706,8 +1088,9 @@ class TestAdvanceTermCommand:
             "SOC": 5,
         }
         state.character.career = "navy"
-        # Queue: survival roll (low roll -> mishap, returns early after advance).
-        queue = [[1, 1]]  # END 8 -> DM 1, roll 2+1=3 < 5 -> mishap
+        # Queue: survival roll (low roll -> mishap, returns early after advance),
+        # plus a mishap roll (1D6=2 -> honorably discharged, no injury chain).
+        queue = [[1, 1], [2]]  # END 8 -> DM 1, roll 2+1=3 < 5 -> mishap
         engine = Engine(state, roller=ForcedRoller(queue))
         runner = LifepathRunner(engine, pack)
 
@@ -723,3 +1106,59 @@ class TestAdvanceTermCommand:
         assert len(advance_events) == 1
         assert engine.state.character.age == 22  # 18 + 4
         assert engine.state.character.terms == 1
+
+
+# ---------------------------------------------------------------------------
+# Task 5: Natural-2 survival fail, mishap → injury chain, injury crisis (B13/N1).
+# ---------------------------------------------------------------------------
+
+
+class TestNatural2SurvivalFail:
+    """N1: a natural 2 on the survival roll always fails, regardless of DM."""
+
+    def test_natural_2_always_fails_survival(self, engine_and_pack):
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"END": 15}  # +3 DM
+        engine._roller = ForcedRoller([[1, 1]])
+        event = engine.apply(SurvivalCommand(career_id="navy", characteristic="END", target=5))
+        # Raw 2 + DM 3 = 5 >= 5, but natural 2 always fails.
+        assert event.changes["success"] is False
+        assert event.changes["mishap"] is True  # narrative mode
+
+
+class TestMishapInjuryChain:
+    """Failed-non-ironman survival rolls the career mishap table; entries 1
+    and 6 chain to the pack injury table (B13)."""
+
+    def test_mishap_injury_chain_applies_reduction(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.characteristics = {"STR": 10, "DEX": 9, "END": 8}
+        engine.state.character.career = "navy"
+        # mishap roll lands on an injury entry; injury roll then reduces chosen stat
+        engine._roller = ForcedRoller([[1], [2]])  # mishap=1 -> injury; injury=2
+        runner = LifepathRunner(engine, pack)
+        outcome = runner.run_mishap("navy")
+        assert outcome["injury"] is True
+        assert sum(engine.state.character.characteristics.values()) < 27
+
+
+class TestInjuryCrisis:
+    """Characteristic at 0 triggers an injury crisis (B13)."""
+
+    def test_injury_crisis_pay_or_suffer(self, engine_and_pack):
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"STR": 1}
+        engine.state.character.credits = 12000
+        engine.apply(ResolveInjuryCrisisCommand(stat="STR", pay=True))
+        assert engine.state.character.credits == 2000
+        assert engine.state.character.characteristics["STR"] == 1
+        assert engine.state.character.alive is True
+
+    def test_injury_crisis_unaffordable_non_ironman(self, engine_and_pack):
+        engine, _pack = engine_and_pack
+        engine.state.character.characteristics = {"STR": 0}
+        engine.state.character.credits = 0
+        engine.apply(ResolveInjuryCrisisCommand(stat="STR", pay=False))
+        assert engine.state.character.alive is True  # narrative mode: floored + scar
+        assert engine.state.character.characteristics["STR"] == 1
+        assert any(isinstance(e, Injury) for e in engine.state.entities)

@@ -243,16 +243,16 @@ class TestNarrateLifepath:
             [5, 3],
             [5, 4],
             [4, 3],
-            [4, 2],  # chars
-            [3, 2],  # qual
+            [4, 2],  # chars (INT = 9)
+            [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
             [4, 3],
             [5, 3],
-            [5, 3],
-            [4, 3],  # term 1: surv + adv + 2 skills
+            [5],
+            [4],  # term 1: surv + adv + 2 skills (1D6)
             [3, 3],
             [4, 4],
-            [6, 3],
-            [6, 4],  # term 2: surv + adv + 2 skills
+            [5],
+            [4],  # term 2: surv + adv + 2 skills (1D6)
             [1],
             [1],  # cash
             [3],
@@ -282,10 +282,10 @@ class TestNarrateLifepath:
             [5, 3],
             [4, 3],
             [5, 3],
-            [4, 3],
+            [5, 4],
             [4, 3],
             [4, 2],
-            [4, 3],  # qual success
+            [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
             [1, 1],  # survival -> death
         ]
         engine = make_engine(queue, death_mode="ironman")

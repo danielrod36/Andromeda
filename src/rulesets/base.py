@@ -65,21 +65,23 @@ class SkillTableEntry(BaseModel):
 class TableRange(BaseModel):
     """A collection of table entries with contiguous-range validation.
 
-    All die tables in Cepheus (skill tables, oracle tables, benefit tables) use
-    2D6 (range 2–12). This model validates that entries tile the full range
-    without gaps or overlaps.
+    Die tables declare their dice explicitly (``num_dice`` × ``die_size``);
+    entries must tile the full rollable range. ``max_extension`` permits
+    additional rows only reachable via positive DM (e.g. mustering-out
+    benefit row 7 via rank DM, B15).
     """
 
     entries: list[SkillTableEntry]
     die_size: int = 6
     num_dice: int = 2
+    max_extension: int = 0
 
     def is_contiguous(self) -> bool:
         """Return True if entries tile the full range without gaps or overlaps."""
         if not self.entries:
             return False
         expected_min = self.num_dice  # minimum roll on Ndx = N
-        expected_max = self.num_dice * self.die_size
+        expected_max = self.num_dice * self.die_size + self.max_extension
         sorted_entries = sorted(self.entries, key=lambda e: e.min)
         # First entry must start at the minimum roll.
         if sorted_entries[0].min != expected_min:
@@ -110,23 +112,24 @@ class CheckRef(BaseModel):
 
 
 class SkillTable(BaseModel):
-    """One of a career's three skill tables (Personal Dev, Service, Advanced Ed)."""
+    """One of a career's skill tables (Personal Development, Service Skills,
+    Specialist, Advanced Education). Skill tables roll 1D6 (range 1–6)."""
 
     name: str
     entries: TableRange
 
 
 class BenefitsTable(BaseModel):
-    """Mustering-out benefits table (cash or material), rolled on 1D6 or 2D6.
+    """Mustering-out benefits table (cash or material), rolled on 1D6.
 
-    ``dm_per_term`` and ``dm_per_rank`` add +1 per term/rank to the roll,
-    matching the CE SRD mustering-out rules.
+    Row count and DM reach are SRD data (B15): seven rows, row 7 reachable
+    only via rank DM (``max_extension >= 1`` on the entries). Extra benefit
+    *rolls* come from rank (O4 +1, O5 +2, O6 +3), computed by the engine —
+    never from per-term/per-rank DM fields (removed: N3).
     """
 
     name: str
     entries: TableRange
-    dm_per_term: int = 0
-    dm_per_rank: int = 0
 
 
 class RankEntry(BaseModel):
@@ -139,9 +142,10 @@ class RankEntry(BaseModel):
 class CareerData(BaseModel):
     """Full career definition loaded from a theme pack's careers.yaml.
 
-    A career in CE SRD has three skill tables (Personal Development, Service
-    Skills, Advanced Education), qualification/survival/ advancement checks,
-    optional ranks, and mustering-out benefit tables.
+    Hierarchy careers (has_hierarchy=True) have commission and advancement
+    checks; non-hierarchy careers (Athlete, Barbarian, Belter, Drifter,
+    Entertainer, Hunter, Scout) have neither and grant 2 skill rolls per
+    term instead (B5, B8, B9).
     """
 
     id: str
@@ -149,24 +153,39 @@ class CareerData(BaseModel):
     description: str
     qualification: CheckRef
     survival: CheckRef
-    advancement: CheckRef
+    advancement: CheckRef | None = None
+    commission: CheckRef | None = None
+    re_enlistment: int | None = None
+    has_hierarchy: bool = True
+    mishap_table: TableRange | None = None
     skill_tables: list[SkillTable]
     ranks: list[RankEntry] = Field(default_factory=list)
     mustering_out_cash: BenefitsTable | None = None
     mustering_out_material: BenefitsTable | None = None
+
+    @model_validator(mode="after")
+    def _check_hierarchy_consistency(self) -> CareerData:
+        if not self.has_hierarchy and (self.advancement or self.commission):
+            raise ValueError(
+                f"Career '{self.id}': non-hierarchy careers must not define "
+                "advancement or commission (B5)"
+            )
+        return self
 
 
 class SkillData(BaseModel):
     """A skill definition with an optional career association.
 
     The ``career`` field is used for referential-integrity validation: every
-    non-empty value must match a career id in the same pack.
+    non-empty value must match a career id in the same pack. ``background``
+    flags skills available during the pre-career background-skills phase (B10).
     """
 
     id: str
     name: str
     description: str = ""
     career: str = ""
+    background: bool = False
 
 
 class OracleTable(BaseModel):

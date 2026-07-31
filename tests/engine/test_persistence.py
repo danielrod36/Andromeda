@@ -199,6 +199,51 @@ def test_current_save_version_is_positive():
 
 
 # ---------------------------------------------------------------------------
+# Scenario: v1 → v2 migration (Task 1).
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_v1_to_v2(tmp_path: Path):
+    import json
+
+    from src.engine.persistence import load
+    from src.engine.state import GameState
+
+    v1 = json.loads(GameState.new(seed=7).model_dump_json())
+    v1["save_version"] = 1
+    for k in (
+        "credits",
+        "inventory",
+        "unassigned_rolls",
+        "pool_rerolled",
+        "career_history",
+        "drafted",
+        "background_picks_remaining",
+        "basic_training_done",
+        "pending_aging",
+    ):
+        v1["character"].pop(k, None)
+    v1.pop("open_threads", None)
+    v1.pop("mission_counter", None)
+    p = tmp_path / "old.json"
+    p.write_text(json.dumps(v1))
+    loaded = load(p)
+    assert loaded.save_version == 2
+    assert loaded.character.credits == 0
+    assert loaded.character.background_picks_remaining == -1
+    assert loaded.open_threads == []
+
+
+def test_migrate_rejects_newer_version():
+    import pytest
+
+    from src.engine.persistence import migrate
+
+    with pytest.raises(ValueError, match="newer"):
+        migrate({}, from_version=99)
+
+
+# ---------------------------------------------------------------------------
 # Scenario: Empty events and narrative log round-trip.
 # ---------------------------------------------------------------------------
 

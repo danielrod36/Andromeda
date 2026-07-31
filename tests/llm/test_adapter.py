@@ -461,3 +461,205 @@ class TestNarrationOutputModel:
         """The narration model must only have 'prose' — no mechanical fields."""
         fields = set(LifepathNarration.model_fields.keys())
         assert fields == {"prose"}, f"Unexpected fields in LifepathNarration: {fields}"
+
+
+# ---------------------------------------------------------------------------
+# FreeTextCheck model + classify_freetext (R14, AE5).
+# ---------------------------------------------------------------------------
+
+
+from src.engine.scene import SceneScaffold  # noqa: E402
+from src.llm.adapter import FreeTextCheck  # noqa: E402
+from src.rulesets.cepheus import CepheusRuleSet  # noqa: E402
+
+DIFFICULTY_LADDER = CepheusRuleSet().difficulty_ladder
+
+
+def scaffold_stub() -> SceneScaffold:
+    return SceneScaffold(
+        focus="Social",
+        focus_description="A tense negotiation at the docking bay.",
+        situation="The dock officer demands a bribe.",
+        npc_hint="A corrupt dock officer.",
+    )
+
+
+def view_stub():
+    return build_curated_view(make_state_with_character())
+
+
+class TestFreeTextCheckModel:
+    """The FreeTextCheck model validates difficulty and label (R14)."""
+
+    def test_valid_check_accepted(self):
+        check = FreeTextCheck(
+            skill_id="broker",
+            difficulty="average",
+            label="Bribe the dock officer",
+            characteristic="SOC",
+        )
+        assert check.skill_id == "broker"
+        assert check.difficulty == "average"
+
+    def test_invalid_difficulty_rejected(self):
+        """Difficulty not in the ladder raises ModelRetry."""
+        from pydantic_ai import ModelRetry
+
+        with pytest.raises(ModelRetry):
+            FreeTextCheck(
+                skill_id="broker",
+                difficulty="impossible",
+                label="Bribe",
+                characteristic="SOC",
+            )
+
+    def test_empty_label_rejected(self):
+        """Empty label raises ModelRetry."""
+        from pydantic_ai import ModelRetry
+
+        with pytest.raises(ModelRetry):
+            FreeTextCheck(
+                skill_id="broker",
+                difficulty="average",
+                label="",
+                characteristic="SOC",
+            )
+
+    def test_whitespace_label_rejected(self):
+        from pydantic_ai import ModelRetry
+
+        with pytest.raises(ModelRetry):
+            FreeTextCheck(
+                skill_id="broker",
+                difficulty="average",
+                label="   ",
+                characteristic="SOC",
+            )
+
+
+class TestClassifyFreetext:
+    """classify_freetext: LLM classification with validation (R14, AE5)."""
+
+    def test_returns_validated_check(self):
+        """Valid LLM output passes skill_id + difficulty validation."""
+        test_model = TestModel(
+            custom_output_args={
+                "skill_id": "broker",
+                "difficulty": "average",
+                "label": "Bribe the dock officer",
+                "characteristic": "SOC",
+            }
+        )
+        adapter = LLMAdapter(test_model=test_model)
+        result = adapter.classify_freetext(
+            "I bribe the dock officer",
+            scaffold_stub(),
+            view_stub(),
+            valid_skill_ids={"broker", "stealth"},
+        )
+        assert result is not None
+        assert result.skill_id in {"broker", "stealth"}
+        assert result.difficulty in DIFFICULTY_LADDER
+
+    def test_invalid_skill_id_returns_none(self):
+        """skill_id not in valid_skill_ids → ModelRetry → exhaustion → None."""
+        test_model = TestModel(
+            custom_output_args={
+                "skill_id": " nonexistent_skill ",
+                "difficulty": "average",
+                "label": "Do something",
+                "characteristic": "STR",
+            }
+        )
+        adapter = LLMAdapter(config=AdapterConfig(max_retries=2), test_model=test_model)
+        result = adapter.classify_freetext(
+            "I fly the ship",
+            scaffold_stub(),
+            view_stub(),
+            valid_skill_ids={"broker", "stealth"},
+        )
+        assert result is None
+
+    def test_no_llm_returns_none(self):
+        """Without a model configured, classify_freetext returns None."""
+        adapter = LLMAdapter()
+        result = adapter.classify_freetext(
+            "I bribe the guard",
+            scaffold_stub(),
+            view_stub(),
+            valid_skill_ids={"broker"},
+        )
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# narrate_scene + failure_kind (R14, AE5).
+# ---------------------------------------------------------------------------
+
+
+class TestNarrateScene:
+    """narrate_scene: structured scene narration with failure_kind (R14)."""
+
+    @pytest.mark.asyncio
+    async def test_narrate_scene_with_test_model(self):
+        """Valid LLM output produces scene narration."""
+        test_model = TestModel(
+            custom_output_args={
+                "prose": "The dock officer eyes your credits greedily as you slide the bribe across the counter."
+            }
+        )
+        adapter = LLMAdapter(test_model=test_model)
+        result = await adapter.narrate_scene(
+            scaffold_stub(),
+            ["You attempted to bribe the dock officer.", "Result: success."],
+            view_stub(),
+        )
+        assert result.source == "llm"
+        assert result.llm_failed is False
+        assert result.failure_kind is None
+        assert "dock officer" in result.prose
+
+    @pytest.mark.asyncio
+    async def test_narrate_scene_no_llm_uses_template(self):
+        """Without LLM, narrate_scene falls back to template."""
+        adapter = LLMAdapter()
+        result = await adapter.narrate_scene(
+            scaffold_stub(),
+            ["Check result: strong_hit."],
+            view_stub(),
+        )
+        assert result.source == "template"
+        assert result.llm_failed is False
+
+    @pytest.mark.asyncio
+    async def test_narrate_scene_retry_exhausted(self):
+        """Empty prose → retry exhaustion → failure_kind='retry_exhausted'."""
+        test_model = TestModel(custom_output_args={"prose": ""})
+        adapter = LLMAdapter(
+            config=AdapterConfig(max_retries=2, request_limit=10),
+            test_model=test_model,
+        )
+        result = await adapter.narrate_scene(
+            scaffold_stub(),
+            ["Check result: weak_hit."],
+            view_stub(),
+        )
+        assert result.source == "template"
+        assert result.llm_failed is True
+        assert result.failure_kind == "retry_exhausted"
+
+    @pytest.mark.asyncio
+    async def test_narrate_scene_provider_error(self):
+        """Provider/connection error → failure_kind='provider_error'."""
+        adapter = LLMAdapter(
+            config=AdapterConfig(model="anthropic:claude-sonnet-5"),
+        )
+        # No API key / unreachable → provider_error.
+        result = await adapter.narrate_scene(
+            scaffold_stub(),
+            ["Check result: miss."],
+            view_stub(),
+        )
+        assert result.source == "template"
+        assert result.llm_failed is True
+        assert result.failure_kind == "provider_error"

@@ -11,8 +11,14 @@ from __future__ import annotations
 import pytest
 
 from src.engine.commands import Engine
-from src.engine.state import GameState
-from src.llm.tools import TOOL_REGISTRY, ToolDeps, add_narrative_log_entry, set_narrative_flag
+from src.engine.state import GameState, NarrativeFact
+from src.llm.tools import (
+    TOOL_REGISTRY,
+    ToolDeps,
+    add_narrative_log_entry,
+    register_fact,
+    set_narrative_flag,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -51,6 +57,9 @@ class TestToolRegistry:
     def test_all_tools_are_callable(self):
         for name, func in TOOL_REGISTRY.items():
             assert callable(func), f"Tool {name} is not callable"
+
+    def test_registry_includes_register_fact(self):
+        assert "register_fact" in TOOL_REGISTRY
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +133,53 @@ class TestAddNarrativeLogEntry:
     async def test_strips_whitespace(self, ctx, deps):
         await add_narrative_log_entry(ctx, "  padded entry  ")
         assert deps.state.narrative_log[0] == "narration=padded entry"
+
+
+# ---------------------------------------------------------------------------
+# register_fact tests (R24).
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterFact:
+    @pytest.mark.asyncio
+    async def test_register_fact_routes_through_funnel(self, ctx, deps):
+        """register_fact constructs RegisterFactCommand and applies via the funnel."""
+        result = await register_fact(ctx, name="Bartender", description="Knows the docks")
+        assert "Bartender" in result
+        # A NarrativeFact entity was added.
+        facts = [e for e in deps.state.entities if isinstance(e, NarrativeFact)]
+        assert any(f.name == "Bartender" for f in facts)
+        # An audit event was appended through the funnel.
+        assert any(e.command_type == "register_fact" for e in deps.state.events)
+
+    @pytest.mark.asyncio
+    async def test_register_fact_rejects_empty_name(self, ctx):
+        with pytest.raises(ValueError, match="non-empty"):
+            await register_fact(ctx, name="", description="x")
+
+    @pytest.mark.asyncio
+    async def test_register_fact_rejects_whitespace_name(self, ctx):
+        with pytest.raises(ValueError, match="non-empty"):
+            await register_fact(ctx, name="   ", description="x")
+
+    @pytest.mark.asyncio
+    async def test_register_fact_strips_name(self, ctx, deps):
+        await register_fact(ctx, name="  Vex  ", description="A pilot.")
+        facts = [e for e in deps.state.entities if isinstance(e, NarrativeFact)]
+        assert facts[0].name == "Vex"
+
+    @pytest.mark.asyncio
+    async def test_register_fact_rejects_newlines(self, ctx):
+        with pytest.raises(ValueError, match="control characters"):
+            await register_fact(ctx, name="Evil\nNPC", description="x")
+
+    @pytest.mark.asyncio
+    async def test_register_fact_does_not_alter_dice(self, ctx, deps):
+        rng_before = deps.state.rng.snapshot()
+        await register_fact(ctx, name="NPC", description="desc")
+        rng_after = deps.state.rng.snapshot()
+        for stream in rng_before:
+            assert rng_before[stream].internalstate == rng_after[stream].internalstate
 
 
 # ---------------------------------------------------------------------------

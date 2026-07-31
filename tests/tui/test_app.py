@@ -14,7 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from textual.widgets import Button, Input
+from textual.widgets import Button, Input, Label, OptionList
 
 from src.engine.persistence import load
 from src.engine.state import CampaignConfig, GameState
@@ -82,7 +82,6 @@ def seeded_app(tmp_path: Path) -> CepheusApp:
     app.pack = load_scifi_pack()
     app.runner = LifepathRunner(app.engine, app.pack)
     app.campaign_name = "TestHero"
-    app.target_terms = 4
     return app
 
 
@@ -95,7 +94,17 @@ async def push_lifepath(app: CepheusApp, pilot) -> LifepathScreen:
 
 #: Phases that belong to the interactive term sub-state-machine.
 TERM_PHASES = frozenset(
-    {"run_survival", "run_advancement", "choose_skills", "run_aging", "re_enlist"}
+    {
+        "run_survival",
+        "choose_commission",
+        "choose_advancement",
+        "choose_skills",
+        "run_aging",
+        "re_enlist",
+        "mishap_roll",
+        "choose_injury_stat",
+        "choose_crisis_resolution",
+    }
 )
 
 
@@ -122,6 +131,31 @@ async def select_first(app: CepheusApp, pilot) -> None:
     cm.option_list.highlighted = 0
     cm.option_list.action_select()
     await pilot.pause()
+
+
+async def play_through_characteristics(app: CepheusApp, pilot) -> None:
+    """Roll the characteristic pool, assign all six, and pick background skills.
+
+    Selects the first unassigned characteristic then the first pool value,
+    six times; then picks background skills until exhausted (Task 9).
+    After this the phase is ``choose_career``.
+    """
+    # Roll the pool (roll_characteristics phase).
+    await select_first(app, pilot)
+    # Assign all six: each assignment is two selections (char then value).
+    for _ in range(6):
+        await select_first(app, pilot)  # pick first unassigned characteristic
+        await select_first(app, pilot)  # pick first pool value
+    # Pick background skills (Task 9) until the phase advances.
+    for _ in range(20):
+        if app.screen.phase != "choose_background_skills":
+            return
+        cm = app.screen.query_one(ChoiceMenuWidget)
+        if cm.option_list.option_count == 0:
+            return
+        cm.option_list.highlighted = 0
+        cm.option_list.action_select()
+        await pilot.pause()
 
 
 # ---------------------------------------------------------------------------
@@ -206,12 +240,14 @@ class TestKeyboardNavigation:
             cm = app.screen.query_one(ChoiceMenuWidget)
             assert cm.option_list.has_focus
 
-            # Press 1 to select the first option (roll characteristics).
+            # Press 1 to select the first option (roll characteristic pool).
             await pilot.press("1")
             await pilot.pause()
 
-            # After rolling, phase should advance to choose_career.
-            assert screen.phase == "choose_career"
+            # The number key selected the roll option: pool is rolled and
+            # the phase advances to assign_characteristics (Task 4 flow).
+            assert screen.phase == "assign_characteristics"
+            assert len(app.engine.state.character.unassigned_rolls) == 6
 
     async def test_enter_selects_highlighted(self, seeded_app: CepheusApp):
         """Enter selects the highlighted option."""
@@ -224,7 +260,9 @@ class TestKeyboardNavigation:
             await pilot.press("enter")
             await pilot.pause()
 
-            assert screen.phase == "choose_career"
+            # Enter rolled the pool; phase is now assign_characteristics.
+            assert screen.phase == "assign_characteristics"
+            assert len(app.engine.state.character.unassigned_rolls) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -236,16 +274,13 @@ class TestLifepathInteraction:
     """Verify term outcomes appear in the log and choices are presented."""
 
     async def test_roll_characteristics_advances_to_career(self, seeded_app: CepheusApp):
-        """Rolling characteristics moves to the career selection phase."""
+        """Rolling and assigning the pool moves to the career selection phase."""
         app = seeded_app
         async with app.run_test() as pilot:
             screen = await push_lifepath(app, pilot)
             assert screen.phase == "roll_characteristics"
 
-            cm = app.screen.query_one(ChoiceMenuWidget)
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            await play_through_characteristics(app, pilot)
 
             assert screen.phase == "choose_career"
             assert len(app.engine.state.character.characteristics) == 6
@@ -257,10 +292,8 @@ class TestLifepathInteraction:
             screen = await push_lifepath(app, pilot)
             cm = app.screen.query_one(ChoiceMenuWidget)
 
-            # Roll characteristics first.
-            cm.option_list.highlighted = 0
-            cm.option_list.action_select()
-            await pilot.pause()
+            # Roll and assign the characteristic pool first.
+            await play_through_characteristics(app, pilot)
             assert screen.phase == "choose_career"
 
             # Should have multiple careers.
@@ -273,8 +306,8 @@ class TestLifepathInteraction:
             screen = await push_lifepath(app, pilot)
             cm = app.screen.query_one(ChoiceMenuWidget)
 
-            # 1. Roll characteristics.
-            await select_first(app, pilot)
+            # 1. Roll and assign characteristics (pool flow).
+            await play_through_characteristics(app, pilot)
             assert screen.phase == "choose_career"
 
             # 2. Choose first career (alphabetically).
@@ -288,7 +321,7 @@ class TestLifepathInteraction:
 
                 if screen.phase == "re_enlist":
                     # After enough terms, choose to muster out (option index 1).
-                    if app.engine.state.character.terms >= app.target_terms:
+                    if app.engine.state.character.terms >= 4:
                         cm.option_list.highlighted = 1
                     else:
                         cm.option_list.highlighted = 0
@@ -296,12 +329,31 @@ class TestLifepathInteraction:
                     await pilot.pause()
                 elif screen.phase == "mustering_out" or screen.phase == "complete":
                     break
+                elif screen.phase == "choose_career_change":
+                    # Mishap/forced-leave (terms < 7): pick "muster out" (idx 1).
+                    cm.option_list.highlighted = 1
+                    cm.option_list.action_select()
+                    await pilot.pause()
                 else:
                     break
 
-            # 4. Muster out.
-            if screen.phase == "mustering_out":
-                await select_first(app, pilot)
+            # 4. Muster out.  Select the LAST option each iteration so we
+            # never get stuck on a disabled cash-at-cap (index 0) option.
+            while screen.phase in ("mustering_out", "muster_out_allocate"):
+                cm = app.screen.query_one(ChoiceMenuWidget)
+                cm.option_list.highlighted = cm.option_list.option_count - 1
+                cm.option_list.action_select()
+                await pilot.pause()
+            # If a career-change choice intervened, drive it to mustering out.
+            while screen.phase == "choose_career_change":
+                cm.option_list.highlighted = 1
+                cm.option_list.action_select()
+                await pilot.pause()
+            while screen.phase in ("mustering_out", "muster_out_allocate"):
+                cm = app.screen.query_one(ChoiceMenuWidget)
+                cm.option_list.highlighted = cm.option_list.option_count - 1
+                cm.option_list.action_select()
+                await pilot.pause()
 
             # 5. Should be complete.
             assert screen.phase == "complete"
@@ -313,8 +365,8 @@ class TestLifepathInteraction:
             screen = await push_lifepath(app, pilot)
             app.screen.query_one(ChoiceMenuWidget)
 
-            # Roll characteristics.
-            await select_first(app, pilot)
+            # Roll and assign characteristics (pool flow).
+            await play_through_characteristics(app, pilot)
 
             # Choose career.
             await select_first(app, pilot)
@@ -386,6 +438,54 @@ class TestCampaignCreationFlow:
             assert isinstance(app.screen, MainMenuScreen)
 
 
+class TestCampaignConfigOptions:
+    """Task 17: config offers all discoverable packs and defaults to Narrative."""
+
+    async def test_pack_list_offers_all_discoverable_packs(self, app: CepheusApp):
+        """Theme-pack dropdown lists every pack from discover_packs()."""
+        from src.themepacks.base import discover_packs
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.screen.query_one("#new-campaign", Button).press()
+            await pilot.pause()
+            assert isinstance(app.screen, CampaignConfigScreen)
+
+            pack_ol = app.screen.query_one("#pack-list", OptionList)
+            ids = {opt.id for opt in pack_ol.options}
+            discovered = set(discover_packs().keys())
+            assert discovered.issubset(ids), f"Missing packs in dropdown: {discovered - ids}"
+            # At minimum both shipped packs are present.
+            assert {"scifi", "fantasy"}.issubset(ids)
+
+    async def test_profile_default_is_narrative(self, app: CepheusApp):
+        """Narrative is the default-highlighted resolution profile (plan Key Decision)."""
+        from textual.widgets import OptionList
+
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.screen.query_one("#new-campaign", Button).press()
+            await pilot.pause()
+
+            profile_ol = app.screen.query_one("#profile-list", OptionList)
+            assert profile_ol.highlighted is not None
+            highlighted_id = profile_ol.options[profile_ol.highlighted].id
+            assert highlighted_id == "narrative"
+
+    async def test_no_only_pack_available_hint(self, app: CepheusApp):
+        """The false 'only pack available' hint is gone (T17)."""
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            app.screen.query_one("#new-campaign", Button).press()
+            await pilot.pause()
+
+            # The stale hint label must not appear anywhere on the screen.
+            labels = app.screen.query(Label)
+            for lbl in labels:
+                rendered = str(lbl.render())
+                assert "only pack available" not in rendered.lower()
+
+
 # ---------------------------------------------------------------------------
 # 5. AE8 Save and resume.
 # ---------------------------------------------------------------------------
@@ -415,8 +515,8 @@ class TestSaveAndResume:
             screen = await push_lifepath(app, pilot)
             app.screen.query_one(ChoiceMenuWidget)
 
-            # Roll characteristics.
-            await select_first(app, pilot)
+            # Roll and assign characteristics (pool flow).
+            await play_through_characteristics(app, pilot)
 
             # Choose first career.
             await select_first(app, pilot)
@@ -450,8 +550,8 @@ class TestSaveAndResume:
             screen = await push_lifepath(app, pilot)
             app.screen.query_one(ChoiceMenuWidget)
 
-            # Roll characteristics.
-            await select_first(app, pilot)
+            # Roll and assign characteristics (pool flow).
+            await play_through_characteristics(app, pilot)
 
             # Choose career.
             await select_first(app, pilot)
@@ -461,6 +561,7 @@ class TestSaveAndResume:
                 await play_through_term(app, pilot, screen)
 
             terms_done = app.engine.state.character.terms
+            career_before = app.engine.state.character.career
             app.save_game()
 
         # Load into a fresh app.
@@ -468,9 +569,10 @@ class TestSaveAndResume:
         save_path = app.saves_dir / "TestHero.json"
         app2.load_campaign(save_path)
 
-        # The loaded state should preserve terms and career.
+        # The loaded state should preserve terms and career (AE8). Career may
+        # be "" if the term ended in a mishap/forced-leave (career change, B17).
         assert app2.engine.state.character.terms == terms_done
-        assert app2.engine.state.character.career != ""
+        assert app2.engine.state.character.career == career_before
         assert app2.engine.state.character.alive
 
         # Characteristics should be fully rolled.
@@ -583,9 +685,10 @@ class TestResponsiveLayout:
             screen = await push_lifepath(app, pilot)
             assert screen.phase == "roll_characteristics"
 
-            # Select first option (roll characteristics) via number key.
+            # Select first option (roll characteristic pool) via number key.
             await pilot.press("1")
             await pilot.pause()
 
-            assert screen.phase == "choose_career"
-            assert len(app.engine.state.character.characteristics) == 6
+            # Pool rolled; the assign step is playable at this size.
+            assert screen.phase == "assign_characteristics"
+            assert len(app.engine.state.character.unassigned_rolls) == 6

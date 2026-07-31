@@ -78,7 +78,6 @@ def adventure_app(tmp_path: Path) -> CepheusApp:
     app.engine = make_seeded_engine(queue)
     app.pack = load_scifi_pack()
     app.campaign_name = "TestHero"
-    app.target_terms = 4
     return app
 
 
@@ -217,8 +216,12 @@ class TestSceneResolution:
             # Should still be in scene phase for next scene.
             assert screen.phase == "scene_active"
 
-    async def test_resolve_mission_completes(self, adventure_app: CepheusApp):
-        """Resolving a mission transitions back to hook."""
+    async def test_abandon_mission_completes(self, adventure_app: CepheusApp):
+        """Abandoning a mission transitions back to hook (Task 19).
+
+        Abandonment is always allowed regardless of scenes_completed, so it
+        works immediately after accepting the hook.
+        """
         app = adventure_app
         async with app.run_test() as pilot:
             screen = await push_adventure(app, pilot)
@@ -230,7 +233,8 @@ class TestSceneResolution:
             cm.option_list.action_select()
             await pilot.pause()
 
-            # Select "Resolve Mission" (last option).
+            # Select "Abandon the mission" (last option — push-for-ending is
+            # gated off because scenes_completed=0 < min_scenes=3).
             last_idx = cm.option_list.option_count - 1
             cm.option_list.highlighted = last_idx
             cm.option_list.action_select()
@@ -240,6 +244,53 @@ class TestSceneResolution:
             assert screen.phase == "hook_offered"
             assert app.engine.state.active_mission is None
             assert len(app.engine.state.completed_missions) == 1
+            assert app.engine.state.completed_missions[0]["ending"] == "abandonment"
+
+    async def test_push_for_ending_gated_until_min_scenes(self, adventure_app: CepheusApp):
+        """Push-for-ending option hidden until scenes_completed >= min_scenes."""
+        app = adventure_app
+        async with app.run_test() as pilot:
+            await push_adventure(app, pilot)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Right after accept: scenes_completed=0, so "push_for_ending"
+            # must NOT be among the choices.
+            option_ids = [
+                cm.option_list.get_option_at_index(i).id for i in range(cm.option_list.option_count)
+            ]
+            assert "push_for_ending" not in option_ids
+            assert "abandon_mission" in option_ids
+
+    async def test_push_for_ending_available_at_min_scenes(self, adventure_app: CepheusApp):
+        """Push-for-ending appears once scenes_completed reaches min_scenes."""
+        app = adventure_app
+        async with app.run_test() as pilot:
+            await push_adventure(app, pilot)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Manually bump scenes_completed past the gate, then re-present.
+            state = app.engine.state
+            state.active_mission["scenes_completed"] = state.active_mission["min_scenes"]
+            app.screen._current_scene = None  # force re-present
+            app.screen.phase = "scene_active"
+            await pilot.pause()
+
+            option_ids = [
+                cm.option_list.get_option_at_index(i).id for i in range(cm.option_list.option_count)
+            ]
+            assert "push_for_ending" in option_ids
 
 
 # ---------------------------------------------------------------------------
@@ -799,3 +850,233 @@ class TestCheckpointRestoreRebindsRoller:
         expected = reference.rng.roll("oracle", 2, 6).total
         actual = app.engine.state.rng.roll("oracle", 2, 6).total
         assert actual == expected
+
+
+# ---------------------------------------------------------------------------
+# 13. Task 20: inline mechanics line, classic vocabulary, preserved free-text.
+# ---------------------------------------------------------------------------
+
+
+def _spy_narrate(screen: AdventureScreen) -> list[str]:
+    """Replace ``screen._narrate`` with a capturing wrapper; return capture list.
+
+    The original log-write still happens; the spy just records the text first.
+    Use the returned list to assert on narrated lines.
+    """
+    captured: list[str] = []
+    real = screen._narrate
+
+    def spy(text: str) -> None:
+        captured.append(text)
+        real(text)
+
+    screen._narrate = spy  # type: ignore[assignment,method-assign]
+    return captured
+
+
+class TestTask20MechanicsDisplay:
+    """Task 20: inline mechanics line, classic vocabulary, preserved free-text."""
+
+    async def test_mechanics_line_shows_roll_dm_total_tier(self, adventure_app: CepheusApp):
+        """Resolution renders an inline '2D6 [...] = ... DM ... vs 8 ...' line."""
+        app = adventure_app
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            captured = _spy_narrate(screen)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            # Select first structured option.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            mechanics = [ln for ln in captured if ln.startswith("2D6")]
+            assert len(mechanics) == 1, f"expected one mechanics line; got {captured!r}"
+            line = mechanics[0]
+            assert "2D6 [" in line
+            assert "DM " in line
+            assert "vs 8" in line
+            assert "Effect " in line
+
+    async def test_classic_profile_uses_binary_vocabulary(self, tmp_path: Path):
+        """Classic profile labels show Success/Failure, not strong_hit/miss."""
+        app = CepheusApp(saves_dir=tmp_path)
+        queue = [
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # mission hook tables
+            [5, 5],
+            [4, 4],  # scene oracle tables
+            [6, 6],  # scene check (12 -> clear success)
+            [5, 5],
+            [4, 4],  # second scene oracle (buffer)
+        ]
+        app.engine = make_seeded_engine(queue)
+        app.engine.state.campaign = CampaignConfig(resolution_profile="classic")
+        app.pack = load_scifi_pack()
+        app.campaign_name = "ClassicVocab"
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            captured = _spy_narrate(screen)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            # Select first structured option.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            mechanics = [ln for ln in captured if ln.startswith("2D6")]
+            assert len(mechanics) == 1, f"expected one mechanics line; got {captured!r}"
+            line = mechanics[0]
+            # Classic vocabulary: Success or Failure.
+            assert ("Success" in line) or ("Failure" in line)
+            # NOT narrative vocabulary.
+            assert "strong_hit" not in line
+            assert "Strong hit" not in line
+            assert "Weak hit" not in line
+
+    async def test_rejecting_interpretation_preserves_text(self, adventure_app: CepheusApp):
+        """Rejecting a free-text interpretation restores typed text (Task 20)."""
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            assert screen.phase == "scene_active"
+
+            # Type and submit free-text.
+            typed = "I bribe the dock officer"
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = typed
+            await pilot.press("enter")
+            await pilot.pause()
+            # Should show accept/reject.
+            assert cm.option_list.option_count == 2
+
+            # Reject.
+            cm.option_list.highlighted = 1
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Typed text restored into the input for rephrasing, and focused.
+            assert inp.value == typed
+            assert inp.has_focus
+
+
+# ---------------------------------------------------------------------------
+# 14. Task 24: LLM wiring + degraded status surfaces.
+# ---------------------------------------------------------------------------
+
+
+class TestAdventureLLMWiring:
+    """Adventure screen constructs adapter, shows degraded status (Task 24)."""
+
+    async def test_adapter_none_when_llm_unconfigured(self, tmp_path: Path):
+        """When LLM is not configured, _adapter is None."""
+        app = CepheusApp(saves_dir=tmp_path)
+        queue = [[3, 4], [5, 5], [3, 3], [4, 4], [5, 5], [4, 4]]
+        app.engine = make_seeded_engine(queue)
+        app.pack = load_scifi_pack()
+        app.campaign_name = "NoLLM"
+        # Force LLM settings to unconfigured.
+        from src.tui.settings import LLMSettings
+
+        app.llm_settings = LLMSettings()
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            assert screen._adapter is None
+
+    async def test_status_bar_update_does_not_crash(self, tmp_path: Path):
+        """_update_status_bar handles all failure_kinds without crashing."""
+        app = CepheusApp(saves_dir=tmp_path)
+        queue = [[3, 4], [5, 5], [3, 3], [4, 4], [5, 5], [4, 4]]
+        app.engine = make_seeded_engine(queue)
+        app.pack = load_scifi_pack()
+        app.campaign_name = "StatusBarTest"
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            # All failure kinds should update without raising.
+            screen._update_status_bar(None)
+            screen._update_status_bar("provider_error")
+            screen._update_status_bar("retry_exhausted")
+            await pilot.pause()
+            # Verify the status bar still exists and is queryable.
+            from textual.widgets import Label
+
+            bar = screen.query_one("#adv-status-bar", Label)
+            assert bar is not None
+
+    async def test_degraded_surface_strings_exist(self):
+        """The degraded-mode surface constants are the plan's exact wording."""
+        from src.tui.screens.adventure import (
+            STATUS_CONNECTION_LOST,
+            STATUS_NARRATION_UNAVAILABLE,
+        )
+
+        assert STATUS_CONNECTION_LOST == "connection lost — template narration"
+        assert STATUS_NARRATION_UNAVAILABLE == "narration unavailable — showing mechanical outcomes"
+
+    async def test_freetext_uses_llm_classifier_when_configured(self, adventure_app: CepheusApp):
+        """Free-text classification passes the LLM classifier to SceneEngine."""
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
+
+        # Inject a mock adapter so the classifier closure is built.
+        from src.llm.adapter import FreeTextCheck
+
+        class MockAdapter:
+            llm_configured = True
+
+            def classify_freetext(self, text, scaffold, view, valid_skill_ids):
+                return FreeTextCheck(
+                    skill_id="broker",
+                    difficulty="average",
+                    label="LLM-classified bribe",
+                    characteristic="SOC",
+                )
+
+            async def narrate_scene(self, *a, **kw):
+                from src.llm.adapter import NarrationResult
+
+                return NarrationResult(prose="LLM scene text", source="llm")
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            screen._adapter = MockAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            assert screen.phase == "scene_active"
+
+            # Type free-text and submit.
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "I bribe the dock officer"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # Should show the LLM-classified check for confirmation.
+            assert cm.option_list.option_count == 2

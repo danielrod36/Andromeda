@@ -17,12 +17,18 @@ from typing import Any
 from pydantic_ai import RunContext
 
 from src.engine.commands import Engine, SetFlagCommand
+from src.engine.scene import RegisterFactCommand
 from src.engine.state import GameState
 
 #: Strict whitelist for LLM-provided flag keys: lowercase snake_case,
 #: starting with a letter, max 64 chars. Prevents log injection and key
 #: confusion from untrusted LLM output.
 _FLAG_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+#: Whitelist for fact names: word characters, spaces, hyphens, apostrophes,
+#: max 128 chars. Prevents control-character/log injection from LLM output
+#: while allowing natural NPC/place names like "Dock Officer" or "O'Brien".
+_FACT_NAME_RE = re.compile(r"^[\w][\w\s'\-]{0,127}$")
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +102,39 @@ async def add_narrative_log_entry(ctx: RunContext[ToolDeps], entry: str) -> str:
     return "Narrative log entry added."
 
 
+async def register_fact(ctx: RunContext[ToolDeps], name: str, description: str) -> str:
+    """Register a narrative fact (NPC, place, or item) in canonical state (R24).
+
+    This is the primary mechanism for the LLM to introduce entities that the
+    engine can later ratify with mechanical stats when a check targets them
+    (AE9). The fact is mechanically inert until ratification.
+
+    Args:
+        name: Non-empty display name (e.g. ``"Bartender"``, ``"Dock Officer"``).
+            Must be 1-128 chars, word characters, spaces, hyphens, or
+            apostrophes only.
+        description: A short prose description of the fact.
+
+    Returns:
+        A confirmation message describing what was registered.
+    """
+    name = name.strip() if name else ""
+    if not name:
+        raise ValueError("Fact name must be non-empty")
+    if "\n" in name or "\r" in name or "\t" in name:
+        raise ValueError("Fact name must not contain control characters (newlines/tabs)")
+    if not _FACT_NAME_RE.match(name):
+        raise ValueError(
+            "Fact name must be 1-128 chars of letters, digits, spaces, "
+            f"hyphens, or apostrophes: got {name!r}"
+        )
+
+    description = (description or "").strip()
+    cmd = RegisterFactCommand(name=name, description=description)
+    ctx.deps.engine.apply(cmd)
+    return f"Narrative fact registered: {name}"
+
+
 # ---------------------------------------------------------------------------
 # Tool registry — the adapter registers these with the agent.
 # ---------------------------------------------------------------------------
@@ -105,4 +144,5 @@ async def add_narrative_log_entry(ctx: RunContext[ToolDeps], entry: str) -> str:
 TOOL_REGISTRY: dict[str, Any] = {
     "set_narrative_flag": set_narrative_flag,
     "add_narrative_log_entry": add_narrative_log_entry,
+    "register_fact": register_fact,
 }

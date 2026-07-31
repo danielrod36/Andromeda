@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from textual.widgets import Static
 
+from src.engine.skills import skill_display_name
 from src.engine.state import GameState
+from src.themepacks.base import LoadedThemePack
 
 _CHARACTERISTIC_ORDER = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 
@@ -29,10 +31,23 @@ class CharacterSheetWidget(Static):
     }
     """
 
-    def render_content(self, state: GameState | None = None) -> str:
-        """Build the character sheet text from engine state."""
+    def render_content(
+        self,
+        state: GameState | None = None,
+        pack: LoadedThemePack | None = None,
+    ) -> str:
+        """Build the character sheet text from engine state.
+
+        ``pack`` is used to render skill display names via
+        :func:`skill_display_name`. When omitted, the widget falls back to
+        ``self.app.pack`` if the widget is mounted; when no pack is available
+        at all, skill ids are shown title-cased (the prior behavior).
+        """
         if state is None:
             return "[dim]No character loaded.[/dim]"
+
+        if pack is None:
+            pack = getattr(getattr(self, "app", None), "pack", None)
 
         char = state.character
         lines: list[str] = []
@@ -67,11 +82,15 @@ class CharacterSheetWidget(Static):
                 lines.append(f"  {stat}: --")
         lines.append("")
 
-        # Skills.
+        # Skills — render via pack display names when available (FR1).
         if char.skills:
             lines.append("[bold]Skills[/bold]")
-            for skill, level in sorted(char.skills.items()):
-                label = skill.replace("_", " ").title()
+            for skill_id, level in sorted(char.skills.items()):
+                label = (
+                    skill_display_name(pack, skill_id)
+                    if pack is not None
+                    else skill_id.replace("_", " ").title()
+                )
                 lines.append(f"  {label}-{level}")
             lines.append("")
 
@@ -88,6 +107,10 @@ class CharacterSheetWidget(Static):
 
         return "\n".join(lines)
 
-    def update_from_state(self, state: GameState | None = None) -> None:
+    def update_from_state(
+        self,
+        state: GameState | None = None,
+        pack: LoadedThemePack | None = None,
+    ) -> None:
         """Refresh the displayed character sheet from engine state."""
-        self.update(self.render_content(state))
+        self.update(self.render_content(state, pack=pack))

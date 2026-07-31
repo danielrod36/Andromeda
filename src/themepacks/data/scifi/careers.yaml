@@ -1,568 +1,740 @@
 # Open Game Content (Cepheus Engine SRD-derived). Licensed under OGL 1.0a — see LICENSE.OGL.
-# CE SRD Starter Careers — 8 careers with full table data.
-# Each career has qualification, survival, advancement, three skill tables
-# (Personal Development, Service Skills, Advanced Education), optional ranks,
-# and mustering-out benefit tables (cash and material).
+# CE SRD Careers — 25 careers with full table data.
+# Each career has qualification, survival, commission (hierarchy only), advancement
+# (hierarchy only), four 1D6 skill tables (Personal Development, Service Skills,
+# Specialist Skills, Advanced Education), optional ranks, and 7-row mustering-out
+# benefit tables (cash and material). Row 7 reachable via rank DM (max_extension: 1).
+# Mishap table is the universal CE SRD Survival Mishaps table (1D6).
+# SRD-verified 2026-07-31 against orffen/cepheus-srd (OGL mirror) and
+# cross-referenced with cepheus-srd.opengamingnetwork.com.
+# Note: "army" uses SRD Surface System Defense data (Army = planetary army
+# in the CE SRD). "surface_defense" is the same SRD career under its SRD name.
+# Drifter uses SOC 2+ (auto-qualify) instead of the SRD's DEX 5+ to preserve
+# the engine's universal-fallback behaviour (see comment in drifter block).
 
+# SRD-verified 2026-07-31: qual INT 6+/surv INT 5+/comm SOC 7+/adv EDU 6+/reenlist 5+
 navy:
   id: navy
   name: "Navy"
   description: >
-    The interstellar Navy operates capital warships across the stars. Officers
-    and crew serve in ship-to-ship combat, exploration patrols, and system
-    defense. Navy characters are well-trained in technical skills and
-    leadership.
+    Member of an interstellar armed military force that conducts military operations in interplanetary or interstellar space. Also known as the "space navy".
   qualification:
     characteristic: INT
-    target: 5
+    target: 6
   survival:
-    characteristic: END
+    characteristic: INT
     target: 5
+  commission:
+    characteristic: SOC
+    target: 7
   advancement:
     characteristic: EDU
-    target: 7
+    target: 6
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "gambler"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "melee_unarmed"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "gunnery_turrets"}
-          - {min: 3, max: 3, result: "mechanic"}
-          - {min: 4, max: 5, result: "electronics_comms"}
-          - {min: 6, max: 6, result: "electronics_sensors"}
-          - {min: 7, max: 7, result: "pilot_small_craft"}
-          - {min: 8, max: 9, result: "astrogation"}
-          - {min: 10, max: 11, result: "sensor_ops"}
-          - {min: 12, max: 12, result: "engineer"}
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "engineer"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "gunnery_turrets"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "gravitics"}
+          - {min: 2, max: 2, result: "jack_of_trades"}
+          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "astrogation"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "pilot_small_craft"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "medic"}
-          - {min: 4, max: 5, result: "leadership"}
-          - {min: 6, max: 7, result: "tactics_naval"}
-          - {min: 8, max: 9, result: "astrogation"}
-          - {min: 10, max: 11, result: "engineer"}
-          - {min: 12, max: 12, result: "computers"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "engineer"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "astrogation"}
+          - {min: 6, max: 6, result: "tactics_naval"}
   ranks:
-    - {rank: 1, title: "Ensign"}
+    - {rank: 1, title: "Midshipman"}
     - {rank: 2, title: "Lieutenant"}
     - {rank: 3, title: "Lieutenant Commander"}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
-    - {rank: 6, title: "Admiral"}
+    - {rank: 6, title: "Commodore"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
-    dm_per_rank: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "5,000 Cr"}
-        - {min: 2, max: 2, result: "10,000 Cr"}
-        - {min: 3, max: 3, result: "20,000 Cr"}
-        - {min: 4, max: 4, result: "30,000 Cr"}
-        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
         - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "Middle Passage"}
-        - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Ship Share"}
-        - {min: 6, max: 6, result: "TAS Membership"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Explorers' Society"}
 
+# SRD-verified 2026-07-31: qual END 5+/surv EDU 5+/comm END 6+/adv EDU 7+/reenlist 5+
 army:
   id: army
   name: "Army"
   description: >
-    Planetary ground forces defending worlds across the sector. Army soldiers
-    train in combat, tactics, and vehicle operations. They are tough,
-    disciplined, and well-versed in ground warfare.
+    Member of a planetary armed military force operating on the non-hydrographic surface of a world. Also known as the "planetary army". (SRD career: Surface System Defense.)
   qualification:
-    characteristic: STR
+    characteristic: END
     target: 5
   survival:
+    characteristic: EDU
+    target: 5
+  commission:
     characteristic: END
-    target: 4
+    target: 6
   advancement:
     characteristic: EDU
-    target: 6
+    target: 7
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "gambler"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "athletics"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "drive_ground_vehicle"}
-          - {min: 3, max: 3, result: "drive_hovercraft"}
-          - {min: 4, max: 5, result: "heavy_wpn_vehicle"}
-          - {min: 6, max: 6, result: "heavy_wpn_man_portable"}
-          - {min: 7, max: 7, result: "gun_combat_slug_rifle"}
-          - {min: 8, max: 9, result: "gun_combat_slug_pistol"}
-          - {min: 10, max: 11, result: "explosives"}
-          - {min: 12, max: 12, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "mechanic"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "gunnery_turrets"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "battle_dress"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "explosives"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "electronics_comms"}
-          - {min: 4, max: 5, result: "medic"}
-          - {min: 6, max: 7, result: "leadership"}
-          - {min: 8, max: 9, result: "tactics_ground"}
-          - {min: 10, max: 11, result: "admin"}
-          - {min: 12, max: 12, result: "advocate"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "tactics_ground"}
   ranks:
-    - {rank: 1, title: "Private"}
-    - {rank: 2, title: "Corporal"}
-    - {rank: 3, title: "Sergeant"}
-    - {rank: 4, title: "Lieutenant"}
-    - {rank: 5, title: "Captain"}
-    - {rank: 6, title: "Major"}
+    - {rank: 1, title: "Lieutenant"}
+    - {rank: 2, title: "Captain"}
+    - {rank: 3, title: "Major"}
+    - {rank: 4, title: "Lt Colonel"}
+    - {rank: 5, title: "Colonel"}
+    - {rank: 6, title: "General"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "5,000 Cr"}
-        - {min: 2, max: 2, result: "10,000 Cr"}
-        - {min: 3, max: 3, result: "20,000 Cr"}
-        - {min: 4, max: 4, result: "30,000 Cr"}
-        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
         - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "Combat Armor"}
-        - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Ship Share"}
-        - {min: 6, max: 6, result: "TAS Membership"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
 
+# SRD-verified 2026-07-31: qual INT 6+/surv END 6+/comm EDU 6+/adv SOC 7+/reenlist 6+
 marines:
   id: marines
   name: "Marines"
   description: >
-    Elite orbital assault troops deployed from Navy ships to planetary
-    surfaces. Marines are the sharpest combatants in the service, trained
-    in boarding actions, planetary landings, and heavy weapons.
+    Member of an interstellar armed military force trained to serve in a variety of environments, often carried on board starships as an adjunct to an interstellar navy. Also known as the "space marines".
   qualification:
-    characteristic: END
+    characteristic: INT
     target: 6
   survival:
     characteristic: END
-    target: 5
-  advancement:
+    target: 6
+  commission:
     characteristic: EDU
+    target: 6
+  advancement:
+    characteristic: SOC
     target: 7
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 8, result: "athletics"}
-          - {min: 9, max: 10, result: "recon"}
-          - {min: 11, max: 12, result: "stealth"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "melee_unarmed"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "explosives"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "gunnery_turrets"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "battle_dress"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
           - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "gun_combat_energy_rifle"}
-          - {min: 4, max: 5, result: "heavy_wpn_vehicle"}
-          - {min: 6, max: 6, result: "heavy_wpn_man_portable"}
-          - {min: 7, max: 7, result: "melee_blade"}
-          - {min: 8, max: 9, result: "melee_unarmed"}
-          - {min: 10, max: 11, result: "explosives"}
-          - {min: 12, max: 12, result: "tactics_ground"}
+          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "survival"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "electronics_comms"}
-          - {min: 4, max: 5, result: "medic"}
-          - {min: 6, max: 7, result: "leadership"}
-          - {min: 8, max: 9, result: "tactics_military"}
-          - {min: 10, max: 11, result: "admin"}
-          - {min: 12, max: 12, result: "advocate"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "gravitics"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "astrogation"}
+          - {min: 6, max: 6, result: "tactics_military"}
   ranks:
-    - {rank: 1, title: "Private"}
-    - {rank: 2, title: "Corporal"}
-    - {rank: 3, title: "Sergeant"}
-    - {rank: 4, title: "Lieutenant"}
-    - {rank: 5, title: "Captain"}
-    - {rank: 6, title: "Colonel"}
+    - {rank: 1, title: "Lieutenant"}
+    - {rank: 2, title: "Captain"}
+    - {rank: 3, title: "Major"}
+    - {rank: 4, title: "Lt Colonel"}
+    - {rank: 5, title: "Colonel"}
+    - {rank: 6, title: "Brigadier"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "5,000 Cr"}
-        - {min: 2, max: 2, result: "10,000 Cr"}
-        - {min: 3, max: 3, result: "20,000 Cr"}
-        - {min: 4, max: 4, result: "30,000 Cr"}
-        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
         - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "Battle Dress"}
-        - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Ship Share"}
-        - {min: 6, max: 6, result: "TAS Membership"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Explorers' Society"}
 
+# SRD-verified 2026-07-31: qual INT 4+/surv INT 5+/comm INT 5+/adv EDU 8+/reenlist 4+
 merchant:
   id: merchant
   name: "Merchant"
   description: >
-    Free traders and merchant fleet crew who ply the star lanes hauling cargo
-    and passengers between worlds. Merchants are versatile, practical, and
-    comfortable haggling in any port.
+    Individual involved in wholesale interstellar trade, particularly between individual worlds or polities.
   qualification:
     characteristic: INT
     target: 4
   survival:
     characteristic: INT
     target: 5
-  advancement:
+  commission:
     characteristic: INT
-    target: 6
+    target: 5
+  advancement:
+    characteristic: EDU
+    target: 8
+  re_enlistment: 4
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "diplomat"}
-          - {min: 8, max: 9, result: "broker"}
-          - {min: 10, max: 12, result: "gambler"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "vacc_suit"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "steward"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "pilot_small_craft"}
-          - {min: 3, max: 3, result: "pilot_capital_ship"}
-          - {min: 4, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "engineer"}
-          - {min: 7, max: 7, result: "mechanic"}
-          - {min: 8, max: 9, result: "steward"}
-          - {min: 10, max: 11, result: "electronics_sensors"}
-          - {min: 12, max: 12, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "engineer"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "broker"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "carousing"}
+          - {min: 2, max: 2, result: "gunnery_turrets"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "astrogation"}
+          - {min: 6, max: 6, result: "pilot_small_craft"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "medic"}
-          - {min: 4, max: 5, result: "leadership"}
-          - {min: 6, max: 7, result: "broker"}
-          - {min: 8, max: 9, result: "admin"}
-          - {min: 10, max: 11, result: "advocate"}
-          - {min: 12, max: 12, result: "computers"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "engineer"}
+          - {min: 3, max: 3, result: "medic"}
+          - {min: 4, max: 4, result: "astrogation"}
+          - {min: 5, max: 5, result: "science_physics"}
+          - {min: 6, max: 6, result: "tactics_ground"}
   ranks:
-    - {rank: 1, title: "4th Officer"}
-    - {rank: 2, title: "3rd Officer"}
-    - {rank: 3, title: "2nd Officer"}
-    - {rank: 4, title: "1st Officer"}
-    - {rank: 5, title: "Captain"}
-    - {rank: 6, title: "Owner"}
+    - {rank: 1, title: "Deck Cadet"}
+    - {rank: 2, title: "Fourth Officer"}
+    - {rank: 3, title: "Third Officer"}
+    - {rank: 4, title: "Second Officer"}
+    - {rank: 5, title: "First Officer"}
+    - {rank: 6, title: "Captain"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
-    dm_per_rank: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "5,000 Cr"}
-        - {min: 2, max: 2, result: "10,000 Cr"}
-        - {min: 3, max: 3, result: "20,000 Cr"}
-        - {min: 4, max: 4, result: "30,000 Cr"}
-        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
         - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "Middle Passage"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Weapon"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Ship Share"}
-        - {min: 6, max: 6, result: "Ship Shares x2"}
+        - {min: 5, max: 5, result: "1D6 Ship Shares"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Explorers' Society"}
 
+# SRD-verified 2026-07-31: qual INT 6+/surv END 7+/no comm/no adv/reenlist 6+
 scout:
   id: scout
   name: "Scout"
   description: >
-    The Interstellar Scout Service explores uncharted systems, surveys new
-    worlds, and maintains the communications relay network. Scouts are
-    independent, resourceful, and at home in the wilderness of space.
+    Member of an interplanetary exploratory service, surveying unfamiliar territory in space.
   qualification:
     characteristic: INT
     target: 6
   survival:
     characteristic: END
-    target: 5
-  advancement:
-    characteristic: INT
     target: 7
+  has_hierarchy: false
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "athletics"}
-          - {min: 8, max: 9, result: "recon"}
-          - {min: 10, max: 12, result: "survival"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "jack_of_trades"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "melee_unarmed"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "pilot_small_craft"}
-          - {min: 3, max: 3, result: "astrogation"}
-          - {min: 4, max: 5, result: "electronics_sensors"}
-          - {min: 6, max: 6, result: "electronics_comms"}
-          - {min: 7, max: 7, result: "mechanic"}
-          - {min: 8, max: 9, result: "survival"}
-          - {min: 10, max: 11, result: "explosives"}
-          - {min: 12, max: 12, result: "stealth"}
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "gunnery_turrets"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "pilot_small_craft"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "engineer"}
+          - {min: 2, max: 2, result: "gunnery_turrets"}
+          - {min: 3, max: 3, result: "explosives"}
+          - {min: 4, max: 4, result: "astrogation"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "medic"}
-          - {min: 4, max: 5, result: "science_physics"}
-          - {min: 6, max: 7, result: "science_xenobiology"}
-          - {min: 8, max: 9, result: "science_planetology"}
-          - {min: 10, max: 11, result: "computers"}
-          - {min: 12, max: 12, result: "engineer"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "linguistics"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "astrogation"}
+          - {min: 6, max: 6, result: "tactics_ground"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "5,000 Cr"}
-        - {min: 2, max: 2, result: "10,000 Cr"}
-        - {min: 3, max: 3, result: "20,000 Cr"}
-        - {min: 4, max: 4, result: "30,000 Cr"}
-        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
         - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "Exploration Suit"}
-        - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Ship Share"}
-        - {min: 6, max: 6, result: "Scout Ship"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 6, max: 6, result: "Courier Vessel"}
+        - {min: 7, max: 7, result: "Ship Share"}
 
+# SRD-verified 2026-07-31: qual SOC 6+/surv INT 6+/comm EDU 7+/adv EDU 6+/reenlist 6+
 agent:
   id: agent
   name: "Agent"
   description: >
-    Covert operatives, law enforcement officers, intelligence analysts, and
-    corporate enforcers. Agents work in the shadows and in the light, skilled
-    at investigation, deception, and the social arts.
+    Individual that secretly collects and reports information on the activities, movements and plans of a political or corporate enemy or competitor. Also known as a spy or intelligence operative.
   qualification:
-    characteristic: INT
-    target: 5
+    characteristic: SOC
+    target: 6
   survival:
     characteristic: INT
-    target: 5
-  advancement:
-    characteristic: INT
+    target: 6
+  commission:
+    characteristic: EDU
     target: 7
+  advancement:
+    characteristic: EDU
+    target: 6
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "athletics"}
-          - {min: 8, max: 9, result: "melee_unarmed"}
-          - {min: 10, max: 12, result: "stealth"}
+          - {min: 1, max: 1, result: "+1 DEX"}
+          - {min: 2, max: 2, result: "+1 END"}
+          - {min: 3, max: 3, result: "+1 INT"}
+          - {min: 4, max: 4, result: "+1 EDU"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "carousing"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "streetwise"}
-          - {min: 3, max: 3, result: "investigate"}
-          - {min: 4, max: 5, result: "deception"}
-          - {min: 6, max: 6, result: "persuade"}
-          - {min: 7, max: 7, result: "recon"}
-          - {min: 8, max: 9, result: "electronics_comms"}
-          - {min: 10, max: 11, result: "electronics_sensors"}
-          - {min: 12, max: 12, result: "computers"}
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "streetwise"}
+          - {min: 4, max: 4, result: "bribery"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "bribery"}
+          - {min: 4, max: 4, result: "leadership"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "survival"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "advocate"}
-          - {min: 4, max: 5, result: "admin"}
-          - {min: 6, max: 7, result: "broker"}
-          - {min: 8, max: 9, result: "diplomat"}
-          - {min: 10, max: 11, result: "leadership"}
-          - {min: 12, max: 12, result: "explosives"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "diplomat"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "leadership"}
   ranks:
-    - {rank: 1, title: "Field Agent"}
-    - {rank: 2, title: "Senior Agent"}
-    - {rank: 3, title: "Section Chief"}
-    - {rank: 4, title: "Station Chief"}
-    - {rank: 5, title: "Regional Director"}
+    - {rank: 1, title: "Special Agent"}
+    - {rank: 2, title: "Special Agent in Charge"}
+    - {rank: 3, title: "Unit Chief"}
+    - {rank: 4, title: "Section Chief"}
+    - {rank: 5, title: "Assistant Director"}
     - {rank: 6, title: "Director"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "5,000 Cr"}
-        - {min: 2, max: 2, result: "10,000 Cr"}
-        - {min: 3, max: 3, result: "20,000 Cr"}
-        - {min: 4, max: 4, result: "30,000 Cr"}
-        - {min: 5, max: 5, result: "40,000 Cr"}
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
         - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "False Identity"}
-        - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Contact"}
-        - {min: 6, max: 6, result: "TAS Membership"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Explorers' Society"}
 
+# SRD-verified 2026-07-31: qual SOC 8+/surv SOC 4+/comm EDU 5+/adv INT 8+/reenlist 6+
 noble:
   id: noble
   name: "Noble"
   description: >
-    Born to wealth, privilege, and political power. Nobles move in the highest
-    circles of interstellar society, wielding influence and social graces
-    where others rely on blasters.
+    Member of an elite upper class, having high social or political status.
   qualification:
     characteristic: SOC
-    target: 9
+    target: 8
   survival:
     characteristic: SOC
+    target: 4
+  commission:
+    characteristic: EDU
     target: 5
   advancement:
     characteristic: INT
-    target: 7
+    target: 8
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "+1 SOC"}
+          - {min: 1, max: 1, result: "+1 DEX"}
+          - {min: 2, max: 2, result: "+1 INT"}
+          - {min: 3, max: 3, result: "+1 EDU"}
+          - {min: 4, max: 4, result: "+1 SOC"}
+          - {min: 5, max: 5, result: "carousing"}
+          - {min: 6, max: 6, result: "melee_unarmed"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "diplomat"}
-          - {min: 3, max: 3, result: "admin"}
-          - {min: 4, max: 5, result: "advocate"}
-          - {min: 6, max: 6, result: "leadership"}
-          - {min: 7, max: 7, result: "broker"}
-          - {min: 8, max: 9, result: "persuade"}
-          - {min: 10, max: 11, result: "carousing"}
-          - {min: 12, max: 12, result: "streetwise"}
+          - {min: 1, max: 1, result: "athletics"}
+          - {min: 2, max: 2, result: "admin"}
+          - {min: 3, max: 3, result: "carousing"}
+          - {min: 4, max: 4, result: "leadership"}
+          - {min: 5, max: 5, result: "gambler"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "carousing"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "diplomat"}
+          - {min: 6, max: 6, result: "animals_handling"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "admin"}
-          - {min: 4, max: 5, result: "advocate"}
-          - {min: 6, max: 7, result: "diplomat"}
-          - {min: 8, max: 9, result: "broker"}
-          - {min: 10, max: 11, result: "science_history"}
-          - {min: 12, max: 12, result: "computers"}
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "diplomat"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
   ranks:
     - {rank: 1, title: "Knight"}
     - {rank: 2, title: "Baron"}
@@ -572,106 +744,1944 @@ noble:
     - {rank: 6, title: "Archduke"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
-    dm_per_rank: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "10,000 Cr"}
-        - {min: 2, max: 2, result: "20,000 Cr"}
-        - {min: 3, max: 3, result: "30,000 Cr"}
-        - {min: 4, max: 4, result: "50,000 Cr"}
-        - {min: 5, max: 5, result: "80,000 Cr"}
+        - {min: 1, max: 1, result: "2,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "50,000 Cr"}
         - {min: 6, max: 6, result: "100,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "High Passage"}
-        - {min: 3, max: 3, result: "Estate"}
-        - {min: 4, max: 4, result: "High Passage x2"}
-        - {min: 5, max: 5, result: "TAS Membership"}
-        - {min: 6, max: 6, result: "Retainer"}
+        - {min: 1, max: 1, result: "High Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "+1 INT"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "1D6 Ship Shares"}
 
+# SRD-verified 2026-07-31: qual SOC 2+/surv END 5+/no comm/no adv/reenlist 5+
 drifter:
   id: drifter
   name: "Drifter"
   description: >
-    Wanderers, hitchhikers, and vagabonds who drift from world to world taking
-    odd jobs and living by their wits. Drifters have no advancement path, but
-    they are survivors.
+    Individual that continually moves from place to place, without any fixed home or job.
   qualification:
-    characteristic: END
-    target: 3
+    characteristic: SOC
+    target: 2
   survival:
     characteristic: END
     target: 5
-  advancement:
-    characteristic: END
-    target: 7
+  has_hierarchy: false
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "athletics"}
-          - {min: 8, max: 9, result: "melee_unarmed"}
-          - {min: 10, max: 12, result: "streetwise"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "bribery"}
+          - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "athletics"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
-          - {min: 4, max: 5, result: "melee_blade"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
-          - {min: 7, max: 7, result: "streetwise"}
-          - {min: 8, max: 9, result: "survival"}
-          - {min: 10, max: 11, result: "recon"}
-          - {min: 12, max: 12, result: "stealth"}
+          - {min: 1, max: 1, result: "streetwise"}
+          - {min: 2, max: 2, result: "mechanic"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "bribery"}
+          - {min: 4, max: 4, result: "streetwise"}
+          - {min: 5, max: 5, result: "gambler"}
+          - {min: 6, max: 6, result: "recon"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "animals_handling"}
-          - {min: 4, max: 5, result: "electronics_remote_ops"}
-          - {min: 6, max: 7, result: "mechanic"}
-          - {min: 8, max: 9, result: "medic"}
-          - {min: 10, max: 11, result: "drive_ground_vehicle"}
-          - {min: 12, max: 12, result: "flyer_rotor"}
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "engineer"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "diplomat"}
+          - {min: 6, max: 6, result: "tactics_ground"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "2,000 Cr"}
-        - {min: 2, max: 2, result: "5,000 Cr"}
-        - {min: 3, max: 3, result: "10,000 Cr"}
-        - {min: 4, max: 4, result: "15,000 Cr"}
-        - {min: 5, max: 5, result: "20,000 Cr"}
-        - {min: 6, max: 6, result: "30,000 Cr"}
+        - {min: 1, max: 1, result: "0 Cr"}
+        - {min: 2, max: 2, result: "1,000 Cr"}
+        - {min: 3, max: 3, result: "2,000 Cr"}
+        - {min: 4, max: 4, result: "5,000 Cr"}
+        - {min: 5, max: 5, result: "5,000 Cr"}
+        - {min: 6, max: 6, result: "10,000 Cr"}
+        - {min: 7, max: 7, result: "10,000 Cr"}
   mustering_out_material:
     name: "Material Benefits"
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
-        - {min: 1, max: 1, result: "Weapon"}
-        - {min: 2, max: 2, result: "Low Passage"}
-        - {min: 3, max: 3, result: "Trade Tools"}
-        - {min: 4, max: 4, result: "Middle Passage"}
-        - {min: 5, max: 5, result: "Low Passage x2"}
-        - {min: 6, max: 6, result: "Ship Share"}
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Weapon"}
+        - {min: 5, max: 5, result: "Mid Passage"}
+        - {min: 6, max: 6, result: "Mid Passage"}
+        - {min: 7, max: 7, result: "Ship Share"}
+
+# SRD-verified 2026-07-31: qual END 5+/surv DEX 5+/comm EDU 6+/adv EDU 7+/reenlist 5+
+aerospace_defense:
+  id: aerospace_defense
+  name: "Aerospace System Defense"
+  description: >
+    Member of a planetary armed military force operating within a world's atmosphere and close orbit. Also known as the "planetary air force".
+  qualification:
+    characteristic: END
+    target: 5
+  survival:
+    characteristic: DEX
+    target: 5
+  commission:
+    characteristic: EDU
+    target: 6
+  advancement:
+    characteristic: EDU
+    target: 7
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "athletics"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "gunnery_turrets"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "aircraft"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "gravitics"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "gunnery_turrets"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "pilot_small_craft"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "tactics_naval"}
+  ranks:
+    - {rank: 1, title: "Flight Officer"}
+    - {rank: 2, title: "Flight Lieutenant"}
+    - {rank: 3, title: "Squadron Leader"}
+    - {rank: 4, title: "Wing Commander"}
+    - {rank: 5, title: "Group Captain"}
+    - {rank: 6, title: "Air Commodore"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual END 8+/surv DEX 5+/no comm/no adv/reenlist 6+
+athlete:
+  id: athlete
+  name: "Athlete"
+  description: >
+    Individual that has achieved celebrity status for their proficiency in sports and other forms of physical exercise.
+  qualification:
+    characteristic: END
+    target: 8
+  survival:
+    characteristic: DEX
+    target: 5
+  has_hierarchy: false
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 DEX"}
+          - {min: 2, max: 2, result: "+1 INT"}
+          - {min: 3, max: 3, result: "+1 EDU"}
+          - {min: 4, max: 4, result: "+1 SOC"}
+          - {min: 5, max: 5, result: "carousing"}
+          - {min: 6, max: 6, result: "melee_unarmed"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "athletics"}
+          - {min: 2, max: 2, result: "admin"}
+          - {min: 3, max: 3, result: "carousing"}
+          - {min: 4, max: 4, result: "computers"}
+          - {min: 5, max: 5, result: "gambler"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "vacc_suit"}
+          - {min: 2, max: 2, result: "athletics"}
+          - {min: 3, max: 3, result: "athletics"}
+          - {min: 4, max: 4, result: "computers"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "gambler"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "diplomat"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "2,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "50,000 Cr"}
+        - {min: 6, max: 6, result: "100,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Ship Share"}
+
+# SRD-verified 2026-07-31: qual END 5+/surv STR 6+/no comm/no adv/reenlist 5+
+barbarian:
+  id: barbarian
+  name: "Barbarian"
+  description: >
+    Individual from a primitive world (TL4 or less) capable of surviving on their world without support from a technologically advanced civilization.
+  qualification:
+    characteristic: END
+    target: 5
+  survival:
+    characteristic: STR
+    target: 6
+  has_hierarchy: false
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "mechanic"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "recon"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "animals_handling"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "jack_of_trades"}
+          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "recon"}
+          - {min: 5, max: 5, result: "animals_handling"}
+          - {min: 6, max: 6, result: "tactics_ground"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "linguistics"}
+          - {min: 3, max: 3, result: "medic"}
+          - {min: 4, max: 4, result: "leadership"}
+          - {min: 5, max: 5, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "broker"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "0 Cr"}
+        - {min: 2, max: 2, result: "1,000 Cr"}
+        - {min: 3, max: 3, result: "2,000 Cr"}
+        - {min: 4, max: 4, result: "5,000 Cr"}
+        - {min: 5, max: 5, result: "5,000 Cr"}
+        - {min: 6, max: 6, result: "10,000 Cr"}
+        - {min: 7, max: 7, result: "10,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Weapon"}
+        - {min: 5, max: 5, result: "+1 END"}
+        - {min: 6, max: 6, result: "Mid Passage"}
+        - {min: 7, max: 7, result: "Ship Share"}
+
+# SRD-verified 2026-07-31: qual INT 4+/surv DEX 7+/no comm/no adv/reenlist 5+
+belter:
+  id: belter
+  name: "Belter"
+  description: >
+    Individual that explores asteroid belts in search of mineral deposits and salvageable material for profit.
+  qualification:
+    characteristic: INT
+    target: 4
+  survival:
+    characteristic: DEX
+    target: 7
+  has_hierarchy: false
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "vacc_suit"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "explosives"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "gunnery_turrets"}
+          - {min: 5, max: 5, result: "prospecting"}
+          - {min: 6, max: 6, result: "pilot_small_craft"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "vacc_suit"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 4, max: 4, result: "prospecting"}
+          - {min: 5, max: 5, result: "science_physics"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "engineer"}
+          - {min: 3, max: 3, result: "medic"}
+          - {min: 4, max: 4, result: "astrogation"}
+          - {min: 5, max: 5, result: "electronics_comms"}
+          - {min: 6, max: 6, result: "tactics_ground"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "5,000 Cr"}
+        - {min: 4, max: 4, result: "5,000 Cr"}
+        - {min: 5, max: 5, result: "10,000 Cr"}
+        - {min: 6, max: 6, result: "20,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "1D6 Ship Shares"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Ship Share"}
+
+# SRD-verified 2026-07-31: qual SOC 6+/surv EDU 4+/comm SOC 5+/adv INT 8+/reenlist 5+
+bureaucrat:
+  id: bureaucrat
+  name: "Bureaucrat"
+  description: >
+    Official in a government department, charged with following the details of administrative process.
+  qualification:
+    characteristic: SOC
+    target: 6
+  survival:
+    characteristic: EDU
+    target: 4
+  commission:
+    characteristic: SOC
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 8
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 DEX"}
+          - {min: 2, max: 2, result: "+1 END"}
+          - {min: 3, max: 3, result: "+1 INT"}
+          - {min: 4, max: 4, result: "+1 EDU"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "carousing"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "carousing"}
+          - {min: 4, max: 4, result: "bribery"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "investigate"}
+          - {min: 4, max: 4, result: "leadership"}
+          - {min: 5, max: 5, result: "steward"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "diplomat"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "admin"}
+  ranks:
+    - {rank: 1, title: "Clerk"}
+    - {rank: 2, title: "Supervisor"}
+    - {rank: 3, title: "Manager"}
+    - {rank: 4, title: "Chief"}
+    - {rank: 5, title: "Director"}
+    - {rank: 6, title: "Minister"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "+1 INT"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Mid Passage"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual END 5+/surv END 6+/comm INT 7+/adv EDU 6+/reenlist 5+
+colonist:
+  id: colonist
+  name: "Colonist"
+  description: >
+    Individual that moves to a new world or settles in a new planetary colony.
+  qualification:
+    characteristic: END
+    target: 5
+  survival:
+    characteristic: END
+    target: 6
+  commission:
+    characteristic: INT
+    target: 7
+  advancement:
+    characteristic: EDU
+    target: 6
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "mechanic"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "animals_handling"}
+          - {min: 4, max: 4, result: "electronics_comms"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "athletics"}
+          - {min: 2, max: 2, result: "carousing"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "engineer"}
+          - {min: 5, max: 5, result: "animals_handling"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "linguistics"}
+          - {min: 3, max: 3, result: "medic"}
+          - {min: 4, max: 4, result: "diplomat"}
+          - {min: 5, max: 5, result: "admin"}
+          - {min: 6, max: 6, result: "animals_handling"}
+  ranks:
+    - {rank: 1, title: "District Leader"}
+    - {rank: 2, title: "District Delegate"}
+    - {rank: 3, title: "Council Advisor"}
+    - {rank: 4, title: "Councilor"}
+    - {rank: 5, title: "Lieutenant Governor"}
+    - {rank: 6, title: "Governor"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "5,000 Cr"}
+        - {min: 4, max: 4, result: "5,000 Cr"}
+        - {min: 5, max: 5, result: "10,000 Cr"}
+        - {min: 6, max: 6, result: "20,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Mid Passage"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual SOC 6+/surv EDU 5+/comm INT 7+/adv SOC 7+/reenlist 5+
+diplomat:
+  id: diplomat
+  name: "Diplomat"
+  description: >
+    Individual that is appointed by a planetary or interstellar government to conduct official negotiations and maintain political, economic and social relations with another polity or polities.
+  qualification:
+    characteristic: SOC
+    target: 6
+  survival:
+    characteristic: EDU
+    target: 5
+  commission:
+    characteristic: INT
+    target: 7
+  advancement:
+    characteristic: SOC
+    target: 7
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 DEX"}
+          - {min: 2, max: 2, result: "+1 END"}
+          - {min: 3, max: 3, result: "+1 INT"}
+          - {min: 4, max: 4, result: "+1 EDU"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "carousing"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "carousing"}
+          - {min: 4, max: 4, result: "bribery"}
+          - {min: 5, max: 5, result: "diplomat"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "carousing"}
+          - {min: 2, max: 2, result: "linguistics"}
+          - {min: 3, max: 3, result: "bribery"}
+          - {min: 4, max: 4, result: "diplomat"}
+          - {min: 5, max: 5, result: "steward"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "diplomat"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "leadership"}
+  ranks:
+    - {rank: 1, title: "Third Secretary"}
+    - {rank: 2, title: "Second Secretary"}
+    - {rank: 3, title: "First Secretary"}
+    - {rank: 4, title: "Counselor"}
+    - {rank: 5, title: "Minister"}
+    - {rank: 6, title: "Ambassador"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Mid Passage"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Explorers' Society"}
+
+# SRD-verified 2026-07-31: qual SOC 8+/surv INT 4+/no comm/no adv/reenlist 6+
+entertainer:
+  id: entertainer
+  name: "Entertainer"
+  description: >
+    Individual that has achieved celebrity status for their proficiency in publicly entertaining others.
+  qualification:
+    characteristic: SOC
+    target: 8
+  survival:
+    characteristic: INT
+    target: 4
+  has_hierarchy: false
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 DEX"}
+          - {min: 2, max: 2, result: "+1 INT"}
+          - {min: 3, max: 3, result: "+1 EDU"}
+          - {min: 4, max: 4, result: "+1 SOC"}
+          - {min: 5, max: 5, result: "carousing"}
+          - {min: 6, max: 6, result: "melee_unarmed"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "athletics"}
+          - {min: 2, max: 2, result: "admin"}
+          - {min: 3, max: 3, result: "carousing"}
+          - {min: 4, max: 4, result: "bribery"}
+          - {min: 5, max: 5, result: "gambler"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "carousing"}
+          - {min: 3, max: 3, result: "bribery"}
+          - {min: 4, max: 4, result: "diplomat"}
+          - {min: 5, max: 5, result: "gambler"}
+          - {min: 6, max: 6, result: "recon"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "carousing"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "2,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "50,000 Cr"}
+        - {min: 6, max: 6, result: "100,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "+1 SOC"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Ship Share"}
+
+# SRD-verified 2026-07-31: qual END 5+/surv STR 8+/no comm/no adv/reenlist 6+
+hunter:
+  id: hunter
+  name: "Hunter"
+  description: >
+    Individual that kills or traps large game, almost always large terrestrial mammals, for meat, other animal by-products (such as horn or bone), trophy or sport.
+  qualification:
+    characteristic: END
+    target: 5
+  survival:
+    characteristic: STR
+    target: 8
+  has_hierarchy: false
+  re_enlistment: 6
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "mechanic"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "recon"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 4, max: 4, result: "recon"}
+          - {min: 5, max: 5, result: "animals_handling"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "linguistics"}
+          - {min: 3, max: 3, result: "medic"}
+          - {min: 4, max: 4, result: "diplomat"}
+          - {min: 5, max: 5, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "animals_handling"}
+  ranks: []
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "1D6 Ship Shares"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Ship Share"}
+
+# SRD-verified 2026-07-31: qual END 5+/surv END 5+/comm INT 6+/adv EDU 7+/reenlist 5+
+maritime_defense:
+  id: maritime_defense
+  name: "Maritime System Defense"
+  description: >
+    Member of a planetary armed military force operating within and on the surface of a world's oceans. Also known as the "planetary wet navy".
+  qualification:
+    characteristic: END
+    target: 5
+  survival:
+    characteristic: END
+    target: 5
+  commission:
+    characteristic: INT
+    target: 6
+  advancement:
+    characteristic: EDU
+    target: 7
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "athletics"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "mechanic"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "gunnery_turrets"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "seafarer"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "explosives"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "seafarer"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "tactics_naval"}
+  ranks:
+    - {rank: 1, title: "Ensign"}
+    - {rank: 2, title: "Lieutenant"}
+    - {rank: 3, title: "Lt Commander"}
+    - {rank: 4, title: "Commander"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Admiral"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual INT 4+/surv END 6+/comm INT 7+/adv INT 6+/reenlist 5+
+mercenary:
+  id: mercenary
+  name: "Mercenary"
+  description: >
+    Professional soldier hired to serve in a foreign military force or perform a specific military action.
+  qualification:
+    characteristic: INT
+    target: 4
+  survival:
+    characteristic: END
+    target: 6
+  commission:
+    characteristic: INT
+    target: 7
+  advancement:
+    characteristic: INT
+    target: 6
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "vacc_suit"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "mechanic"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "gambler"}
+          - {min: 6, max: 6, result: "battle_dress"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "gravitics"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "gunnery_turrets"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "engineer"}
+          - {min: 3, max: 3, result: "medic"}
+          - {min: 4, max: 4, result: "astrogation"}
+          - {min: 5, max: 5, result: "science_physics"}
+          - {min: 6, max: 6, result: "tactics_military"}
+  ranks:
+    - {rank: 1, title: "Lieutenant"}
+    - {rank: 2, title: "Captain"}
+    - {rank: 3, title: "Major"}
+    - {rank: 4, title: "Lt Colonel"}
+    - {rank: 5, title: "Colonel"}
+    - {rank: 6, title: "Brigadier"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "1D6 Ship Shares"}
+
+# SRD-verified 2026-07-31: qual EDU 6+/surv INT 4+/comm INT 5+/adv EDU 8+/reenlist 5+
+physician:
+  id: physician
+  name: "Physician"
+  description: >
+    Individual that is skilled in the science of medicine and is trained and licensed to treat sick and injured people.
+  qualification:
+    characteristic: EDU
+    target: 6
+  survival:
+    characteristic: INT
+    target: 4
+  commission:
+    characteristic: INT
+    target: 5
+  advancement:
+    characteristic: EDU
+    target: 8
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "mechanic"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "science_physics"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "carousing"}
+          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
+  ranks:
+    - {rank: 1, title: "Resident"}
+    - {rank: 2, title: "Senior Resident"}
+    - {rank: 3, title: "Chief Resident"}
+    - {rank: 4, title: "Attending Physician"}
+    - {rank: 5, title: "Service Chief"}
+    - {rank: 6, title: "Hospital Administrator"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "2,000 Cr"}
+        - {min: 2, max: 2, result: "10,000 Cr"}
+        - {min: 3, max: 3, result: "20,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "50,000 Cr"}
+        - {min: 6, max: 6, result: "100,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "+1 INT"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual DEX 5+/surv DEX 6+/comm STR 7+/adv INT 6+/reenlist 5+
+pirate:
+  id: pirate
+  name: "Pirate"
+  description: >
+    Individual that attacks and steals from interplanetary and interstellar ships in space.
+  qualification:
+    characteristic: DEX
+    target: 5
+  survival:
+    characteristic: DEX
+    target: 6
+  commission:
+    characteristic: STR
+    target: 7
+  advancement:
+    characteristic: INT
+    target: 6
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "bribery"}
+          - {min: 6, max: 6, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "streetwise"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "vacc_suit"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "engineer"}
+          - {min: 4, max: 4, result: "gunnery_turrets"}
+          - {min: 5, max: 5, result: "astrogation"}
+          - {min: 6, max: 6, result: "pilot_small_craft"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "gravitics"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "advocate"}
+          - {min: 6, max: 6, result: "tactics_naval"}
+  ranks:
+    - {rank: 1, title: "Corporal"}
+    - {rank: 2, title: "Lieutenant"}
+    - {rank: 3, title: "Lt Commander"}
+    - {rank: 4, title: "Commander"}
+    - {rank: 5, title: "Captain"}
+    - {rank: 6, title: "Commodore"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "20,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "100,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "High Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "1D6 Ship Shares"}
+
+# SRD-verified 2026-07-31: qual DEX 5+/surv DEX 4+/comm STR 6+/adv INT 7+/reenlist 4+
+rogue:
+  id: rogue
+  name: "Rogue"
+  description: >
+    Individual that makes their living through illicit means.
+  qualification:
+    characteristic: DEX
+    target: 5
+  survival:
+    characteristic: DEX
+    target: 4
+  commission:
+    characteristic: STR
+    target: 6
+  advancement:
+    characteristic: INT
+    target: 7
+  re_enlistment: 4
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "bribery"}
+          - {min: 6, max: 6, result: "gambler"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "streetwise"}
+          - {min: 2, max: 2, result: "mechanic"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "bribery"}
+          - {min: 4, max: 4, result: "broker"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "gravitics"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "advocate"}
+          - {min: 6, max: 6, result: "tactics_ground"}
+  ranks:
+    - {rank: 1, title: "Associate"}
+    - {rank: 2, title: "Soldier"}
+    - {rank: 3, title: "Lieutenant"}
+    - {rank: 4, title: "Underboss"}
+    - {rank: 5, title: "Consigliere"}
+    - {rank: 6, title: "Boss"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "5,000 Cr"}
+        - {min: 4, max: 4, result: "5,000 Cr"}
+        - {min: 5, max: 5, result: "10,000 Cr"}
+        - {min: 6, max: 6, result: "20,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual EDU 6+/surv EDU 5+/comm INT 7+/adv INT 6+/reenlist 5+
+scientist:
+  id: scientist
+  name: "Scientist"
+  description: >
+    Individual that is engaged in and has expert knowledge of a science, especially a biological or physical science.
+  qualification:
+    characteristic: EDU
+    target: 6
+  survival:
+    characteristic: EDU
+    target: 5
+  commission:
+    characteristic: INT
+    target: 7
+  advancement:
+    characteristic: INT
+    target: 6
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "bribery"}
+          - {min: 6, max: 6, result: "science_physics"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "astrogation"}
+          - {min: 2, max: 2, result: "admin"}
+          - {min: 3, max: 3, result: "science_physics"}
+          - {min: 4, max: 4, result: "science_physics"}
+          - {min: 5, max: 5, result: "animals_handling"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
+  ranks:
+    - {rank: 1, title: "Adjunct Professor"}
+    - {rank: 2, title: "Research Professor"}
+    - {rank: 3, title: "Assistant Professor"}
+    - {rank: 4, title: "Associate Professor"}
+    - {rank: 5, title: "Professor"}
+    - {rank: 6, title: "Distinguished Professor"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "+1 INT"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "+1 SOC"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "Research Vessel"}
+
+# SRD-verified 2026-07-31: qual END 5+/surv EDU 5+/comm END 6+/adv EDU 7+/reenlist 5+
+surface_defense:
+  id: surface_defense
+  name: "Surface System Defense"
+  description: >
+    Member of a planetary armed military force operating on the non-hydrographic surface of a world. Also known as the "planetary army".
+  qualification:
+    characteristic: END
+    target: 5
+  survival:
+    characteristic: EDU
+    target: 5
+  commission:
+    characteristic: END
+    target: 6
+  advancement:
+    characteristic: EDU
+    target: 7
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "athletics"}
+          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "mechanic"}
+          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "gunnery_turrets"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "recon"}
+          - {min: 6, max: 6, result: "battle_dress"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "explosives"}
+          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "tactics_ground"}
+  ranks:
+    - {rank: 1, title: "Lieutenant"}
+    - {rank: 2, title: "Captain"}
+    - {rank: 3, title: "Major"}
+    - {rank: 4, title: "Lt Colonel"}
+    - {rank: 5, title: "Colonel"}
+    - {rank: 6, title: "General"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 INT"}
+        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+
+# SRD-verified 2026-07-31: qual EDU 6+/surv DEX 4+/comm EDU 5+/adv INT 8+/reenlist 5+
+technician:
+  id: technician
+  name: "Technician"
+  description: >
+    Individual that is skilled in mechanical or industrial techniques or in a particular technical field.
+  qualification:
+    characteristic: EDU
+    target: 6
+  survival:
+    characteristic: DEX
+    target: 4
+  commission:
+    characteristic: EDU
+    target: 5
+  advancement:
+    characteristic: INT
+    target: 8
+  re_enlistment: 5
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Honorably discharged from the service."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
+  skill_tables:
+    - name: "Personal Development"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+    - name: "Service Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "admin"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "mechanic"}
+          - {min: 4, max: 4, result: "medic"}
+          - {min: 5, max: 5, result: "electronics_comms"}
+          - {min: 6, max: 6, result: "science_physics"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "computers"}
+          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "gravitics"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "engineer"}
+          - {min: 6, max: 6, result: "animals_handling"}
+    - name: "Advanced Education"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "advocate"}
+          - {min: 2, max: 2, result: "computers"}
+          - {min: 3, max: 3, result: "jack_of_trades"}
+          - {min: 4, max: 4, result: "linguistics"}
+          - {min: 5, max: 5, result: "medic"}
+          - {min: 6, max: 6, result: "science_physics"}
+  ranks:
+    - {rank: 1, title: "Team Lead"}
+    - {rank: 2, title: "Supervisor"}
+    - {rank: 3, title: "Manager"}
+    - {rank: 4, title: "Director"}
+    - {rank: 5, title: "Vice-President"}
+    - {rank: 6, title: "Executive Officer"}
+  mustering_out_cash:
+    name: "Cash Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "1,000 Cr"}
+        - {min: 2, max: 2, result: "5,000 Cr"}
+        - {min: 3, max: 3, result: "10,000 Cr"}
+        - {min: 4, max: 4, result: "10,000 Cr"}
+        - {min: 5, max: 5, result: "20,000 Cr"}
+        - {min: 6, max: 6, result: "50,000 Cr"}
+        - {min: 7, max: 7, result: "50,000 Cr"}
+  mustering_out_material:
+    name: "Material Benefits"
+    entries:
+      num_dice: 1
+      die_size: 6
+      max_extension: 1
+      entries:
+        - {min: 1, max: 1, result: "Low Passage"}
+        - {min: 2, max: 2, result: "+1 EDU"}
+        - {min: 3, max: 3, result: "+1 INT"}
+        - {min: 4, max: 4, result: "Mid Passage"}
+        - {min: 5, max: 5, result: "Mid Passage"}
+        - {min: 6, max: 6, result: "High Passage"}
+        - {min: 7, max: 7, result: "+1 SOC"}
+

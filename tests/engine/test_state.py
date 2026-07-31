@@ -148,7 +148,40 @@ def test_campaign_config_defaults():
 
 def test_save_version_defaults_to_current():
     state = GameState.new(seed=1)
-    assert state.save_version == 1
+    assert state.save_version == 2
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Save schema v2 fields and NpcRecord union (Task 1).
+# ---------------------------------------------------------------------------
+
+
+def test_character_v2_fields_default():
+    from src.engine.state import Character
+
+    c = Character()
+    assert c.credits == 0
+    assert c.inventory == []
+    assert c.unassigned_rolls == []
+    assert c.pool_rerolled is False
+    assert c.career_history == []
+    assert c.drafted is False
+    assert c.background_picks_remaining == -1
+    assert c.basic_training_done is False
+    assert c.pending_aging == []
+
+
+def test_gamestate_v2_fields_and_npc_union():
+    from src.engine.state import GameState, NpcRecord
+
+    s = GameState.new(seed=1)
+    assert s.save_version == 2
+    assert s.open_threads == []
+    assert s.mission_counter == 0
+    s.entities.append(NpcRecord(name="Dock Officer", disposition=-1))
+    s2 = GameState.model_validate_json(s.model_dump_json())
+    assert isinstance(s2.entities[0], NpcRecord)
+    assert s2.entities[0].disposition == -1
 
 
 # ---------------------------------------------------------------------------

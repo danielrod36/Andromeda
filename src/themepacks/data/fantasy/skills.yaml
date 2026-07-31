@@ -48,18 +48,21 @@ ride:
   name: "Ride"
   description: "Ride and care for horses and other mounts."
   career: knight
+  background: true
 
 climb:
   id: climb
   name: "Climb"
   description: "Scale walls, cliffs, and difficult surfaces."
   career: thief
+  background: true
 
 swim:
   id: swim
   name: "Swim"
   description: "Swim in calm and rough water, tread water for extended periods."
   career: sailor
+  background: true
 
 stealth:
   id: stealth
@@ -72,6 +75,7 @@ athletics:
   name: "Athletics"
   description: "Running, jumping, climbing, and general physical exertion."
   career: ""
+  background: true
 
 # --- Social Skills ---
 
@@ -80,6 +84,7 @@ persuasion:
   name: "Persuasion"
   description: "Convince, influence, and persuade others through dialogue."
   career: bard
+  background: true
 
 intimidation:
   id: intimidation
@@ -112,6 +117,7 @@ lore:
   name: "Lore"
   description: "Knowledge of legends, myths, monsters, and magical creatures."
   career: mage
+  background: true
 
 history:
   id: history
@@ -164,6 +170,7 @@ craft:
   name: "Craft"
   description: "Forge weapons, tailor garments, build structures, and work materials."
   career: ""
+  background: true
 
 healing:
   id: healing
@@ -182,6 +189,7 @@ survival:
   name: "Survival"
   description: "Find food, water, and shelter in wilderness environments."
   career: ranger
+  background: true
 
 tracking:
   id: tracking
@@ -256,3 +264,4 @@ animals_handling:
   name: "Animals (Handling)"
   description: "Train, calm, and command animals and beasts of burden."
   career: ranger
+  background: true

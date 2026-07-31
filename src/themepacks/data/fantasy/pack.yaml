@@ -7,3 +7,33 @@ description: >
   skills, oracle tables for tavern/dungeon/forest/castle scenes, complication
   tables for fantasy combat/social/magic/exploration, and mission hooks with
   nobles, guild masters, and wizards as patrons.
+
+# Injury table — 1D6. Authored analog to the CE SRD injury table (B13),
+# genre-adapted for fantasy. The result field encodes the mechanical reduction
+# parsed by apply_injury_result: "-N PHYSICAL" means the player picks which
+# physical characteristic (STR/DEX/END) loses N points.
+# Row-1 secondary reductions to other physical stats are deferred
+# (apply_injury_result is single-stat); re-visit when the injury grammar
+# supports multi-stat.
+injury_table:
+  num_dice: 1
+  die_size: 6
+  entries:
+    # "Nearly killed. Reduce one physical characteristic by 1D6..."
+    - {min: 1, max: 1, result: "-6 PHYSICAL"}
+    # "Severely injured. Reduce one physical characteristic by 1D6."
+    - {min: 2, max: 2, result: "-4 PHYSICAL"}
+    # "Missing eye or limb. Reduce Strength or Dexterity by 2."
+    - {min: 3, max: 3, result: "-2 PHYSICAL"}
+    # "Scarred. Reduce any one physical characteristic by 2."
+    - {min: 4, max: 4, result: "-2 PHYSICAL"}
+    # "Injured. Reduce any physical characteristic by 1."
+    - {min: 5, max: 5, result: "-1 PHYSICAL"}
+    # "Lightly injured. No permanent effect."
+    - {min: 6, max: 6, result: "0 PHYSICAL"}
+
+# Draft table (B16) — 1D6 indexed by DraftCommand. Original fantasy content
+# (no SRD basis): 6 genre-appropriate careers the character can be conscripted
+# into when their chosen career's qualification fails. Covers a mix of
+# military, scout, and tradesman roles suited to a fantasy setting.
+draft_table: [mercenary, sailor, ranger, knight, bard, healer]

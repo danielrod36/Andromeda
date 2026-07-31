@@ -18,7 +18,11 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import ClassVar
 
+from src.engine.audit import Event, EventKind
+from src.engine.commands import Command
+from src.engine.dice import RollResult
 from src.engine.state import GameState
 
 logger = logging.getLogger(__name__)
@@ -338,3 +342,58 @@ def has_raw_history_been_summarized(state: GameState) -> bool:
     entries or rely on summaries alone.
     """
     return len(state.chapter_summaries) > 0
+
+
+# ---------------------------------------------------------------------------
+# Task 22: deterministic template summary + funnel command (R19, AE16).
+# ---------------------------------------------------------------------------
+
+
+def build_template_summary(mission_record: dict, log_entries: list[str]) -> str:
+    """Deterministic chapter summary from canonical mission data (R19, Task 22).
+
+    Generated from state, not from the LLM, so it cannot contradict canonical
+    facts; the mechanical-claim validator (:class:`SummaryValidator`) runs as a
+    guard at the call site. ``mission_record`` is the canonical
+    ``completed_missions`` dict — its ``hook`` may be a narrative string or the
+    nested ``{patron, objective, ...}`` dict stored by :class:`Mission.to_dict`.
+    """
+    raw_hook = mission_record.get("hook", "an unknown job")
+    if isinstance(raw_hook, dict):
+        # Canonical Mission.to_dict stores hook as a nested dict; prefer the
+        # objective (concise) and fall back to the description, never leaking
+        # the raw dict repr into the summary.
+        hook = raw_hook.get("objective") or raw_hook.get("description") or "an unknown job"
+    else:
+        hook = str(raw_hook) if raw_hook else "an unknown job"
+    ending = mission_record.get("ending", "abandonment")
+    scenes = mission_record.get("scenes_completed", 0)
+    beats = " ".join(log_entries[-3:]).strip()
+    core = f"The crew took on a job: {hook}. After {scenes} scenes, the mission ended in {ending}."
+    return f"{core} {beats}".strip()
+
+
+class AddChapterSummaryCommand(Command):
+    """Append a chapter summary to canonical state (R19, AE16, Task 22).
+
+    Routed through :meth:`Engine.apply` so the mutation is audited and
+    replayable. Empty/whitespace summaries are rejected at validation time;
+    the summary text is stripped before storage.
+    """
+
+    command_type: ClassVar[str] = "add_chapter_summary"
+    summary: str
+
+    def validate(self, state: GameState) -> None:
+        if not self.summary.strip():
+            raise ValueError("Summary must be non-empty")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        cleaned = self.summary.strip()
+        state.chapter_summaries.append(cleaned)
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description="Chapter summary recorded",
+            changes={"summary": cleaned},
+        )

@@ -105,26 +105,29 @@ class TestCareerValidity:
             "SOC",
         )
         assert career.survival.target >= 2
-        assert career.advancement.target >= 2
+        # Non-hierarchy careers (ranger, thief) have advancement=None (B5).
+        if career.advancement is not None:
+            assert career.advancement.target >= 2
 
     @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
-    def test_career_has_three_skill_tables(self, fantasy_pack, career_id):
+    def test_career_has_four_skill_tables(self, fantasy_pack, career_id):
         career = fantasy_pack.careers[career_id]
-        assert len(career.skill_tables) == 3
+        assert len(career.skill_tables) == 4, career_id
         names = {t.name for t in career.skill_tables}
         assert "Personal Development" in names
         assert "Service Skills" in names
+        assert "Specialist Skills" in names
         assert "Advanced Education" in names
 
     @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
-    def test_career_skill_tables_contiguous_2d6(self, fantasy_pack, career_id):
+    def test_career_skill_tables_contiguous_1d6(self, fantasy_pack, career_id):
         career = fantasy_pack.careers[career_id]
         for table in career.skill_tables:
             assert table.entries.is_contiguous(), (
                 f"Career {career_id} table '{table.name}' non-contiguous"
             )
-            assert table.entries.entries[0].min == 2
-            assert table.entries.entries[-1].max == 12
+            assert table.entries.entries[0].min == 1
+            assert table.entries.entries[-1].max == 6
 
     @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
     def test_career_has_mustering_out_tables(self, fantasy_pack, career_id):
@@ -135,6 +138,95 @@ class TestCareerValidity:
         )
         assert career.mustering_out_cash.entries.is_contiguous()
         assert career.mustering_out_material.entries.is_contiguous()
+
+
+# ---------------------------------------------------------------------------
+# Task 15: Structural alignment with scifi (4 tables, mishap, hierarchy).
+# ---------------------------------------------------------------------------
+
+
+class TestFantasyStructuralAlignment:
+    """Fantasy careers match scifi career shape (T15): 4 skill tables, mishap
+    table, re_enlistment, and correct has_hierarchy/advancement consistency."""
+
+    @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
+    def test_career_has_four_tables_and_mishap(self, fantasy_pack, career_id):
+        career = fantasy_pack.careers[career_id]
+        assert len(career.skill_tables) == 4, career_id
+        assert career.mishap_table is not None, career_id
+
+    @pytest.mark.parametrize("career_id", sorted(FANTASY_CAREER_IDS))
+    def test_career_has_re_enlistment(self, fantasy_pack, career_id):
+        career = fantasy_pack.careers[career_id]
+        assert career.re_enlistment is not None, career_id
+        assert 2 <= career.re_enlistment <= 12, career_id
+
+    def test_non_hierarchy_careers_have_no_advancement(self, fantasy_pack):
+        """Ranger and thief are non-hierarchy: no advancement, no ranks (B5)."""
+        for cid in ("ranger", "thief"):
+            career = fantasy_pack.careers[cid]
+            assert career.has_hierarchy is False, cid
+            assert career.advancement is None, cid
+            assert career.commission is None, cid
+            assert career.ranks == [], cid
+
+    def test_hierarchy_careers_still_have_advancement(self, fantasy_pack):
+        """The other 8 fantasy careers remain hierarchy careers."""
+        non_hierarchy = {"ranger", "thief"}
+        for cid, career in fantasy_pack.careers.items():
+            if cid in non_hierarchy:
+                continue
+            assert career.has_hierarchy is True, cid
+            assert career.advancement is not None, cid
+
+
+# ---------------------------------------------------------------------------
+# Task 15 (from Task 12 review): fantasy cash benefits persist to credits.
+# ---------------------------------------------------------------------------
+
+
+class TestFantasyCashPersistence:
+    """Fantasy cash benefits use "gold crowns" not "Cr"; ensure they still
+    persist to ``character.credits`` (T12 review finding)."""
+
+    def test_fantasy_cash_benefit_persists_to_credits(self, fantasy_pack):
+        """A fantasy cash benefit result adds its value to credits."""
+        from src.engine.commands import Engine
+        from src.engine.dice import ForcedRoller
+        from src.engine.lifepath import BenefitRollCommand
+        from src.engine.state import CampaignConfig, GameState
+
+        state = GameState.new(seed=1)
+        state.campaign = CampaignConfig(theme_pack="fantasy", death_mode="narrative")
+        engine = Engine(state, roller=ForcedRoller([[1]]))
+        # Knight cash table row 1 = "100 gold crowns".
+        knight = fantasy_pack.careers["knight"]
+        cmd = BenefitRollCommand(
+            benefit_type="cash",
+            entries=knight.mustering_out_cash.entries.entries,
+        )
+        engine.apply(cmd)
+        assert engine.state.character.credits == 100, (
+            f"Expected 100, got {engine.state.character.credits}"
+        )
+
+    def test_fantasy_cash_benefit_high_row_persists(self, fantasy_pack):
+        """Row 6 of the knight table (2,000 gold crowns) persists correctly."""
+        from src.engine.commands import Engine
+        from src.engine.dice import ForcedRoller
+        from src.engine.lifepath import BenefitRollCommand
+        from src.engine.state import CampaignConfig, GameState
+
+        state = GameState.new(seed=1)
+        state.campaign = CampaignConfig(theme_pack="fantasy", death_mode="narrative")
+        engine = Engine(state, roller=ForcedRoller([[6]]))
+        knight = fantasy_pack.careers["knight"]
+        cmd = BenefitRollCommand(
+            benefit_type="cash",
+            entries=knight.mustering_out_cash.entries.entries,
+        )
+        engine.apply(cmd)
+        assert engine.state.character.credits == 2000
 
 
 # ---------------------------------------------------------------------------
@@ -220,18 +312,18 @@ class TestFantasyLifepath:
             [4, 2],  # SOC = 6
             # Knight qualification (STR 8, DM +1, target 5)
             [3, 2],  # 5 + 1 = 6 >= 5 -> success
-            # Term 1: survival, advancement, 2 skills
+            # Term 1: survival, advancement, 2 skills (1D6)
             [4, 3],  # Survival: END 8 + DM +1 = 8 >= 5 -> success
             [5, 3],  # Advancement: EDU 7 + DM 0 = 8 >= 7 -> success (rank 1)
-            [5, 3],  # Skill (Personal Dev): 8
-            [4, 3],  # Skill (Service): 7
+            [5],  # Skill (Personal Dev): 5 -> +1 EDU
+            [4],  # Skill (Service): 4 -> polearm
             # Term 2
             [3, 3],  # Survival: END 8 + DM +1 = 7 >= 5 -> success
             [4, 4],  # Advancement: EDU 7 + DM 0 = 8 >= 7 -> success (rank 2)
-            [6, 3],  # Skill (Personal Dev): 9
-            [6, 4],  # Skill (Service): 10
+            [5],  # Skill (Personal Dev): 5 -> +1 EDU
+            [4],  # Skill (Service): 4 -> polearm
             # Mustering out (2 terms, rank 2)
-            # Cash: DM = dm_per_term*2 + dm_per_rank*2
+            # Cash: DM = 0 (per-term/per-rank DM removed, N3)
             [1],  # roll 1
             [1],  # roll 1
             # Material: 2 rolls
@@ -262,10 +354,11 @@ class TestFantasyLifepath:
         assert char.terms == 2
         assert char.rank == 2
 
-        # Mustering out completed.
+        # Mustering out completed (Task 12: benefit_rolls_for(2,2)=2 total,
+        # batch allocates cash-first → 2 cash, 0 material).
         assert result.mustering_out is not None
         assert len(result.mustering_out.cash_benefits) == 2
-        assert len(result.mustering_out.material_benefits) == 2
+        assert len(result.mustering_out.material_benefits) == 0
 
     def test_mage_lifepath_one_term(self, fantasy_pack):
         """Mage lifepath: spellcasting career runs through the engine."""
@@ -281,8 +374,8 @@ class TestFantasyLifepath:
             # Term 1
             [4, 3],  # Survival: INT 9 + DM +1 = 8 >= 5 -> success
             [5, 4],  # Advancement: INT 9 + DM +1 = 10 >= 7 -> success (rank 1)
-            [5, 3],  # Skill 1
-            [4, 3],  # Skill 2 (advancement -> extra)
+            [5],  # Skill 1 (1D6)
+            [4],  # Skill 2 (advancement -> extra, 1D6)
             # Mustering out (1 term, rank 1)
             [1],  # cash
             [2],  # material
@@ -310,8 +403,8 @@ class TestFantasyLifepath:
             [3, 2],  # qual: Knight STR 8 + 1 = 6 >= 5
             [4, 3],  # survival
             [5, 3],  # advancement
-            [4, 3],  # skill 1 -> roll 7
-            [3, 3],  # skill 2 -> roll 6 (advancement extra)
+            [4],  # skill 1 -> roll 4 (1D6)
+            [3],  # skill 2 -> roll 3 (1D6, advancement extra)
             [1],  # cash
             [1],  # material
         ]

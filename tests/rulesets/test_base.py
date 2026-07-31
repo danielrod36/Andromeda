@@ -312,3 +312,71 @@ class _DummyPack:
 def test_dummy_pack_satisfies_themepack_protocol():
     dp = _DummyPack()
     assert isinstance(dp, ThemePack)
+
+
+# ---------------------------------------------------------------------------
+# Career lifecycle model — commission, re-enlistment, hierarchy, mishap (B5/B8).
+# ---------------------------------------------------------------------------
+
+
+def test_career_data_hierarchy_fields():
+    from src.rulesets.base import CareerData
+
+    c = CareerData(
+        id="scout",
+        name="Scout",
+        description="x",
+        qualification={"characteristic": "INT", "target": 6},
+        survival={"characteristic": "END", "target": 5},
+        has_hierarchy=False,
+        re_enlistment=5,
+        skill_tables=[],
+    )
+    assert c.advancement is None
+    assert c.commission is None
+    assert c.has_hierarchy is False
+    assert c.mishap_table is None
+
+
+def test_non_hierarchy_career_with_advancement_raises():
+    """A career with has_hierarchy=False AND an advancement block must raise."""
+    from src.rulesets.base import CareerData
+
+    with pytest.raises(ValueError, match="non-hierarchy"):
+        CareerData(
+            id="broken",
+            name="Broken",
+            description="x",
+            qualification={"characteristic": "INT", "target": 6},
+            survival={"characteristic": "END", "target": 5},
+            advancement={"characteristic": "EDU", "target": 7},
+            has_hierarchy=False,
+            skill_tables=[],
+        )
+
+
+def test_table_range_max_extension_allows_dm_row():
+    from src.rulesets.base import TableRange
+
+    t = TableRange(
+        num_dice=1,
+        die_size=6,
+        max_extension=1,
+        entries=[
+            {"min": 1, "max": 1, "result": "a"},
+            {"min": 2, "max": 2, "result": "b"},
+            {"min": 3, "max": 3, "result": "c"},
+            {"min": 4, "max": 4, "result": "d"},
+            {"min": 5, "max": 5, "result": "e"},
+            {"min": 6, "max": 6, "result": "f"},
+            {"min": 7, "max": 7, "result": "g"},
+        ],
+    )
+    assert t.is_contiguous()
+
+
+def test_benefits_table_has_no_per_term_dm_fields():
+    from src.rulesets.base import BenefitsTable
+
+    assert "dm_per_term" not in BenefitsTable.model_fields
+    assert "dm_per_rank" not in BenefitsTable.model_fields

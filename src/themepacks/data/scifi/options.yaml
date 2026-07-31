@@ -1,0 +1,342 @@
+# Sci-fi scene option templates (Task 17, AE10/R12/R13).
+#
+# Structured-choice templates mapping scene foci to engine-known checks.
+# Every `skill` id must exist in skills.yaml; every `difficulty` must be in
+# the Cepheus difficulty ladder (easy/routine/average/difficult/very_difficult/
+# formidable). The loader validates both at pack-load time.
+#
+# Focus keys are matched case-insensitively as substrings of the scene_focus
+# oracle result (e.g. "Combat — ..." matches the "combat" key). An unmatched
+# focus falls back to `default_options`; missing/undersized option data
+# triggers the R13 deterministic degradation path (see SceneEngine).
+
+# Default options used when no focus keyword matches. Always-in-pack skills
+# only, so the fallback is safe for any character.
+default_options:
+  - label: "Take decisive action"
+    skill: athletics
+    characteristic: END
+    difficulty: average
+    life_threatening: false
+  - label: "Assess the situation carefully"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - label: "Talk your way through"
+    skill: persuade
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+
+# Per-focus option sets. Skills use real pack ids (gun_combat_slug_rifle,
+# electronics_sensors, science_history, diplomat — not display names).
+focus_options:
+  combat:
+    - label: "Engage in combat"
+      skill: gun_combat_slug_rifle
+      characteristic: DEX
+      difficulty: average
+      life_threatening: true
+    - label: "Use stealth to gain advantage"
+      skill: stealth
+      characteristic: DEX
+      difficulty: difficult
+      life_threatening: false
+    - label: "Intimidate them into backing down"
+      skill: streetwise
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+
+  social:
+    - label: "Persuade them to cooperate"
+      skill: persuade
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+    - label: "Deceive them with a cover story"
+      skill: deception
+      characteristic: SOC
+      difficulty: difficult
+      life_threatening: false
+    - label: "Negotiate a mutually beneficial deal"
+      skill: broker
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+
+  exploration:
+    - label: "Investigate the area thoroughly"
+      skill: investigate
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+    - label: "Scan with ship sensors"
+      skill: electronics_sensors
+      characteristic: EDU
+      difficulty: average
+      life_threatening: false
+    - label: "Navigate difficult terrain"
+      skill: survival
+      characteristic: END
+      difficulty: difficult
+      life_threatening: true
+
+  technical:
+    - label: "Repair or modify the system"
+      skill: mechanic
+      characteristic: EDU
+      difficulty: average
+      life_threatening: false
+    - label: "Hack into the computer"
+      skill: computers
+      characteristic: INT
+      difficulty: difficult
+      life_threatening: false
+    - label: "Apply engineering expertise"
+      skill: engineer
+      characteristic: EDU
+      difficulty: average
+      life_threatening: false
+
+  political:
+    - label: "Use diplomacy to resolve the situation"
+      skill: diplomat
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+    - label: "Leverage administrative connections"
+      skill: admin
+      characteristic: SOC
+      difficulty: difficult
+      life_threatening: false
+    - label: "Research the political background"
+      skill: science_history
+      characteristic: EDU
+      difficulty: average
+      life_threatening: false
+
+  plot twist:
+    - label: "Adapt quickly to the new situation"
+      skill: leadership
+      characteristic: SOC
+      difficulty: difficult
+      life_threatening: false
+    - label: "Investigate the unexpected development"
+      skill: investigate
+      characteristic: INT
+      difficulty: average
+      life_threatening: false
+    - label: "Negotiate from a position of strength"
+      skill: persuade
+      characteristic: SOC
+      difficulty: average
+      life_threatening: false
+
+# Complication/consequence table map (Task 18, R7). The scene engine uses
+# this to pick which complications.yaml table to roll on for weak hits
+# (complication) and misses (consequence). Keys are matched case-insensitively
+# as substrings of the scaffold focus; `default` is the fallback when no key
+# matches. Every table id must exist in complications.yaml (loader-validated).
+# Consequence tables reuse the complication tables — they already describe
+# what goes wrong; a future pack may split them by authoring dedicated
+# consequence tables and pointing the `consequence` map at them.
+complication_map:
+  complication:
+    combat: combat_complication
+    social: social_complication
+    technical: technical_complication
+    exploration: exploration_complication
+    default: combat_complication
+  consequence:
+    combat: combat_complication
+    social: social_complication
+    technical: technical_complication
+    exploration: exploration_complication
+    default: combat_complication
+
+# Free-text keyword classifier (R14, AE5 template fallback). Keywords are
+# matched case-insensitively as substrings; longer keywords win over shorter
+# substrings to avoid "hide" hijacking "hide the bribe money".
+freetext_keywords:
+  - keyword: "pay off"
+    label: "Bribe the target"
+    skill: broker
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "bribe"
+    label: "Bribe the target"
+    skill: broker
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "fight"
+    label: "Fight the target"
+    skill: gun_combat_slug_rifle
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "attack"
+    label: "Attack the target"
+    skill: gun_combat_slug_rifle
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "shoot"
+    label: "Shoot at the target"
+    skill: gun_combat_slug_rifle
+    characteristic: DEX
+    difficulty: average
+    life_threatening: true
+  - keyword: "sneak"
+    label: "Sneak past"
+    skill: stealth
+    characteristic: DEX
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "hide"
+    label: "Hide from view"
+    skill: stealth
+    characteristic: DEX
+    difficulty: average
+    life_threatening: false
+  - keyword: "hack"
+    label: "Hack the system"
+    skill: computers
+    characteristic: INT
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "repair"
+    label: "Repair the system"
+    skill: mechanic
+    characteristic: EDU
+    difficulty: average
+    life_threatening: false
+  - keyword: "persuade"
+    label: "Persuade the target"
+    skill: persuade
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "convince"
+    label: "Convince the target"
+    skill: persuade
+    characteristic: SOC
+    difficulty: average
+    life_threatening: false
+  - keyword: "deceive"
+    label: "Deceive the target"
+    skill: deception
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "lie"
+    label: "Deceive the target"
+    skill: deception
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "negotiate"
+    label: "Negotiate a deal"
+    skill: broker
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "intimidate"
+    label: "Intimidate the target"
+    skill: streetwise
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "threaten"
+    label: "Threaten the target"
+    skill: streetwise
+    characteristic: SOC
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "investigate"
+    label: "Investigate the situation"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "inspect"
+    label: "Inspect the target"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "search"
+    label: "Search the area"
+    skill: investigate
+    characteristic: INT
+    difficulty: average
+    life_threatening: false
+  - keyword: "scan"
+    label: "Scan with sensors"
+    skill: electronics_sensors
+    characteristic: EDU
+    difficulty: average
+    life_threatening: false
+  - keyword: "pilot"
+    label: "Pilot the vehicle"
+    skill: pilot_small_craft
+    characteristic: DEX
+    difficulty: average
+    life_threatening: false
+  - keyword: "fly"
+    label: "Fly the vehicle"
+    skill: pilot_small_craft
+    characteristic: DEX
+    difficulty: average
+    life_threatening: false
+  - keyword: "drive"
+    label: "Drive the vehicle"
+    skill: drive_ground_vehicle
+    characteristic: DEX
+    difficulty: average
+    life_threatening: false
+  - keyword: "heal"
+    label: "Provide medical aid"
+    skill: medic
+    characteristic: EDU
+    difficulty: average
+    life_threatening: false
+  - keyword: "medicine"
+    label: "Provide medical aid"
+    skill: medic
+    characteristic: EDU
+    difficulty: average
+    life_threatening: false
+  - keyword: "climb"
+    label: "Climb the obstacle"
+    skill: athletics
+    characteristic: STR
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "run"
+    label: "Run to safety"
+    skill: athletics
+    characteristic: END
+    difficulty: average
+    life_threatening: false
+  - keyword: "escape"
+    label: "Escape the situation"
+    skill: athletics
+    characteristic: END
+    difficulty: difficult
+    life_threatening: false
+  - keyword: "flee"
+    label: "Flee from danger"
+    skill: athletics
+    characteristic: END
+    difficulty: average
+    life_threatening: false
+  - keyword: "research"
+    label: "Research the topic"
+    skill: science_history
+    characteristic: EDU
+    difficulty: average
+    life_threatening: false

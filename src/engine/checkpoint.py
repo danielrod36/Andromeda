@@ -109,7 +109,7 @@ class CheckpointManager:
             ),
             changes={
                 "abandoned_branch_events": abandoned_count,
-                "rewound_to_seq": snapshot_event_count - 1,
+                "rewound_to_seq": max(0, snapshot_event_count - 1),
             },
         )
         restored.events.append(rewind_event)

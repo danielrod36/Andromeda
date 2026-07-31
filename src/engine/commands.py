@@ -209,6 +209,30 @@ class SetFlagCommand(Command):
         )
 
 
+class FlagDegradationCommand(Command):
+    """Append an audit event marking a degraded code path (R13, Task 17).
+
+    Unlike :class:`SetFlagCommand` this writes **no** narrative-log line — it
+    exists so degraded behavior (missing option data, LLM fallback exhausted)
+    is inspectable in the append-only event log without polluting the player's
+    narrative. Used by :meth:`SceneEngine.generate_options` when pack option
+    data is missing or yields fewer than two options.
+    """
+
+    command_type: ClassVar[str] = "flag_degradation"
+
+    area: str
+    reason: str
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Degradation ({self.area}): {self.reason}",
+            changes={"area": self.area, "reason": self.reason},
+        )
+
+
 class SetCharacterDeadCommand(Command):
     """Mark the character as dead via the command funnel (R8, AE2).
 

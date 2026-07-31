@@ -19,6 +19,22 @@ from src.engine.audit import Event
 from src.engine.dice import RngStreams
 
 
+class AgingSlot(BaseModel):
+    """One pending aging reduction: ``points`` to remove from a stat in ``group``."""
+
+    group: str  # "physical" | "mental"
+    points: int
+
+
+class CareerTermRecord(BaseModel):
+    """One completed career stint in the character's history (B17)."""
+
+    career_id: str
+    terms: int = 0
+    final_rank: int = 0
+    ended_by: str = ""  # "mishap" | "muster_out" | "death" | "career_change"
+
+
 class Character(BaseModel):
     """Player character sheet.
 
@@ -35,6 +51,20 @@ class Character(BaseModel):
     career: str = ""
     rank: int = 0
     alive: bool = True
+    # --- save schema v2 ---
+    credits: int = 0
+    inventory: list[str] = Field(default_factory=list)
+    # Characteristic pool (roll-six-then-assign, Task 4).
+    unassigned_rolls: list[int] = Field(default_factory=list)
+    pool_rerolled: bool = False
+    # Career lifecycle (Tasks 10-11).
+    career_history: list[CareerTermRecord] = Field(default_factory=list)
+    drafted: bool = False
+    # Pre-career phases (Task 9); -1 = phase not started.
+    background_picks_remaining: int = -1
+    basic_training_done: bool = False
+    # Pending aging reductions awaiting player assignment (Task 6).
+    pending_aging: list[AgingSlot] = Field(default_factory=list)
 
 
 class CampaignConfig(BaseModel):
@@ -84,8 +114,17 @@ class Injury(BaseModel):
     description: str = ""
 
 
+class NpcRecord(BaseModel):
+    """A ratified NPC with a mechanical disposition (R15)."""
+
+    type: Literal["npc"] = "npc"
+    name: str
+    disposition: int = 0  # -2 hostile .. +2 allied
+    description: str = ""
+
+
 EntityUnion = Annotated[
-    NarrativeFact | Injury,
+    NarrativeFact | Injury | NpcRecord,
     Field(discriminator="type"),
 ]
 
@@ -100,7 +139,7 @@ class GameState(BaseModel):
     continues the exact same roll sequence.
     """
 
-    save_version: int = 1
+    save_version: int = 2
     seed: int
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     character: Character = Field(default_factory=Character)
@@ -112,6 +151,9 @@ class GameState(BaseModel):
     active_mission: dict | None = None
     completed_missions: list[dict] = Field(default_factory=list)
     chapter_summaries: list[str] = Field(default_factory=list)
+    # --- save schema v2 ---
+    open_threads: list[str] = Field(default_factory=list)
+    mission_counter: int = 0
 
     @classmethod
     def new(cls, seed: int, **kwargs: object) -> GameState:

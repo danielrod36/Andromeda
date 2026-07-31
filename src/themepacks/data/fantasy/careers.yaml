@@ -1,9 +1,10 @@
 # Fantasy Careers — 10 original careers with full table data.
-# Each career has qualification, survival, advancement, three skill tables
-# (Personal Development, Service Skills, Advanced Education), optional ranks,
-# and mustering-out benefit tables (cash and material).
+# Each career has qualification, survival, advancement (hierarchy only),
+# four 1D6 skill tables (Personal Development, Service Skills, Specialist
+# Skills, Advanced Education), a 1D6 mishap table, optional ranks, and
+# mustering-out benefit tables (cash and material).
 # All skill results reference skill ids from skills.yaml or characteristic
-# increases (+1 STR).
+# increases (+1 STR). Skill tables are 1D6 (range 1–6).
 
 knight:
   id: knight
@@ -22,42 +23,64 @@ knight:
   advancement:
     characteristic: EDU
     target: 7
+  re_enlistment: 5
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "leadership"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "leadership"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "sword"}
-          - {min: 3, max: 3, result: "shield"}
-          - {min: 4, max: 5, result: "ride"}
-          - {min: 6, max: 6, result: "polearm"}
-          - {min: 7, max: 7, result: "intimidation"}
-          - {min: 8, max: 9, result: "tactics"}
-          - {min: 10, max: 11, result: "etiquette"}
-          - {min: 12, max: 12, result: "athletics"}
+          - {min: 1, max: 1, result: "sword"}
+          - {min: 2, max: 2, result: "shield"}
+          - {min: 3, max: 3, result: "ride"}
+          - {min: 4, max: 4, result: "polearm"}
+          - {min: 5, max: 5, result: "intimidation"}
+          - {min: 6, max: 6, result: "tactics"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "ride"}
+          - {min: 2, max: 2, result: "etiquette"}
+          - {min: 3, max: 3, result: "leadership"}
+          - {min: 4, max: 4, result: "tactics"}
+          - {min: 5, max: 5, result: "persuasion"}
+          - {min: 6, max: 6, result: "history"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "leadership"}
-          - {min: 4, max: 5, result: "tactics"}
-          - {min: 6, max: 7, result: "etiquette"}
-          - {min: 8, max: 9, result: "history"}
-          - {min: 10, max: 11, result: "religion"}
-          - {min: 12, max: 12, result: "persuasion"}
+          - {min: 1, max: 1, result: "leadership"}
+          - {min: 2, max: 2, result: "tactics"}
+          - {min: 3, max: 3, result: "etiquette"}
+          - {min: 4, max: 4, result: "history"}
+          - {min: 5, max: 5, result: "religion"}
+          - {min: 6, max: 6, result: "persuasion"}
   ranks:
     - {rank: 1, title: "Squire"}
     - {rank: 2, title: "Knight"}
@@ -67,8 +90,6 @@ knight:
     - {rank: 6, title: "Duke"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
-    dm_per_rank: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -107,49 +128,68 @@ ranger:
   survival:
     characteristic: END
     target: 4
-  advancement:
-    characteristic: INT
-    target: 7
+  has_hierarchy: false
+  re_enlistment: 6
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "athletics"}
-          - {min: 8, max: 9, result: "survival"}
-          - {min: 10, max: 12, result: "stealth"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "athletics"}
+          - {min: 5, max: 5, result: "survival"}
+          - {min: 6, max: 6, result: "stealth"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "bow"}
-          - {min: 3, max: 3, result: "tracking"}
-          - {min: 4, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "stealth"}
-          - {min: 7, max: 7, result: "ride"}
-          - {min: 8, max: 9, result: "recon"}
-          - {min: 10, max: 11, result: "animals_handling"}
-          - {min: 12, max: 12, result: "athletics"}
+          - {min: 1, max: 1, result: "bow"}
+          - {min: 2, max: 2, result: "tracking"}
+          - {min: 3, max: 3, result: "survival"}
+          - {min: 4, max: 4, result: "stealth"}
+          - {min: 5, max: 5, result: "ride"}
+          - {min: 6, max: 6, result: "recon"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "tracking"}
+          - {min: 2, max: 2, result: "survival"}
+          - {min: 3, max: 3, result: "bow"}
+          - {min: 4, max: 4, result: "animals_handling"}
+          - {min: 5, max: 5, result: "stealth"}
+          - {min: 6, max: 6, result: "recon"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "healing"}
-          - {min: 4, max: 5, result: "herbalism"}
-          - {min: 6, max: 7, result: "lore"}
-          - {min: 8, max: 9, result: "languages"}
-          - {min: 10, max: 11, result: "history"}
-          - {min: 12, max: 12, result: "navigation"}
+          - {min: 1, max: 1, result: "healing"}
+          - {min: 2, max: 2, result: "herbalism"}
+          - {min: 3, max: 3, result: "lore"}
+          - {min: 4, max: 4, result: "languages"}
+          - {min: 5, max: 5, result: "history"}
+          - {min: 6, max: 6, result: "navigation"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -191,42 +231,64 @@ priest:
   advancement:
     characteristic: INT
     target: 7
+  re_enlistment: 5
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "+1 SOC"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "+1 SOC"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "religion"}
-          - {min: 3, max: 3, result: "healing"}
-          - {min: 4, max: 5, result: "persuasion"}
-          - {min: 6, max: 6, result: "etiquette"}
-          - {min: 7, max: 7, result: "leadership"}
-          - {min: 8, max: 9, result: "lore"}
-          - {min: 10, max: 11, result: "history"}
-          - {min: 12, max: 12, result: "performance"}
+          - {min: 1, max: 1, result: "religion"}
+          - {min: 2, max: 2, result: "healing"}
+          - {min: 3, max: 3, result: "persuasion"}
+          - {min: 4, max: 4, result: "etiquette"}
+          - {min: 5, max: 5, result: "leadership"}
+          - {min: 6, max: 6, result: "lore"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "religion"}
+          - {min: 2, max: 2, result: "healing"}
+          - {min: 3, max: 3, result: "persuasion"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "etiquette"}
+          - {min: 6, max: 6, result: "leadership"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "healing"}
-          - {min: 4, max: 5, result: "lore"}
-          - {min: 6, max: 7, result: "languages"}
-          - {min: 8, max: 9, result: "history"}
-          - {min: 10, max: 11, result: "persuasion"}
-          - {min: 12, max: 12, result: "religion"}
+          - {min: 1, max: 1, result: "healing"}
+          - {min: 2, max: 2, result: "lore"}
+          - {min: 3, max: 3, result: "languages"}
+          - {min: 4, max: 4, result: "history"}
+          - {min: 5, max: 5, result: "persuasion"}
+          - {min: 6, max: 6, result: "religion"}
   ranks:
     - {rank: 1, title: "Acolyte"}
     - {rank: 2, title: "Priest"}
@@ -236,7 +298,6 @@ priest:
     - {rank: 6, title: "High Patriarch"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -278,42 +339,64 @@ mage:
   advancement:
     characteristic: INT
     target: 7
+  re_enlistment: 6
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "arcana"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "arcana"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "spellcasting"}
-          - {min: 3, max: 3, result: "arcana"}
-          - {min: 4, max: 5, result: "ritual"}
+          - {min: 1, max: 1, result: "spellcasting"}
+          - {min: 2, max: 2, result: "arcana"}
+          - {min: 3, max: 3, result: "ritual"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "alchemy"}
+          - {min: 6, max: 6, result: "enchant"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "spellcasting"}
+          - {min: 2, max: 2, result: "arcana"}
+          - {min: 3, max: 3, result: "ritual"}
+          - {min: 4, max: 4, result: "enchant"}
+          - {min: 5, max: 5, result: "alchemy"}
           - {min: 6, max: 6, result: "lore"}
-          - {min: 7, max: 7, result: "alchemy"}
-          - {min: 8, max: 9, result: "enchant"}
-          - {min: 10, max: 11, result: "languages"}
-          - {min: 12, max: 12, result: "history"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "spellcasting"}
-          - {min: 4, max: 5, result: "arcana"}
-          - {min: 6, max: 7, result: "lore"}
-          - {min: 8, max: 9, result: "languages"}
-          - {min: 10, max: 11, result: "alchemy"}
-          - {min: 12, max: 12, result: "history"}
+          - {min: 1, max: 1, result: "spellcasting"}
+          - {min: 2, max: 2, result: "arcana"}
+          - {min: 3, max: 3, result: "lore"}
+          - {min: 4, max: 4, result: "languages"}
+          - {min: 5, max: 5, result: "alchemy"}
+          - {min: 6, max: 6, result: "history"}
   ranks:
     - {rank: 1, title: "Apprentice"}
     - {rank: 2, title: "Adept"}
@@ -323,7 +406,6 @@ mage:
     - {rank: 6, title: "Wizard Lord"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -361,49 +443,68 @@ thief:
   survival:
     characteristic: DEX
     target: 5
-  advancement:
-    characteristic: INT
-    target: 6
+  has_hierarchy: false
+  re_enlistment: 4
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "stealth"}
-          - {min: 8, max: 9, result: "athletics"}
-          - {min: 10, max: 12, result: "streetwise"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "stealth"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "streetwise"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "stealth"}
-          - {min: 3, max: 3, result: "streetwise"}
-          - {min: 4, max: 5, result: "climb"}
-          - {min: 6, max: 6, result: "deception"}
-          - {min: 7, max: 7, result: "appraisal"}
-          - {min: 8, max: 9, result: "investigate"}
-          - {min: 10, max: 11, result: "athletics"}
-          - {min: 12, max: 12, result: "persuasion"}
+          - {min: 1, max: 1, result: "stealth"}
+          - {min: 2, max: 2, result: "streetwise"}
+          - {min: 3, max: 3, result: "climb"}
+          - {min: 4, max: 4, result: "deception"}
+          - {min: 5, max: 5, result: "appraisal"}
+          - {min: 6, max: 6, result: "investigate"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "stealth"}
+          - {min: 2, max: 2, result: "streetwise"}
+          - {min: 3, max: 3, result: "climb"}
+          - {min: 4, max: 4, result: "deception"}
+          - {min: 5, max: 5, result: "appraisal"}
+          - {min: 6, max: 6, result: "investigate"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "streetwise"}
-          - {min: 4, max: 5, result: "appraisal"}
-          - {min: 6, max: 7, result: "deception"}
-          - {min: 8, max: 9, result: "persuasion"}
-          - {min: 10, max: 11, result: "languages"}
-          - {min: 12, max: 12, result: "investigate"}
+          - {min: 1, max: 1, result: "streetwise"}
+          - {min: 2, max: 2, result: "appraisal"}
+          - {min: 3, max: 3, result: "deception"}
+          - {min: 4, max: 4, result: "persuasion"}
+          - {min: 5, max: 5, result: "languages"}
+          - {min: 6, max: 6, result: "investigate"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -444,42 +545,64 @@ sailor:
   advancement:
     characteristic: INT
     target: 6
+  re_enlistment: 5
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "athletics"}
-          - {min: 8, max: 9, result: "swim"}
-          - {min: 10, max: 12, result: "gambler"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "athletics"}
+          - {min: 5, max: 5, result: "swim"}
+          - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "seamanship"}
-          - {min: 3, max: 3, result: "navigation"}
-          - {min: 4, max: 5, result: "swim"}
-          - {min: 6, max: 6, result: "sword"}
-          - {min: 7, max: 7, result: "crossbow"}
-          - {min: 8, max: 9, result: "athletics"}
-          - {min: 10, max: 11, result: "intimidation"}
-          - {min: 12, max: 12, result: "streetwise"}
+          - {min: 1, max: 1, result: "seamanship"}
+          - {min: 2, max: 2, result: "navigation"}
+          - {min: 3, max: 3, result: "swim"}
+          - {min: 4, max: 4, result: "sword"}
+          - {min: 5, max: 5, result: "crossbow"}
+          - {min: 6, max: 6, result: "athletics"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "seamanship"}
+          - {min: 2, max: 2, result: "navigation"}
+          - {min: 3, max: 3, result: "swim"}
+          - {min: 4, max: 4, result: "crossbow"}
+          - {min: 5, max: 5, result: "appraisal"}
+          - {min: 6, max: 6, result: "leadership"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "healing"}
-          - {min: 4, max: 5, result: "leadership"}
-          - {min: 6, max: 7, result: "navigation"}
-          - {min: 8, max: 9, result: "appraisal"}
-          - {min: 10, max: 11, result: "languages"}
-          - {min: 12, max: 12, result: "lore"}
+          - {min: 1, max: 1, result: "healing"}
+          - {min: 2, max: 2, result: "leadership"}
+          - {min: 3, max: 3, result: "navigation"}
+          - {min: 4, max: 4, result: "appraisal"}
+          - {min: 5, max: 5, result: "languages"}
+          - {min: 6, max: 6, result: "lore"}
   ranks:
     - {rank: 1, title: "Deckhand"}
     - {rank: 2, title: "Bosun"}
@@ -489,7 +612,6 @@ sailor:
     - {rank: 6, title: "Fleet Admiral"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -531,42 +653,64 @@ scholar:
   advancement:
     characteristic: EDU
     target: 7
+  re_enlistment: 5
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "+1 SOC"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "+1 SOC"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "history"}
+          - {min: 1, max: 1, result: "history"}
+          - {min: 2, max: 2, result: "investigate"}
+          - {min: 3, max: 3, result: "languages"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "appraisal"}
+          - {min: 6, max: 6, result: "alchemy"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "history"}
+          - {min: 2, max: 2, result: "languages"}
           - {min: 3, max: 3, result: "investigate"}
-          - {min: 4, max: 5, result: "languages"}
-          - {min: 6, max: 6, result: "lore"}
-          - {min: 7, max: 7, result: "appraisal"}
-          - {min: 8, max: 9, result: "alchemy"}
-          - {min: 10, max: 11, result: "persuasion"}
-          - {min: 12, max: 12, result: "deception"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "appraisal"}
+          - {min: 6, max: 6, result: "arcana"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "history"}
-          - {min: 4, max: 5, result: "languages"}
-          - {min: 6, max: 7, result: "lore"}
-          - {min: 8, max: 9, result: "arcana"}
-          - {min: 10, max: 11, result: "religion"}
-          - {min: 12, max: 12, result: "investigate"}
+          - {min: 1, max: 1, result: "history"}
+          - {min: 2, max: 2, result: "languages"}
+          - {min: 3, max: 3, result: "lore"}
+          - {min: 4, max: 4, result: "arcana"}
+          - {min: 5, max: 5, result: "religion"}
+          - {min: 6, max: 6, result: "investigate"}
   ranks:
     - {rank: 1, title: "Student"}
     - {rank: 2, title: "Researcher"}
@@ -576,7 +720,6 @@ scholar:
     - {rank: 6, title: "Chancellor"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -618,42 +761,64 @@ mercenary:
   advancement:
     characteristic: INT
     target: 6
+  re_enlistment: 4
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "intimidation"}
-          - {min: 8, max: 9, result: "athletics"}
-          - {min: 10, max: 12, result: "gambler"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "intimidation"}
+          - {min: 5, max: 5, result: "athletics"}
+          - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "sword"}
-          - {min: 3, max: 3, result: "crossbow"}
-          - {min: 4, max: 5, result: "wrestling"}
+          - {min: 1, max: 1, result: "sword"}
+          - {min: 2, max: 2, result: "crossbow"}
+          - {min: 3, max: 3, result: "wrestling"}
+          - {min: 4, max: 4, result: "shield"}
+          - {min: 5, max: 5, result: "tactics"}
+          - {min: 6, max: 6, result: "intimidation"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "sword"}
+          - {min: 2, max: 2, result: "crossbow"}
+          - {min: 3, max: 3, result: "tactics"}
+          - {min: 4, max: 4, result: "leadership"}
+          - {min: 5, max: 5, result: "intimidation"}
           - {min: 6, max: 6, result: "shield"}
-          - {min: 7, max: 7, result: "tactics"}
-          - {min: 8, max: 9, result: "intimidation"}
-          - {min: 10, max: 11, result: "athletics"}
-          - {min: 12, max: 12, result: "polearm"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "tactics"}
-          - {min: 4, max: 5, result: "leadership"}
-          - {min: 6, max: 7, result: "appraisal"}
-          - {min: 8, max: 9, result: "persuasion"}
-          - {min: 10, max: 11, result: "history"}
-          - {min: 12, max: 12, result: "navigation"}
+          - {min: 1, max: 1, result: "tactics"}
+          - {min: 2, max: 2, result: "leadership"}
+          - {min: 3, max: 3, result: "appraisal"}
+          - {min: 4, max: 4, result: "persuasion"}
+          - {min: 5, max: 5, result: "history"}
+          - {min: 6, max: 6, result: "navigation"}
   ranks:
     - {rank: 1, title: "Sell-sword"}
     - {rank: 2, title: "Veteran"}
@@ -663,7 +828,6 @@ mercenary:
     - {rank: 6, title: "Commander"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -705,42 +869,64 @@ bard:
   advancement:
     characteristic: INT
     target: 7
+  re_enlistment: 6
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 SOC"}
-          - {min: 10, max: 12, result: "performance"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 SOC"}
+          - {min: 6, max: 6, result: "performance"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "performance"}
-          - {min: 3, max: 3, result: "persuasion"}
-          - {min: 4, max: 5, result: "etiquette"}
-          - {min: 6, max: 6, result: "lore"}
-          - {min: 7, max: 7, result: "deception"}
-          - {min: 8, max: 9, result: "history"}
-          - {min: 10, max: 11, result: "languages"}
-          - {min: 12, max: 12, result: "streetwise"}
+          - {min: 1, max: 1, result: "performance"}
+          - {min: 2, max: 2, result: "persuasion"}
+          - {min: 3, max: 3, result: "etiquette"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "deception"}
+          - {min: 6, max: 6, result: "history"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "performance"}
+          - {min: 2, max: 2, result: "persuasion"}
+          - {min: 3, max: 3, result: "lore"}
+          - {min: 4, max: 4, result: "history"}
+          - {min: 5, max: 5, result: "languages"}
+          - {min: 6, max: 6, result: "deception"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "lore"}
-          - {min: 4, max: 5, result: "history"}
-          - {min: 6, max: 7, result: "languages"}
-          - {min: 8, max: 9, result: "persuasion"}
-          - {min: 10, max: 11, result: "arcana"}
-          - {min: 12, max: 12, result: "religion"}
+          - {min: 1, max: 1, result: "lore"}
+          - {min: 2, max: 2, result: "history"}
+          - {min: 3, max: 3, result: "languages"}
+          - {min: 4, max: 4, result: "persuasion"}
+          - {min: 5, max: 5, result: "arcana"}
+          - {min: 6, max: 6, result: "religion"}
   ranks:
     - {rank: 1, title: "Wandering Minstrel"}
     - {rank: 2, title: "Court Bard"}
@@ -750,7 +936,6 @@ bard:
     - {rank: 6, title: "Bard Laureate"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6
@@ -792,42 +977,64 @@ healer:
   advancement:
     characteristic: INT
     target: 7
+  re_enlistment: 5
+  # Fantasy mishap table (1D6). Genre-analog of CE SRD Survival Mishaps (B13).
+  # Entries 1 and 6 chain to the pack injury table.
+  mishap_table:
+    num_dice: 1
+    die_size: 6
+    entries:
+      - {min: 1, max: 1, result: "Wounded in battle. Roll on the Injury table."}
+      - {min: 2, max: 2, result: "Released from service with honour."}
+      - {min: 3, max: 3, result: "Discharged after a dispute. Debt of 1,000 gold crowns."}
+      - {min: 4, max: 4, result: "Driven out in disgrace. Lose all benefits."}
+      - {min: 5, max: 5, result: "Imprisoned for a crime, then released. Lose all benefits."}
+      - {min: 6, max: 6, result: "Disabled by wounds. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "+1 STR"}
-          - {min: 4, max: 5, result: "+1 DEX"}
-          - {min: 6, max: 6, result: "+1 END"}
-          - {min: 7, max: 7, result: "+1 INT"}
-          - {min: 8, max: 9, result: "+1 EDU"}
-          - {min: 10, max: 12, result: "+1 SOC"}
+          - {min: 1, max: 1, result: "+1 STR"}
+          - {min: 2, max: 2, result: "+1 DEX"}
+          - {min: 3, max: 3, result: "+1 END"}
+          - {min: 4, max: 4, result: "+1 INT"}
+          - {min: 5, max: 5, result: "+1 EDU"}
+          - {min: 6, max: 6, result: "+1 SOC"}
     - name: "Service Skills"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 2, result: "healing"}
-          - {min: 3, max: 3, result: "herbalism"}
-          - {min: 4, max: 5, result: "alchemy"}
-          - {min: 6, max: 6, result: "lore"}
-          - {min: 7, max: 7, result: "persuasion"}
-          - {min: 8, max: 9, result: "investigate"}
-          - {min: 10, max: 11, result: "survival"}
-          - {min: 12, max: 12, result: "religion"}
+          - {min: 1, max: 1, result: "healing"}
+          - {min: 2, max: 2, result: "herbalism"}
+          - {min: 3, max: 3, result: "alchemy"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "persuasion"}
+          - {min: 6, max: 6, result: "investigate"}
+    - name: "Specialist Skills"
+      entries:
+        num_dice: 1
+        die_size: 6
+        entries:
+          - {min: 1, max: 1, result: "healing"}
+          - {min: 2, max: 2, result: "herbalism"}
+          - {min: 3, max: 3, result: "alchemy"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "investigate"}
+          - {min: 6, max: 6, result: "languages"}
     - name: "Advanced Education"
       entries:
-        num_dice: 2
+        num_dice: 1
         die_size: 6
         entries:
-          - {min: 2, max: 3, result: "healing"}
-          - {min: 4, max: 5, result: "herbalism"}
-          - {min: 6, max: 7, result: "alchemy"}
-          - {min: 8, max: 9, result: "lore"}
-          - {min: 10, max: 11, result: "languages"}
-          - {min: 12, max: 12, result: "history"}
+          - {min: 1, max: 1, result: "healing"}
+          - {min: 2, max: 2, result: "herbalism"}
+          - {min: 3, max: 3, result: "alchemy"}
+          - {min: 4, max: 4, result: "lore"}
+          - {min: 5, max: 5, result: "languages"}
+          - {min: 6, max: 6, result: "history"}
   ranks:
     - {rank: 1, title: "Apprentice"}
     - {rank: 2, title: "Apothecary"}
@@ -837,7 +1044,6 @@ healer:
     - {rank: 6, title: "Grand Master"}
   mustering_out_cash:
     name: "Cash Benefits"
-    dm_per_term: 1
     entries:
       num_dice: 1
       die_size: 6

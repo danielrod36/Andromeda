@@ -35,11 +35,17 @@ from textual.widgets import Footer, Input, Label, OptionList
 
 from src.engine.death import DefeatContext, get_death_strategy
 from src.engine.mission import Mission, MissionEnding, MissionEngine
-from src.engine.scene import SceneEngine
+from src.engine.scene import SceneCheckResult, SceneEngine
+from src.engine.skills import skill_display_name
 from src.engine.state import Injury
+from src.llm.state_view import build_curated_view_for_scene
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
+
+#: Degraded-mode status surfaces (Task 24 — plan wording).
+STATUS_NARRATION_UNAVAILABLE = "narration unavailable — showing mechanical outcomes"
+STATUS_CONNECTION_LOST = "connection lost — template narration"
 
 
 class AdventureScreen(Screen):
@@ -121,6 +127,9 @@ class AdventureScreen(Screen):
     _current_scene = None
     _current_mission = None
     _pending_freetext = None
+    _freetext_draft: str | None = None
+    #: LLM adapter — None when no LLM is configured (template-only mode).
+    _adapter = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="adv-main-area"):
@@ -140,9 +149,11 @@ class AdventureScreen(Screen):
 
     def on_mount(self) -> None:
         """Initialize: show character sheet, resume context, set phase."""
+        self._adapter = self.app.create_llm_adapter()
         self._update_character_sheet()
         self._reconstruct_mission_if_needed()
         self._show_adventure_context()
+        self._update_status_bar()
         self.phase = self._determine_phase()
         # Focus the choice menu for immediate interaction.
         self.query_one(ChoiceMenuWidget).option_list.focus()
@@ -234,17 +245,10 @@ class AdventureScreen(Screen):
 
     def _update_choices(self) -> None:
         """Populate the choice menu based on current phase."""
-        cm = self.query_one(ChoiceMenuWidget)
-
         if self.phase == "hook_offered":
             self._offer_hook()
         elif self.phase == "scene_active":
             self._present_scene()
-        elif self.phase == "mission_resolved":
-            cm.set_choices(
-                "Mission resolved:",
-                [("Begin New Mission", "new_mission")],
-            )
 
     # ------------------------------------------------------------------
     # Hook phase.
@@ -329,11 +333,29 @@ class AdventureScreen(Screen):
 
         # Build choice list from the current scene's options (new or live).
         cm = self.query_one(ChoiceMenuWidget)
+        pack = self.app.pack
         choices = [
-            (f"{i + 1}. {opt.label} ({opt.skill}, {opt.difficulty})", f"option:{i}")
+            (
+                f"{i + 1}. {opt.label} ({skill_display_name(pack, opt.skill)}, {opt.difficulty})",
+                f"option:{i}",
+            )
             for i, opt in enumerate(self._current_scene.options)
         ]
-        choices.append(("Resolve Mission (attempt ending)", "resolve_mission"))
+        # Task 19: progress-gated ending options replace the single
+        # "Resolve Mission" button. "Push for the ending" only appears once
+        # the player has cleared the hook's min_scenes gate; "Abandon the
+        # mission" is always offered (player agency).
+        mission = self.app.engine.state.active_mission or {}
+        scenes_done = int(mission.get("scenes_completed", 0))
+        min_scenes = int(mission.get("min_scenes", 3))
+        if scenes_done >= min_scenes:
+            choices.append(("Push for the ending", "push_for_ending"))
+        else:
+            self._narrate(
+                f"[dim](Progress: {scenes_done}/{min_scenes} scenes — "
+                "resolve unlocks at the target.)[/dim]"
+            )
+        choices.append(("Abandon the mission", "abandon_mission"))
         cm.set_choices("Choose your action:", choices)
 
     def _do_resolve_option(self, option_index: int) -> None:
@@ -344,7 +366,7 @@ class AdventureScreen(Screen):
         self._narrate(f"You attempt: {option.label}")
         check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
 
-        self._narrate(f"Result: {check_result.quality} (effect {check_result.effect:+d})")
+        self._narrate(self._mechanics_line(check_result))
 
         # Apply consequences.
         consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
@@ -355,27 +377,93 @@ class AdventureScreen(Screen):
         if self._check_and_handle_defeat(check_result, option, consequences):
             return  # Defeat handled; phase already updated.
 
+        # Task 24: stream scene narration via LLM or template.
+        self._narrate_scene_result(check_result, option, consequences)
+
         self._post_step()
         # Move to the next scene beat: clear the live scene so re-entering
         # scene_active generates a fresh one.
         self._current_scene = None
         self.phase = "scene_active"
 
-    def _do_resolve_mission(self) -> None:
-        """Resolve the active mission."""
+    def _do_push_for_ending(self) -> None:
+        """Push for the ending: a final check decides success vs. failure.
+
+        Task 19: the player may only attempt this once ``scenes_completed``
+        has reached ``min_scenes``. The current scene's first option is the
+        ending check — a strong or weak hit resolves the mission as SUCCESS;
+        a MISS resolves it as FAILURE. Consequences come from the mission
+        hook's pack-supplied ending text (not hardcoded).
+        """
+        scene_engine = self._get_scene_engine()
         mission_engine = self._get_mission_engine()
+        mission = self._current_mission
 
-        # Simple heuristic: if the last check was a success, mission succeeds.
-        # In a real game, the TUI would offer ending choices.
-        ending = MissionEnding.SUCCESS
-        consequences = ["Reputation increased.", "Payment received."]
+        # Use the current scene's first option as the climactic check.
+        # If there's no live scene (e.g. entry via a saved mid-mission
+        # state), generate one so the ending still rolls dice.
+        if self._current_scene is None:
+            self._current_scene = scene_engine.run_scene()
+        option = self._current_scene.options[0]
+        scaffold = self._current_scene.scaffold
 
-        mission_engine.resolve_mission(self._current_mission, ending, consequences)
+        self._narrate(f"=== Pushing for the ending: {option.label} ===")
+        check_result = scene_engine.resolve_scene(scaffold, option)
+        self._narrate(self._mechanics_line(check_result))
+
+        from src.rulesets.base import OutcomeQuality
+
+        if check_result.quality in (OutcomeQuality.STRONG_HIT.value, OutcomeQuality.WEAK_HIT.value):
+            ending = MissionEnding.SUCCESS
+            ending_text = mission.success_text
+        else:
+            ending = MissionEnding.FAILURE
+            ending_text = mission.failure_text
+
+        # Consequences: pack-supplied ending text first, then any mechanical
+        # consequences the scene engine produced (injuries, etc.).
+        consequences: list[str] = []
+        if ending_text:
+            consequences.append(ending_text)
+        scene_consequences = scene_engine.apply_consequences(check_result, scaffold)
+        for c in scene_consequences:
+            self._narrate(f"  -> {c}")
+        # Defeat check (life-threatening miss / severe injury) takes priority
+        # over the mission ending narration if it triggers.
+        if self._check_and_handle_defeat(check_result, option, scene_consequences):
+            return
+
+        mission_engine.resolve_mission(mission, ending, consequences)
 
         for c in consequences:
             self._narrate(f"  -> {c}")
+        self._narrate(f"Mission resolved: {ending.value}.")
+        self._current_scene = None
+        self._current_hook = None
+        self._post_step()
+        self.phase = "hook_offered"
 
-        self._narrate("Mission complete! Looking for the next opportunity...")
+    def _do_abandon_mission(self) -> None:
+        """Abandon the active mission (always allowed; player agency).
+
+        Task 19: abandonment bypasses the min_scenes gate. Consequences
+        come from the mission hook's ``abandonment_text`` if the pack
+        supplies one.
+        """
+        mission_engine = self._get_mission_engine()
+        mission = self._current_mission
+
+        consequences: list[str] = []
+        if mission.abandonment_text:
+            consequences.append(mission.abandonment_text)
+
+        mission_engine.resolve_mission(mission, MissionEnding.ABANDONMENT, consequences)
+
+        for c in consequences:
+            self._narrate(f"  -> {c}")
+        self._narrate("Mission abandoned. Looking for the next opportunity...")
+        self._current_scene = None
+        self._current_hook = None
         self._post_step()
         self.phase = "hook_offered"
 
@@ -409,7 +497,7 @@ class AdventureScreen(Screen):
             option, "life_threatening", False
         ):
             is_defeat = True
-            reason = f"a failed life-threatening {check_result.skill} check"
+            reason = f"a failed life-threatening {skill_display_name(self.app.pack, check_result.skill)} check"
 
         # Condition 2: severe injury applied as a consequence.
         if not is_defeat:
@@ -424,7 +512,7 @@ class AdventureScreen(Screen):
                 and any("severe" in c.lower() or "serious" in c.lower() for c in consequences)
             ):
                 is_defeat = True
-                reason = f"accumulated severe injuries during {check_result.skill}"
+                reason = f"accumulated severe injuries during {skill_display_name(self.app.pack, check_result.skill)}"
 
         if not is_defeat:
             return False
@@ -507,7 +595,11 @@ class AdventureScreen(Screen):
             return
 
         scene_engine = self._get_scene_engine()
-        classification = scene_engine.classify_freetext(text, self._current_scene.scaffold)
+        classification = scene_engine.classify_freetext(
+            text,
+            self._current_scene.scaffold,
+            llm_classifier=self._make_llm_classifier(),
+        )
 
         if classification is None:
             # Escape user text: the log renders Rich markup, and raw input
@@ -521,8 +613,10 @@ class AdventureScreen(Screen):
 
         # Show the interpreted check to the player (AE5).
         check = classification.interpreted_check
+        pack = self.app.pack
         self._narrate(
-            f"Interpreted as: {check.label} (skill: {check.skill}, difficulty: {check.difficulty})"
+            f"Interpreted as: {check.label} (skill: {skill_display_name(pack, check.skill)}, "
+            f"difficulty: {check.difficulty})"
         )
 
         # Offer accept/reject choices.
@@ -535,8 +629,10 @@ class AdventureScreen(Screen):
             ],
         )
 
-        # Store the interpreted check for resolution.
+        # Store the interpreted check for resolution. Preserve the typed text
+        # so a rejection can restore it for rephrasing (Task 20).
         self._pending_freetext = check
+        self._freetext_draft = text
         event.input.value = ""
 
     def _do_accept_freetext(self) -> None:
@@ -546,17 +642,21 @@ class AdventureScreen(Screen):
 
         self._narrate(f"You attempt: {option.label}")
         check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
-        self._narrate(f"Result: {check_result.quality} (effect {check_result.effect:+d})")
+        self._narrate(self._mechanics_line(check_result))
 
         consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
         for c in consequences:
             self._narrate(f"  -> {c}")
 
         self._pending_freetext = None
+        self._freetext_draft = None
 
         # Check for defeat (F5): life-threatening MISS or severe injury.
         if self._check_and_handle_defeat(check_result, option, consequences):
             return  # Defeat handled; phase already updated.
+
+        # Task 24: stream scene narration via LLM or template.
+        self._narrate_scene_result(check_result, option, consequences)
 
         self._post_step()
         # Move to the next scene beat (fresh scene on phase re-entry).
@@ -568,9 +668,16 @@ class AdventureScreen(Screen):
 
         The live scene is kept, so re-entering scene_active re-displays its
         structured options rather than generating a replacement scene.
+        The typed free-text is restored into the Input for rephrasing and the
+        Input is focused (Task 20).
         """
         self._narrate("Interpretation rejected. Choose an option or rephrase.")
         self._pending_freetext = None
+        # Restore the typed text for rephrasing and focus the input.
+        inp = self.query_one("#adv-input", Input)
+        if self._freetext_draft is not None:
+            inp.value = self._freetext_draft
+        inp.focus()
         self.phase = "scene_active"
 
     # ------------------------------------------------------------------
@@ -587,25 +694,141 @@ class AdventureScreen(Screen):
             self._do_accept_mission()
         elif option_id == "refuse_mission":
             self._do_refuse_mission()
-        elif option_id == "resolve_mission":
-            self._do_resolve_mission()
+        elif option_id == "push_for_ending":
+            self._do_push_for_ending()
+        elif option_id == "abandon_mission":
+            self._do_abandon_mission()
         elif option_id == "accept_freetext":
             self._do_accept_freetext()
         elif option_id == "reject_freetext":
             self._do_reject_freetext()
-        elif option_id == "new_mission":
-            self.phase = "hook_offered"
         elif option_id.startswith("option:"):
             idx = int(option_id.split(":", 1)[1])
             self._do_resolve_option(idx)
 
     # ------------------------------------------------------------------
+    # Scene narration (Task 24 — LLM or template).
+    # ------------------------------------------------------------------
+
+    def _narrate_scene_result(self, check_result, option, consequences) -> None:
+        """Dispatch scene narration to LLM (async worker) or template (sync).
+
+        On LLM failure, sets the status bar to the appropriate degraded-mode
+        surface string so the player understands why the narration changed.
+        """
+        if self._adapter is None:
+            return  # No LLM — mechanical outcomes already narrated.
+
+        scaffold = self._current_scene.scaffold
+        outcome_facts = [
+            f"Action: {option.label}",
+            f"Skill: {check_result.skill} ({check_result.quality}, effect {check_result.effect:+d})",
+        ] + [f"Consequence: {c}" for c in consequences]
+
+        self.run_worker(self._narrate_scene_async(scaffold, outcome_facts))
+
+    async def _narrate_scene_async(self, scaffold, outcome_facts: list[str]) -> None:
+        """Worker: fetch scene narration from the LLM, display it."""
+        if not self._mounted or self.app.engine is None:
+            return
+        try:
+            state = self.app.engine.state
+            view = build_curated_view_for_scene(
+                state,
+                [scaffold.focus_description, scaffold.situation],
+            )
+            result = await self._adapter.narrate_scene(scaffold, outcome_facts, view)
+            if result.prose:
+                self._narrate(result.prose)
+            if result.llm_failed:
+                self._update_status_bar(result.failure_kind)
+        except Exception:
+            # Never raise from narration — template outcomes already shown.
+            pass
+
+    def _make_llm_classifier(self):
+        """Build a sync classifier closure for SceneEngine.classify_freetext.
+
+        Captures the adapter, state, and pack to provide the view and
+        valid_skill_ids the adapter needs. Returns ``None`` when no adapter
+        is configured.
+        """
+        if self._adapter is None:
+            return None
+        adapter = self._adapter
+        state = self.app.engine.state
+        pack = self.app.pack
+
+        def classifier(text: str, scaffold):
+            view = build_curated_view_for_scene(
+                state,
+                [scaffold.focus_description, scaffold.situation],
+                text,
+            )
+            valid_skill_ids = set(pack.skills.keys())
+            return adapter.classify_freetext(text, scaffold, view, valid_skill_ids)
+
+        return classifier
+
+    # ------------------------------------------------------------------
     # UI helpers.
     # ------------------------------------------------------------------
+
+    def _mechanics_line(self, result: SceneCheckResult) -> str:
+        """Build the inline mechanics line from a check result (Task 20).
+
+        Format::
+
+            2D6 [4, 2] = 6  DM +2 → 8 vs 8 — <tier> (Effect +0)
+
+        Classic profile labels the tier as ``Success``/``Failure`` (binary);
+        narrative profile uses ``Strong hit``/``Weak hit``/``Miss`` (PbtA).
+        An untrained check appends ``(untrained)``.
+        """
+        dice = ", ".join(str(d) for d in result.dice)
+        raw = result.raw_roll
+        total = raw + result.total_dm
+        profile = self.app.engine.state.campaign.resolution_profile
+        if profile == "classic":
+            tier = "Success" if result.success else "Failure"
+        else:
+            tier = {
+                "strong_hit": "Strong hit",
+                "weak_hit": "Weak hit",
+                "miss": "Miss",
+            }[result.quality]
+        trained_note = "" if result.trained else " (untrained)"
+        return (
+            f"2D6 [{dice}] = {raw}  DM {result.total_dm:+d} → {total} "
+            f"vs 8 — {tier} (Effect {result.effect:+d}){trained_note}"
+        )
 
     def _narrate(self, text: str) -> None:
         """Add a line to the narrative log."""
         self.query_one(NarrativeLogWidget).add_line(text)
+
+    def _update_status_bar(self, failure_kind: str | None = None) -> None:
+        """Update the status bar to reflect LLM state (Task 24).
+
+        On normal operation shows the connected model or template mode.
+        On narration failure, shows the degraded-mode surface matching the
+        failure kind.
+        """
+        from textual.widgets import Label
+
+        bar = self.query_one("#adv-status-bar", Label)
+        if failure_kind == "provider_error":
+            bar.update(f"[yellow]{STATUS_CONNECTION_LOST}[/yellow]")
+            return
+        if failure_kind == "retry_exhausted":
+            bar.update(f"[yellow]{STATUS_NARRATION_UNAVAILABLE}[/yellow]")
+            return
+        if self._adapter is not None:
+            provider = self.app.llm_settings.provider
+            model = self.app.llm_settings.model
+            bar.update(f"[green]LLM: {provider}/{model}[/green]")
+        else:
+            bar.update("[dim]Adventure mode — no LLM connected[/dim]")
 
     def _update_character_sheet(self) -> None:
         """Refresh the character sheet from engine state."""
