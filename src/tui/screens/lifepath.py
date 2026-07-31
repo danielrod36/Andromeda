@@ -50,10 +50,28 @@ from src.engine.lifepath import (
     ResolveInjuryCrisisCommand,
     TermResult,
 )
+from src.rulesets.base import CareerData
 from src.rulesets.cepheus import CepheusRuleSet
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
+
+
+def career_choice_description(career: CareerData) -> str:
+    """Build the choose-career menu description for one career.
+
+    Shows the qualification and survival targets followed by the **full**
+    career description — never truncated. Theme-pack YAML descriptions are
+    complete and well-authored; truncating them here cut careers mid-word.
+    """
+    qual = career.qualification
+    surv = career.survival
+    return (
+        f"Qualify: {qual.characteristic} target {qual.target}. "
+        f"Survival: {surv.characteristic} target {surv.target}. "
+        f"{career.description.strip()}"
+    )
+
 
 # Phases that belong to the term sub-state-machine.
 _TERM_PHASES = frozenset(
@@ -462,14 +480,7 @@ class LifepathScreen(Screen):
             descs = []
             for c in careers:
                 choices.append((c.name, f"career:{c.id}"))
-                qual = c.qualification
-                surv = c.survival
-                desc = (
-                    f"Qualify: {qual.characteristic} target {qual.target}. "
-                    f"Survival: {surv.characteristic} target {surv.target}. "
-                    f"{c.description.strip()[:80]}"
-                )
-                descs.append(desc)
+                descs.append(career_choice_description(c))
             cm.set_choices("Choose your career:", choices, descriptions=descs)
         elif self.phase == "choose_qualification_fallback":
             self._populate_qualification_fallback_choices(cm)

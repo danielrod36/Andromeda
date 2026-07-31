@@ -10,6 +10,7 @@ reactive ``watch_*`` methods. Auto-save runs after every lifepath step (AE8).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 from dataclasses import dataclass
@@ -49,6 +50,42 @@ class SaveInfo:
     career: str
     alive: bool
     mtime: float
+
+
+# ---------------------------------------------------------------------------
+# Logging.
+# ---------------------------------------------------------------------------
+
+
+def setup_logging(log_dir: str | Path, level: int = logging.WARNING) -> Path:
+    """Attach a file handler for the ``src`` logger so LLM/provider warnings
+    are captured to disk.
+
+    Textual owns the terminal, so stderr/stdout are not visible at runtime.
+    Without this, the adapter's ``logger.warning(...)`` calls on provider
+    failures are silently dropped and the user only sees the generic
+    'LLM failed — template fallback' line with no way to diagnose the real
+    cause (bad model name, network error, etc.).
+
+    Logs land in ``<log_dir>/andromeda.log``. Idempotent: repeated calls
+    reuse the existing handler instead of stacking duplicates.
+    """
+    log_dir = Path(log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "andromeda.log"
+
+    src_logger = logging.getLogger("src")
+    src_logger.setLevel(level)
+    already = any(
+        isinstance(h, logging.FileHandler) and Path(h.baseFilename) == log_file.resolve()
+        for h in src_logger.handlers
+    )
+    if not already:
+        handler = logging.FileHandler(log_file, encoding="utf-8")
+        handler.setLevel(level)
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        src_logger.addHandler(handler)
+    return log_file
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +131,9 @@ class CepheusApp(App):
         self.saves_dir.mkdir(parents=True, exist_ok=True)
         self.settings_dir = Path(settings_dir)
         self.settings_dir.mkdir(parents=True, exist_ok=True)
+        # Capture LLM/provider warnings to a log file so failures are
+        # diagnosable instead of silently falling back to templates.
+        self.log_file = setup_logging(self.settings_dir)
         self.engine: Engine | None = None
         self.runner: LifepathRunner | None = None
         self.narrator = Narrator()

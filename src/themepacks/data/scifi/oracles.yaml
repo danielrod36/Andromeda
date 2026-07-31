@@ -33,7 +33,7 @@
       - {min: 5, max: 6, result: "Wary — cautious and guarded, may help for a price."}
       - {min: 7, max: 8, result: "Neutral — neither friendly nor hostile, transactional."}
       - {min: 9, max: 10, result: "Friendly — warm and cooperative, offers what help they can."}
-      - {min: 11, max: 11, result: "Helpful —eager to assist and may volunteer extra information."}
+      - {min: 11, max: 11, result: "Helpful — eager to assist and may volunteer extra information."}
       - {min: 12, max: 12, result: "Devoted — becomes a loyal ally or contact."}
 
 - id: scene_focus
