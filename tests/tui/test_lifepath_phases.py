@@ -1886,3 +1886,36 @@ class TestCareerChangeAndRestart:
             assert new_char.career_history == []
             # The fresh character starts at characteristics-rolling.
             assert app.screen.phase == "roll_characteristics"
+
+
+# ---------------------------------------------------------------------------
+# Career choice description (Gap 2): descriptions must not be truncated.
+# ---------------------------------------------------------------------------
+
+
+def test_career_choice_description_not_truncated():
+    """The full career description appears, never sliced to 80 chars.
+
+    Regression for the ``[:80]`` slice that cut career descriptions mid-word
+    in the choose-career menu. The theme-pack YAML is complete; only the UI
+    code was truncating it.
+    """
+    from src.rulesets.base import CareerData, CheckRef
+    from src.tui.screens.lifepath import career_choice_description
+
+    long_description = "A" * 200  # well beyond the old 80-char cap
+    career = CareerData(
+        id="x",
+        name="X",
+        description=long_description,
+        qualification=CheckRef(characteristic="INT", target=6),
+        survival=CheckRef(characteristic="END", target=5),
+        skill_tables=[],
+    )
+    desc = career_choice_description(career)
+
+    # The complete description is present (not sliced), with the mechanic
+    # prefix prepended.
+    assert long_description in desc
+    assert "Qualify: INT target 6" in desc
+    assert "Survival: END target 5" in desc

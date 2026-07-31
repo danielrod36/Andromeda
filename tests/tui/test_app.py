@@ -692,3 +692,74 @@ class TestResponsiveLayout:
             # Pool rolled; the assign step is playable at this size.
             assert screen.phase == "assign_characteristics"
             assert len(app.engine.state.character.unassigned_rolls) == 6
+
+
+# ---------------------------------------------------------------------------
+# Logging (Gap 1): provider failures must be captured to disk, not dropped.
+# ---------------------------------------------------------------------------
+
+
+def test_setup_logging_captures_adapter_warnings(tmp_path: Path):
+    """setup_logging attaches a file handler so ``src.*`` warnings persist.
+
+    The LLM adapter emits ``logger.warning`` on provider failures (bad model
+    name, network error). Without a handler those messages are silently
+    dropped and the user only sees the generic 'LLM failed — template
+    fallback' line, with no way to diagnose the real cause.
+    """
+    import logging
+
+    from src.tui.app import setup_logging
+
+    src_logger = logging.getLogger("src")
+    saved_handlers = src_logger.handlers[:]
+    saved_level = src_logger.level
+    try:
+        log_file = setup_logging(tmp_path)
+        logging.getLogger("src.llm.adapter").warning("test-provider-error: Model Not Exist")
+        for h in src_logger.handlers:
+            h.flush()
+
+        assert log_file.exists()
+        assert "Model Not Exist" in log_file.read_text(encoding="utf-8")
+    finally:
+        # Restore global logger state so this test cannot pollute others.
+        for h in src_logger.handlers:
+            if h not in saved_handlers:
+                h.close()
+        src_logger.handlers = saved_handlers
+        src_logger.setLevel(saved_level)
+
+
+def test_setup_logging_is_idempotent(tmp_path: Path):
+    """Repeated calls with the same log dir must not stack duplicate handlers.
+
+    Counts only handlers targeting *this* test's log file — the global
+    ``src`` logger legitimately accumulates handlers from other tests'
+    ``CepheusApp(tmp_path=...)`` fixtures (each a distinct path).
+    """
+    import logging
+
+    from src.tui.app import setup_logging
+
+    src_logger = logging.getLogger("src")
+    saved_handlers = src_logger.handlers[:]
+    try:
+        log_file = setup_logging(tmp_path)
+        target = log_file.resolve()
+
+        def handlers_for_this_file() -> int:
+            return sum(
+                1
+                for h in src_logger.handlers
+                if isinstance(h, logging.FileHandler) and Path(h.baseFilename) == target
+            )
+
+        assert handlers_for_this_file() == 1
+        setup_logging(tmp_path)
+        assert handlers_for_this_file() == 1
+    finally:
+        for h in src_logger.handlers:
+            if h not in saved_handlers:
+                h.close()
+        src_logger.handlers = saved_handlers
