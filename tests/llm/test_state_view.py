@@ -282,3 +282,30 @@ def test_build_curated_view_for_scene_includes_npc_disposition():
     assert any(n.name == "Harbor Master" for n in view.scene_npcs)
     npc = next(n for n in view.scene_npcs if n.name == "Harbor Master")
     assert npc.disposition == "unfriendly"
+
+
+def test_build_curated_view_for_scene_active_mission_is_string_not_dict():
+    """LLM-1: an active mission's hook is a nested dict in state, but the
+    curated view's ``active_mission`` field is ``str | None``. Passing the raw
+    dict raised Pydantic ValidationError, silently killing all adventure LLM
+    narration and free-text classification whenever a mission was active.
+
+    The view must surface a human-readable mission summary string instead.
+    """
+    state = GameState.new(seed=1)
+    # Canonical shape stored by Mission.to_dict() via SetMissionStateCommand.
+    state.active_mission = {
+        "id": "mission_1",
+        "hook": {
+            "patron": "Merchant Guild",
+            "objective": "Recover stolen cargo",
+            "complication": "Rival crew",
+            "reward": "Cr30,000",
+            "description": "A job",
+        },
+        "scenes_completed": 2,
+        "min_scenes": 3,
+    }
+    view = build_curated_view_for_scene(state, scaffold_texts=["social"])
+    assert isinstance(view.active_mission, str)
+    assert "Recover stolen cargo" in view.active_mission
