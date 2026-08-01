@@ -35,6 +35,7 @@ from textual.widgets import Footer, Input, Label, OptionList
 
 from src.engine.death import DefeatContext, get_death_strategy
 from src.engine.mission import Mission, MissionEnding, MissionEngine
+from src.engine.odds import compute_check_odds, format_odds_line
 from src.engine.scene import SceneCheckResult, SceneEngine
 from src.engine.skills import skill_display_name
 from src.engine.state import Injury
@@ -334,13 +335,28 @@ class AdventureScreen(Screen):
         # Build choice list from the current scene's options (new or live).
         cm = self.query_one(ChoiceMenuWidget)
         pack = self.app.pack
-        choices = [
-            (
-                f"{i + 1}. {opt.label} ({skill_display_name(pack, opt.skill)}, {opt.difficulty})",
-                f"option:{i}",
+        state = self.app.engine.state
+        profile = state.campaign.resolution_profile
+        choices = []
+        descriptions = []
+        for i, opt in enumerate(self._current_scene.options):
+            choices.append(
+                (
+                    f"{i + 1}. {opt.label} ({skill_display_name(pack, opt.skill)}, {opt.difficulty})",
+                    f"option:{i}",
+                )
             )
-            for i, opt in enumerate(self._current_scene.options)
-        ]
+            # Phase 1 #1: pre-commit odds line — the trust pitch at the decision
+            # point. Pure read-only computation (no roll); shown as a dimmed
+            # second line under each option.
+            odds = compute_check_odds(
+                state.character,
+                skill=opt.skill,
+                characteristic=opt.characteristic,
+                difficulty=opt.difficulty,
+                profile=profile,
+            )
+            descriptions.append(format_odds_line(odds))
         # Task 19: progress-gated ending options replace the single
         # "Resolve Mission" button. "Push for the ending" only appears once
         # the player has cleared the hook's min_scenes gate; "Abandon the
@@ -356,7 +372,7 @@ class AdventureScreen(Screen):
                 "resolve unlocks at the target.)[/dim]"
             )
         choices.append(("Abandon the mission", "abandon_mission"))
-        cm.set_choices("Choose your action:", choices)
+        cm.set_choices("Choose your action:", choices, descriptions=descriptions)
 
     def _do_resolve_option(self, option_index: int) -> None:
         """Resolve the selected structured option."""
@@ -366,7 +382,7 @@ class AdventureScreen(Screen):
         self._narrate(f"You attempt: {option.label}")
         check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
 
-        self._narrate(self._mechanics_line(check_result))
+        self._narrate_receipt(self._mechanics_line(check_result))
 
         # Apply consequences.
         consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
@@ -409,7 +425,7 @@ class AdventureScreen(Screen):
 
         self._narrate(f"=== Pushing for the ending: {option.label} ===")
         check_result = scene_engine.resolve_scene(scaffold, option)
-        self._narrate(self._mechanics_line(check_result))
+        self._narrate_receipt(self._mechanics_line(check_result))
 
         from src.rulesets.base import OutcomeQuality
 
@@ -552,6 +568,10 @@ class AdventureScreen(Screen):
             # otherwise post-rewind rolls would advance the abandoned
             # branch's streams and break determinism (AE3).
             self.app.engine.swap_state(result.restored_state)
+            # Phase 1 #3 (TUI-4): mark the rewind with a prominent divider so
+            # the player can see where the abandoned branch ended. The plan's
+            # interstitial decision: "rewound to scene start" before restoring.
+            self.query_one(NarrativeLogWidget).add_rewind_divider("scene start")
 
         # The scene that produced the defeat is over; the next scene beat
         # (a replay of scene start after checkpoint restore) generates fresh.
@@ -642,7 +662,7 @@ class AdventureScreen(Screen):
 
         self._narrate(f"You attempt: {option.label}")
         check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
-        self._narrate(self._mechanics_line(check_result))
+        self._narrate_receipt(self._mechanics_line(check_result))
 
         consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
         for c in consequences:
@@ -806,6 +826,15 @@ class AdventureScreen(Screen):
     def _narrate(self, text: str) -> None:
         """Add a line to the narrative log."""
         self.query_one(NarrativeLogWidget).add_line(text)
+
+    def _narrate_receipt(self, text: str) -> None:
+        """Add an engine receipt (dice/DMs/outcome) with provenance styling.
+
+        Phase 1 #4: engine-decided facts are bold + glyph-prefixed so the player
+        can distinguish mechanical ground truth from LLM-narrated prose — the
+        trust boundary made visible in the scrollback.
+        """
+        self.query_one(NarrativeLogWidget).add_engine_receipt(text)
 
     def _update_status_bar(self, failure_kind: str | None = None) -> None:
         """Update the status bar to reflect LLM state (Task 24).

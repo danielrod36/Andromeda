@@ -173,6 +173,25 @@ class TestMissionHookInteraction:
             # Should have structured options + resolve mission.
             assert cm.option_list.option_count >= 2
 
+    async def test_scene_options_show_pre_commit_odds(self, adventure_app: CepheusApp):
+        """Phase 1 #1: each structured option surfaces a pre-commit odds line
+        (DM breakdown + success % + band) so choices are informed, not blind
+        (mechanics-inspectable identity; Disco Elysium / Citizen Sleeper pattern).
+        """
+        app = adventure_app
+        async with app.run_test() as pilot:
+            await push_adventure(app, pilot)
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # First structured option's rendered prompt must include a "%"
+            # (the computed success probability) and the honest total "DM".
+            first = str(cm.option_list.options[0].prompt)
+            assert "%" in first
+            assert "DM" in first
+
     async def test_mission_persisted_in_state(self, adventure_app: CepheusApp):
         """Active mission is persisted in GameState."""
         app = adventure_app
@@ -858,19 +877,28 @@ class TestCheckpointRestoreRebindsRoller:
 
 
 def _spy_narrate(screen: AdventureScreen) -> list[str]:
-    """Replace ``screen._narrate`` with a capturing wrapper; return capture list.
+    """Replace ``screen._narrate`` (and ``_narrate_receipt``) with capturing
+    wrappers; return the capture list.
 
+    Both narration channels — prose (``_narrate``) and engine receipts
+    (``_narrate_receipt``, the provenance-styled mechanics line) — are captured.
     The original log-write still happens; the spy just records the text first.
     Use the returned list to assert on narrated lines.
     """
     captured: list[str] = []
-    real = screen._narrate
+    real_narrate = screen._narrate
+    real_receipt = screen._narrate_receipt
 
-    def spy(text: str) -> None:
+    def spy_narrate(text: str) -> None:
         captured.append(text)
-        real(text)
+        real_narrate(text)
 
-    screen._narrate = spy  # type: ignore[assignment,method-assign]
+    def spy_receipt(text: str) -> None:
+        captured.append(text)
+        real_receipt(text)
+
+    screen._narrate = spy_narrate  # type: ignore[assignment,method-assign]
+    screen._narrate_receipt = spy_receipt  # type: ignore[assignment,method-assign]
     return captured
 
 
@@ -1080,3 +1108,71 @@ class TestAdventureLLMWiring:
 
             # Should show the LLM-classified check for confirmation.
             assert cm.option_list.option_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 #2: persistent status strip — character sheet renders load-bearing
+# state the engine already tracks (injuries, credits, open threads, mission).
+# Sources: Fallen London quality sidebar, Cogmind info strip, Friends & Fables.
+# ---------------------------------------------------------------------------
+
+
+class TestCharacterSheetStatusStrip:
+    """The sheet must surface state beyond stats/skills (fixes ADV-2/TUI-2)."""
+
+    def _state_with_rich_state(self) -> GameState:
+        from src.engine.state import CampaignConfig, Injury, NarrativeFact
+
+        state = GameState.new(seed=7)
+        state.campaign = CampaignConfig()
+        state.character.name = "Riley"
+        state.character.characteristics = {
+            "STR": 7,
+            "DEX": 8,
+            "END": 6,
+            "INT": 10,
+            "EDU": 9,
+            "SOC": 5,
+        }
+        state.character.credits = 1500
+        state.character.inventory = ["Laser Pistol", "Medkit"]
+        state.character.skills = {"pilot": 1}
+        state.entities.append(Injury(name="Broken Arm", severity="severe"))
+        state.entities.append(NarrativeFact(name="Dock Officer"))
+        state.open_threads = ["Find the courier", "Pay off the debt"]
+        state.active_mission = {
+            "hook": {
+                "patron": "Merchant Guild",
+                "objective": "Recover stolen cargo",
+            },
+            "scenes_completed": 1,
+            "min_scenes": 3,
+        }
+        return state
+
+    def test_sheet_shows_credits(self):
+        sheet = CharacterSheetWidget()
+        content = sheet.render_content(self._state_with_rich_state())
+        assert "1500" in content
+
+    def test_sheet_shows_injuries(self):
+        sheet = CharacterSheetWidget()
+        content = sheet.render_content(self._state_with_rich_state())
+        assert "Broken Arm" in content
+        assert "severe" in content.lower()
+
+    def test_sheet_shows_open_threads_count(self):
+        sheet = CharacterSheetWidget()
+        content = sheet.render_content(self._state_with_rich_state())
+        assert "2" in content  # thread count
+        assert "thread" in content.lower()
+
+    def test_sheet_shows_active_mission(self):
+        sheet = CharacterSheetWidget()
+        content = sheet.render_content(self._state_with_rich_state())
+        assert "Recover stolen cargo" in content
+
+    def test_sheet_shows_inventory(self):
+        sheet = CharacterSheetWidget()
+        content = sheet.render_content(self._state_with_rich_state())
+        assert "Laser Pistol" in content
