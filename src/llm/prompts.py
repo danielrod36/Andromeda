@@ -266,7 +266,7 @@ def build_chapter_summary_prompt(
         f"## Recent Narrative Log\n"
         f"{beats}\n\n"
         f"Write a concise chapter summary (2-4 sentences, past tense, "
-        f"third person) of how this mission went for the character. "
+        f"second person) of how this mission went for the character. "
         f"Reference named people, places, and outcomes consistently with the "
         f"state above. Do NOT mention dice, rolls, modifiers, stats, target "
         f"numbers, or any game mechanics — write as if recounting a story."

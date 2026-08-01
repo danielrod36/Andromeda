@@ -930,3 +930,20 @@ class TestChapterSummaryInjection:
         # The invalid LLM text must NOT have shipped; the template did.
         assert "2d6" not in summary.lower()
         assert "vs 8" not in summary.lower()
+
+    def test_template_fallback_when_generator_raises(self, pack):
+        """When the generator raises an exception, the engine catches it and
+        ships the template summary (mission resolution never crashes)."""
+        engine = make_engine([[3, 4], [5, 5], [3, 3], [4, 4]])
+        me = MissionEngine(engine, pack)
+        mission = me.accept_mission(me.generate_hook())
+        meet_min_scenes(engine, mission)
+
+        def gen(record, log_entries):
+            raise RuntimeError("provider timeout")
+
+        me.resolve_mission(mission, MissionEnding.SUCCESS, summary_generator=gen)
+
+        # Template summary always mentions the mission and the ending.
+        assert engine.state.chapter_summaries
+        assert "success" in engine.state.chapter_summaries[-1].lower()
