@@ -1162,3 +1162,55 @@ class TestInjuryCrisis:
         assert engine.state.character.alive is True  # narrative mode: floored + scar
         assert engine.state.character.characteristics["STR"] == 1
         assert any(isinstance(e, Injury) for e in engine.state.entities)
+
+
+# ---------------------------------------------------------------------------
+# RULE-1: fantasy rank-5+ material muster-out crash.
+# The fantasy material tables are 1D6 (6 rows, range 1-6) but
+# material_dm_for(rank >= 5) = +1, so a max material roll becomes 7 and
+# lookup_table_result raises IndexError ("Roll 7 outside table range [1..6]").
+# The sci-fi pack has a 7th row for the rank-5+ reward; the fantasy pack
+# (Task 15 structural alignment) missed it.
+# ---------------------------------------------------------------------------
+
+
+class TestFantasyMusterRow7:
+    """Fantasy material tables must cover the rank-5+ row (RULE-1)."""
+
+    def test_fantasy_material_benefit_at_rank5_max_roll_does_not_crash(self):
+        """A rank-5+ fantasy character claiming a material benefit with the
+        +1 DM, rolling a 6 (total 7), must resolve to a 7th-row result —
+        not raise IndexError.
+        """
+        from src.themepacks.fantasy import load_fantasy_pack
+
+        pack = load_fantasy_pack()
+        engine = make_engine([[6]])  # material roll: 1D6 = 6, +1 DM -> 7
+        runner = LifepathRunner(engine, pack)
+        # Pick any fantasy career that has a material table.
+        career_id = next(iter(pack.careers))
+        engine.state.character.career = career_id
+        engine.state.character.rank = 5  # >= 5 -> material_dm +1
+        engine.state.character.terms = 1
+
+        result = runner.claim_benefit(career_id, "material", dm=1)
+        assert isinstance(result, str)
+        assert result  # non-empty
+
+    def test_every_fantasy_career_material_table_covers_row_7(self):
+        """Structural invariant: every fantasy material table must have a
+        row covering roll 7 (the rank-5+ reward via +1 DM), matching the
+        sci-fi pack's 7-row tables. A missing row is the RULE-1 crash.
+        """
+        from src.themepacks.fantasy import load_fantasy_pack
+
+        pack = load_fantasy_pack()
+        missing = []
+        for cid, career in pack.careers.items():
+            mat = career.mustering_out_material
+            if mat is None:
+                continue
+            max_range = max(e.max for e in mat.entries.entries)
+            if max_range < 7:
+                missing.append((cid, max_range))
+        assert not missing, f"fantasy material tables missing row 7: {missing}"
