@@ -250,6 +250,29 @@ class AdventureScreen(Screen):
             self._offer_hook()
         elif self.phase == "scene_active":
             self._present_scene()
+        elif self.phase == "game_over":
+            self._present_game_over()
+
+    # ------------------------------------------------------------------
+    # Game-over phase (Ironman defeat — ADV-1 / TUI-1).
+    # ------------------------------------------------------------------
+
+    def _present_game_over(self) -> None:
+        """Show restart options after Ironman death (ADV-1, TUI-1).
+
+        The engine's ``IronmanStrategy`` returns ``restart_offered=True``; the
+        screen must offer a path forward rather than stranding the player with a
+        dead character and a fresh mission hook (the prior dead-end). Mirrors
+        the lifepath screen's ironman-death restart UX.
+        """
+        cm = self.query_one(ChoiceMenuWidget)
+        cm.set_choices(
+            "The character is dead (Ironman — death is permanent). What next?",
+            [
+                ("Begin a new lifepath", "begin_new_lifepath"),
+                ("Return to main menu", "return_to_main_menu"),
+            ],
+        )
 
     # ------------------------------------------------------------------
     # Hook phase.
@@ -484,6 +507,22 @@ class AdventureScreen(Screen):
         self.phase = "hook_offered"
 
     # ------------------------------------------------------------------
+    # Game-over actions (Ironman defeat — ADV-1 / TUI-1).
+    # ------------------------------------------------------------------
+
+    def _do_begin_new_lifepath(self) -> None:
+        """Ironman restart: discard the dead character, start a fresh lifepath
+        with the same campaign configuration (AE2)."""
+        self._narrate(
+            "[bold yellow]Beginning a new lifepath with the same campaign settings...[/bold yellow]"
+        )
+        self.app.restart_lifepath()
+
+    def _do_return_to_main_menu(self) -> None:
+        """Leave the dead campaign and return to the main menu."""
+        self.app.return_to_main_menu()
+
+    # ------------------------------------------------------------------
     # Defeat detection and handling (F5, R8).
     # ------------------------------------------------------------------
 
@@ -578,10 +617,13 @@ class AdventureScreen(Screen):
         self._current_scene = None
 
         if not result.play_continues:
-            # Ironman: character is dead. Offer restart via hook phase.
+            # Ironman: character is dead. Transition to the game-over phase,
+            # which offers a new lifepath / main-menu return (ADV-1, TUI-1).
+            # Previously this fell through to hook_offered, stranding the
+            # player with a dead character and a fresh mission hook.
             self._update_character_sheet()
             self._post_step()
-            self.phase = "hook_offered"
+            self.phase = "game_over"
         else:
             # Checkpoint or Narrative: play continues.
             self._update_character_sheet()
@@ -722,6 +764,10 @@ class AdventureScreen(Screen):
             self._do_accept_freetext()
         elif option_id == "reject_freetext":
             self._do_reject_freetext()
+        elif option_id == "begin_new_lifepath":
+            self._do_begin_new_lifepath()
+        elif option_id == "return_to_main_menu":
+            self._do_return_to_main_menu()
         elif option_id.startswith("option:"):
             idx = int(option_id.split(":", 1)[1])
             self._do_resolve_option(idx)

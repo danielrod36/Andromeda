@@ -694,6 +694,104 @@ class TestDefeatDetection:
 
 
 # ---------------------------------------------------------------------------
+# 8b. ADV-1 / TUI-1: Ironman death in the loop must not strand the player.
+# The engine returns restart_offered=True; the screen must offer a path back
+# to a new lifepath, not present a dead character with a fresh mission hook.
+# ---------------------------------------------------------------------------
+
+
+class TestIronmanGameOverRestart:
+    """Ironman defeat surfaces a game-over screen with a restart option."""
+
+    async def test_ironman_defeat_sets_game_over_phase_not_hook(self, tmp_path: Path):
+        """Defeat in ironman mode transitions to a ``game_over`` phase, not
+        ``hook_offered`` (the dead-end: offering a new mission to a corpse)."""
+        app = CepheusApp(saves_dir=tmp_path)
+        app.engine = make_seeded_engine([[3, 4]] * 20)
+        app.engine.state.campaign = CampaignConfig(
+            resolution_profile="narrative", death_mode="ironman"
+        )
+        app.pack = load_scifi_pack()
+        app.campaign_name = "IronmanGameOver"
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            # Accept a mission to establish a live scene (needed for defeat's
+            # scene_label lookup).
+            cm = screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Force a defeat deterministically (avoids relying on a
+            # life-threatening option being rolled from the options table).
+            handled = screen._handle_defeat("a catastrophic failure")
+            await pilot.pause()
+
+            assert handled is True
+            assert app.engine.state.character.alive is False
+            assert screen.phase == "game_over"
+
+    async def test_game_over_offers_begin_new_lifepath(self, tmp_path: Path):
+        """The game-over screen offers a 'Begin a new lifepath' choice."""
+        app = CepheusApp(saves_dir=tmp_path)
+        app.engine = make_seeded_engine([[3, 4]] * 20)
+        app.engine.state.campaign = CampaignConfig(
+            resolution_profile="narrative", death_mode="ironman"
+        )
+        app.pack = load_scifi_pack()
+        app.campaign_name = "IronmanGameOver"
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            cm = screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            screen._handle_defeat("a catastrophic failure")
+            await pilot.pause()
+
+            prompts = [str(o.prompt) for o in cm.option_list.options]
+            assert any("new lifepath" in p.lower() for p in prompts), prompts
+
+    async def test_begin_new_lifepath_transitions_to_lifepath_screen(self, tmp_path: Path):
+        """Selecting 'Begin a new lifepath' calls app.restart_lifepath and
+        pushes the LifepathScreen with a fresh, living character."""
+        from src.tui.screens.lifepath import LifepathScreen
+
+        app = CepheusApp(saves_dir=tmp_path)
+        app.engine = make_seeded_engine([[3, 4]] * 20)
+        app.engine.state.campaign = CampaignConfig(
+            resolution_profile="narrative", death_mode="ironman"
+        )
+        app.pack = load_scifi_pack()
+        app.campaign_name = "IronmanGameOver"
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            cm = screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            screen._handle_defeat("a catastrophic failure")
+            await pilot.pause()
+
+            # Select "Begin a new lifepath".
+            restart_idx = next(
+                i
+                for i, o in enumerate(cm.option_list.options)
+                if "new lifepath" in str(o.prompt).lower()
+            )
+            cm.option_list.highlighted = restart_idx
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            assert isinstance(app.screen, LifepathScreen)
+            assert app.engine.state.character.alive is True
+
+
+# ---------------------------------------------------------------------------
 # 9. Regression: refuse generates exactly one replacement hook (no double-roll).
 # ---------------------------------------------------------------------------
 
