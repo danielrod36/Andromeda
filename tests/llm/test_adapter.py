@@ -663,3 +663,43 @@ class TestNarrateScene:
         assert result.source == "template"
         assert result.llm_failed is True
         assert result.failure_kind == "provider_error"
+
+
+# ---------------------------------------------------------------------------
+# CHAP-1: summarize_chapter (sync, LLM chapter summary at mission end).
+# ---------------------------------------------------------------------------
+
+
+class TestSummarizeChapter:
+    """summarize_chapter: sync LLM chapter summary with None-on-failure."""
+
+    def test_returns_prose_when_llm_configured(self):
+        """A configured LLM returns chapter-summary prose (R19, AE16)."""
+        test_model = TestModel(
+            custom_output_args={
+                "prose": "The crew turned the tables on the guild and escaped with the cargo."
+            }
+        )
+        adapter = LLMAdapter(test_model=test_model)
+        result = adapter.summarize_chapter(
+            {"hook": {"objective": "Recover cargo"}, "ending": "success", "scenes_completed": 3},
+            ["Scene one log.", "Scene two log."],
+            view_stub(),
+        )
+        assert result is not None
+        assert "cargo" in result
+
+    def test_no_llm_returns_none(self):
+        """Without an LLM configured, summarize_chapter returns None (engine
+        then falls back to the deterministic template)."""
+        adapter = LLMAdapter(config=AdapterConfig(model=None))
+        assert adapter.summarize_chapter({}, [], view_stub()) is None
+
+    def test_provider_error_returns_none(self):
+        """A provider/agent failure returns None, never raises."""
+        test_model = TestModel(custom_output_args={"prose": "valid"})
+        adapter = LLMAdapter(test_model=test_model)
+        # Force the agent to raise by making run impossible — patch the agent.
+        adapter._scene_agent = None  # type: ignore[assignment]
+        result = adapter.summarize_chapter({}, [], view_stub())
+        assert result is None

@@ -17,9 +17,10 @@ to hook generation.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import ClassVar
+from typing import ClassVar, Protocol, runtime_checkable
 
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine, FlagDegradationCommand
@@ -30,6 +31,23 @@ from src.engine.state import GameState
 from src.engine.summary import AddChapterSummaryCommand, SummaryValidator, build_template_summary
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import LoadedThemePack
+
+logger = logging.getLogger(__name__)
+
+
+@runtime_checkable
+class SummaryGenerator(Protocol):
+    """Sync callable producing an LLM chapter summary (CHAP-1, R19).
+
+    Mirrors the injection pattern of
+    :meth:`src.engine.scene.SceneEngine.classify_freetext`'s ``llm_classifier``:
+    the TUI builds a closure over the LLM adapter and the engine calls it.
+    Returning ``None`` signals LLM failure (provider error / retry exhaustion)
+    so the engine can fall back to the deterministic template.
+    """
+
+    def __call__(self, mission_record: dict, log_entries: list[str]) -> str | None: ...
+
 
 # ---------------------------------------------------------------------------
 # Mission state and data structures.
@@ -448,6 +466,8 @@ class MissionEngine:
         mission: Mission,
         ending: MissionEnding,
         consequences: list[str] | None = None,
+        *,
+        summary_generator: SummaryGenerator | None = None,
     ) -> None:
         """Resolve a mission with the given ending.
 
@@ -485,14 +505,14 @@ class MissionEngine:
             )
         )
 
-        # Task 22 (R19, AE16): generate a deterministic chapter summary from
-        # the completed mission record + the narrative log, validate it with
-        # the mechanical-claim guard, and route it through the funnel. The
-        # template cannot fail by construction; the validator is a guard for
-        # future LLM-polished text. On validation failure we flag the
-        # degradation and ship the template anyway so the chapter always has
-        # a summary in the curated view.
-        self._record_chapter_summary(mission)
+        # Task 22 (R19, AE16): generate a chapter summary from the completed
+        # mission record + the narrative log, validate it with the
+        # mechanical-claim guard, and route it through the funnel. When an LLM
+        # ``summary_generator`` is provided (CHAP-1), its prose is preferred and
+        # the template is the fallback for LLM failure or validation rejection.
+        # The template cannot fail by construction; the validator is the guard
+        # that keeps LLM text honest.
+        self._record_chapter_summary(mission, summary_generator=summary_generator)
 
         self._active_mission = None
 
@@ -500,22 +520,61 @@ class MissionEngine:
     # Internal helpers.
     # ------------------------------------------------------------------
 
-    def _record_chapter_summary(self, mission: Mission) -> None:
+    def _record_chapter_summary(
+        self,
+        mission: Mission,
+        *,
+        summary_generator: SummaryGenerator | None = None,
+    ) -> None:
         """Build, validate, and persist a chapter summary (Task 22, R19, AE16).
 
-        Uses :func:`build_template_summary` on the canonical completed-mission
-        record plus the current narrative log, validates with
-        :class:`SummaryValidator`, then applies
-        :class:`AddChapterSummaryCommand` through the funnel. On validation
-        failure, applies :class:`FlagDegradationCommand` and ships the template
-        summary anyway — the template is safe by construction; the guard exists
-        for future LLM-polished text.
+        When ``summary_generator`` is provided (CHAP-1, LLM configured), its
+        prose is preferred. The generator returns ``None`` to signal LLM
+        failure (provider error, retry exhaustion) — in that case, or if the
+        LLM text fails the mechanical-claim validator, the deterministic
+        :func:`build_template_summary` ships as the safe fallback. Either way
+        the summary is routed through :class:`AddChapterSummaryCommand` so the
+        mutation is audited and replayable; validation failures are flagged
+        with :class:`FlagDegradationCommand`.
         """
         # The canonical completed record was just appended by
         # ResolveMissionCommand; read it back so the summary reflects exactly
         # what landed in state (ending, scenes, hook).
         record = self.engine.state.completed_missions[-1]
-        summary = build_template_summary(record, list(self.engine.state.narrative_log))
+        log_entries = list(self.engine.state.narrative_log)
+
+        # 1. Try the LLM generator if provided.
+        llm_summary: str | None = None
+        if summary_generator is not None:
+            try:
+                llm_summary = summary_generator(record, log_entries)
+            except Exception as exc:  # never let the LLM crash mission resolution
+                logger.warning("LLM summary generator raised; using template: %s", exc)
+                llm_summary = None
+
+        # 2. Validate the LLM summary; fall back to template on rejection.
+        if llm_summary:
+            result = SummaryValidator().validate(llm_summary, self.engine.state)
+            if result.valid:
+                self.engine.apply(AddChapterSummaryCommand(summary=llm_summary))
+                return
+            # LLM text leaked mechanical claims — flag and fall through to template.
+            logger.warning(
+                "LLM chapter summary failed validation; shipping template. Errors: %s",
+                result.error_summary,
+            )
+            self.engine.apply(
+                FlagDegradationCommand(
+                    area="summary",
+                    reason=(
+                        f"LLM chapter summary failed validation; shipping template. "
+                        f"Errors: {result.error_summary}"
+                    ),
+                )
+            )
+
+        # 3. Template fallback (safe by construction; still validated as a guard).
+        summary = build_template_summary(record, log_entries)
         result = SummaryValidator().validate(summary, self.engine.state)
         if not result.valid:
             self.engine.apply(

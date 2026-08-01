@@ -39,7 +39,7 @@ from src.engine.odds import compute_check_odds, format_odds_line
 from src.engine.scene import SceneCheckResult, SceneEngine
 from src.engine.skills import skill_display_name
 from src.engine.state import Injury
-from src.llm.state_view import build_curated_view_for_scene
+from src.llm.state_view import build_curated_view, build_curated_view_for_scene
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
@@ -472,7 +472,9 @@ class AdventureScreen(Screen):
         if self._check_and_handle_defeat(check_result, option, scene_consequences):
             return
 
-        mission_engine.resolve_mission(mission, ending, consequences)
+        mission_engine.resolve_mission(
+            mission, ending, consequences, summary_generator=self._make_summary_generator()
+        )
 
         for c in consequences:
             self._narrate(f"  -> {c}")
@@ -496,7 +498,12 @@ class AdventureScreen(Screen):
         if mission.abandonment_text:
             consequences.append(mission.abandonment_text)
 
-        mission_engine.resolve_mission(mission, MissionEnding.ABANDONMENT, consequences)
+        mission_engine.resolve_mission(
+            mission,
+            MissionEnding.ABANDONMENT,
+            consequences,
+            summary_generator=self._make_summary_generator(),
+        )
 
         for c in consequences:
             self._narrate(f"  -> {c}")
@@ -835,6 +842,24 @@ class AdventureScreen(Screen):
             return adapter.classify_freetext(text, scaffold, view, valid_skill_ids)
 
         return classifier
+
+    def _make_summary_generator(self):
+        """Build a sync summary closure for MissionEngine.resolve_mission (CHAP-1).
+
+        Captures the adapter and state to provide the curated view the adapter
+        needs. Returns ``None`` when no adapter is configured (the engine then
+        uses the deterministic template summary). Mirrors ``_make_llm_classifier``.
+        """
+        if self._adapter is None:
+            return None
+        adapter = self._adapter
+        state = self.app.engine.state
+
+        def generator(mission_record: dict, log_entries: list[str]) -> str | None:
+            view = build_curated_view(state)
+            return adapter.summarize_chapter(mission_record, log_entries, view)
+
+        return generator
 
     # ------------------------------------------------------------------
     # UI helpers.

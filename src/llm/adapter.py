@@ -40,6 +40,7 @@ from src.engine.narration import Narrator
 from src.engine.state import GameState
 from src.llm.prompts import (
     SYSTEM_PROMPT,
+    build_chapter_summary_prompt,
     build_classification_prompt,
     build_full_lifepath_prompt,
     build_lifepath_prompt,
@@ -675,6 +676,48 @@ class LLMAdapter:
             return result.output
         except Exception as exc:
             logger.warning("Free-text classification failed, returning None: %s", exc)
+            return None
+
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Chapter summary (CHAP-1, R19, AE16).
+    # ------------------------------------------------------------------
+
+    def summarize_chapter(
+        self,
+        mission_record: dict,
+        log_entries: list[str],
+        view: CuratedView,
+    ) -> str | None:
+        """Generate an LLM chapter summary at mission end (R19, AE16).
+
+        Runs the scene narration agent synchronously (the prose output is
+        generic enough for a chapter recap). On any failure — provider error,
+        retry exhaustion, or an empty result — returns ``None`` so the engine
+        (:meth:`MissionEngine._record_chapter_summary`) falls back to the
+        deterministic template. Never raises.
+
+        The returned prose is validated by the engine's :class:`SummaryValidator`
+        (mechanical-claim guard) before it ships; a summary that leaks dice
+        notation or stats is rejected and the template is used.
+        """
+        if not self.llm_configured:
+            return None
+
+        prompt = build_chapter_summary_prompt(mission_record, log_entries, view)
+        deps = ToolDeps(engine=None, state=None)  # Read-only context.
+
+        try:
+            result = self._run_agent_sync(
+                self._scene_agent,
+                prompt,
+                deps=deps,
+                usage_limits=self._usage_limits(),
+            )
+            prose = result.output.prose.strip()
+            return prose or None
+        except Exception as exc:
+            logger.warning("LLM chapter summary failed, returning None: %s", exc)
             return None
 
     # ------------------------------------------------------------------
