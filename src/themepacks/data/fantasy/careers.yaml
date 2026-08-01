@@ -105,6 +105,7 @@ knight:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Sword"}
         - {min: 2, max: 2, result: "Shield"}
@@ -112,6 +113,7 @@ knight:
         - {min: 4, max: 4, result: "Suit of Armour"}
         - {min: 5, max: 5, result: "Land Grant"}
         - {min: 6, max: 6, result: "Retainer"}
+        - {min: 7, max: 7, result: "Manor Estate"}
 
 ranger:
   id: ranger
@@ -205,6 +207,7 @@ ranger:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Bow"}
         - {min: 2, max: 2, result: "Hunting Knife"}
@@ -212,6 +215,7 @@ ranger:
         - {min: 4, max: 4, result: "Riding Horse"}
         - {min: 5, max: 5, result: "Herbal Kit"}
         - {min: 6, max: 6, result: "Trained Hound"}
+        - {min: 7, max: 7, result: "Sanctuary Grove"}
 
 priest:
   id: priest
@@ -313,6 +317,7 @@ priest:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Holy Symbol"}
         - {min: 2, max: 2, result: "Healing Salve"}
@@ -320,6 +325,7 @@ priest:
         - {min: 4, max: 4, result: "Blessed Weapon"}
         - {min: 5, max: 5, result: "Temple Contact"}
         - {min: 6, max: 6, result: "Relic"}
+        - {min: 7, max: 7, result: "Blessed Reliquary"}
 
 mage:
   id: mage
@@ -421,6 +427,7 @@ mage:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Spell Scroll"}
         - {min: 2, max: 2, result: "Arcane Focus"}
@@ -428,6 +435,7 @@ mage:
         - {min: 4, max: 4, result: "Grimoire"}
         - {min: 5, max: 5, result: "Enchanted Item"}
         - {min: 6, max: 6, result: "Familiar"}
+        - {min: 7, max: 7, result: "Arcane Sanctum"}
 
 thief:
   id: thief
@@ -520,6 +528,7 @@ thief:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Lockpicks"}
         - {min: 2, max: 2, result: "Grappling Hook"}
@@ -527,6 +536,7 @@ thief:
         - {min: 4, max: 4, result: "Fence Contact"}
         - {min: 5, max: 5, result: "Thieves' Tools"}
         - {min: 6, max: 6, result: "Loot Map"}
+        - {min: 7, max: 7, result: "Guildmasters' Seal"}
 
 sailor:
   id: sailor
@@ -627,6 +637,7 @@ sailor:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Cutlass"}
         - {min: 2, max: 2, result: "Spyglass"}
@@ -634,6 +645,7 @@ sailor:
         - {min: 4, max: 4, result: "Sailing Kit"}
         - {min: 5, max: 5, result: "Harbour Contact"}
         - {min: 6, max: 6, result: "Ship Share"}
+        - {min: 7, max: 7, result: "Captain's Galleon"}
 
 scholar:
   id: scholar
@@ -735,6 +747,7 @@ scholar:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Scroll Case"}
         - {min: 2, max: 2, result: "Ink and Quill"}
@@ -742,6 +755,7 @@ scholar:
         - {min: 4, max: 4, result: "Library Access"}
         - {min: 5, max: 5, result: "Scholar Contact"}
         - {min: 6, max: 6, result: "Ancient Map"}
+        - {min: 7, max: 7, result: "Master's Codex"}
 
 mercenary:
   id: mercenary
@@ -843,6 +857,7 @@ mercenary:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Weapon"}
         - {min: 2, max: 2, result: "Shield"}
@@ -850,6 +865,7 @@ mercenary:
         - {min: 4, max: 4, result: "Warhorse"}
         - {min: 5, max: 5, result: "Sergeant Contact"}
         - {min: 6, max: 6, result: "Company Charter"}
+        - {min: 7, max: 7, result: "Captain's Commission"}
 
 bard:
   id: bard
@@ -951,6 +967,7 @@ bard:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Instrument"}
         - {min: 2, max: 2, result: "Songbook"}
@@ -958,6 +975,7 @@ bard:
         - {min: 4, max: 4, result: "Tavern Pass"}
         - {min: 5, max: 5, result: "Rare Manuscript"}
         - {min: 6, max: 6, result: "Royal Warrant"}
+        - {min: 7, max: 7, result: "Royal Patronage"}
 
 healer:
   id: healer
@@ -1059,6 +1077,7 @@ healer:
     entries:
       num_dice: 1
       die_size: 6
+      max_extension: 1
       entries:
         - {min: 1, max: 1, result: "Healer's Kit"}
         - {min: 2, max: 2, result: "Herb Pouch"}
@@ -1066,3 +1085,4 @@ healer:
         - {min: 4, max: 4, result: "Potion Stock"}
         - {min: 5, max: 5, result: "Guild Contact"}
         - {min: 6, max: 6, result: "Rare Herbs"}
+        - {min: 7, max: 7, result: "Master's Apothecary"}
