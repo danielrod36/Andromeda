@@ -1274,3 +1274,60 @@ class TestCharacterSheetStatusStrip:
         sheet = CharacterSheetWidget()
         content = sheet.render_content(self._state_with_rich_state())
         assert "Laser Pistol" in content
+
+
+# ---------------------------------------------------------------------------
+# CHAP-1: LLM chapter summaries wired through the adventure screen.
+# ---------------------------------------------------------------------------
+
+
+class TestChapterSummaryWiring:
+    """resolve_mission uses the adapter's summarize_chapter when configured."""
+
+    async def test_llm_summary_generator_wired_to_engine(self, adventure_app: CepheusApp):
+        """The screen's _make_summary_generator closure flows the adapter's
+        summarize_chapter output into state.chapter_summaries via
+        MissionEngine.resolve_mission (CHAP-1, R19, AE16)."""
+        from src.engine.mission import MissionEnding, MissionEngine
+
+        app = adventure_app
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+
+            llm_summary = "The crew turned the tables on the guild and walked away richer."
+
+            class MockAdapter:
+                llm_configured = True
+
+                def summarize_chapter(self, record, log_entries, view):
+                    return llm_summary
+
+                async def narrate_scene(self, *a, **kw):
+                    from src.llm.adapter import NarrationResult
+
+                    return NarrationResult(prose="LLM scene text", source="llm")
+
+            screen._adapter = MockAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0  # accept mission
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Bump the in-memory mission past the gate (resolve_mission flushes
+            # mission.to_dict() before validating, so the in-memory count is
+            # what the gate sees).
+            mission = screen._current_mission
+            mission.scenes_completed = mission.min_scenes
+            app.engine.state.active_mission["scenes_completed"] = mission.min_scenes
+
+            me = MissionEngine(app.engine, app.pack)
+            me.resolve_mission(
+                mission,
+                MissionEnding.SUCCESS,
+                [],
+                summary_generator=screen._make_summary_generator(),
+            )
+
+            assert app.engine.state.chapter_summaries
+            assert llm_summary in app.engine.state.chapter_summaries

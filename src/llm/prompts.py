@@ -233,3 +233,41 @@ def build_classification_prompt(
         f"INT, EDU, SOC).\n"
         f"- life_threatening: true if the action involves mortal combat."
     )
+
+
+def build_chapter_summary_prompt(
+    mission_record: dict,
+    log_entries: list[str],
+    view: CuratedView,
+) -> str:
+    """Build the user-turn prompt for an LLM chapter summary (R19, AE16).
+
+    The summary must be faithful prose — no dice notation, modifiers, raw stat
+    names, or target numbers (the engine's :class:`SummaryValidator` enforces
+    this and falls back to the template on violation).
+    """
+    view_json = json.dumps(view.model_dump(), indent=2)
+    beats = "\n".join(f"  - {line}" for line in log_entries[-6:])
+    hook = mission_record.get("hook", {})
+    if isinstance(hook, dict):
+        hook_text = hook.get("objective") or hook.get("description") or "an unknown job"
+    else:
+        hook_text = str(hook) if hook else "an unknown job"
+    ending = mission_record.get("ending", "unknown")
+    scenes = mission_record.get("scenes_completed", 0)
+
+    return (
+        f"## Character & Campaign State\n"
+        f"{view_json}\n\n"
+        f"## Completed Mission\n"
+        f"Objective: {hook_text}\n"
+        f"Scenes played: {scenes}\n"
+        f"Ending: {ending}\n\n"
+        f"## Recent Narrative Log\n"
+        f"{beats}\n\n"
+        f"Write a concise chapter summary (2-4 sentences, past tense, "
+        f"second person) of how this mission went for the character. "
+        f"Reference named people, places, and outcomes consistently with the "
+        f"state above. Do NOT mention dice, rolls, modifiers, stats, target "
+        f"numbers, or any game mechanics — write as if recounting a story."
+    )

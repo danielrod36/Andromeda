@@ -866,3 +866,84 @@ class TestChapterSummaryOnResolve:
         assert "command_type" not in raw
         assert "scene_check" not in raw
         assert "resolve_mission" not in raw
+
+
+# ---------------------------------------------------------------------------
+# CHAP-1: LLM chapter summaries. resolve_mission accepts an injected
+# summary_generator (sync callable); when it returns a valid summary, that
+# lands in state.chapter_summaries instead of the deterministic template.
+# Mirrors the classify_freetext(llm_classifier=...) injection pattern.
+# ---------------------------------------------------------------------------
+
+
+class TestChapterSummaryInjection:
+    """An injected summary generator produces the chapter summary (R19, AE16)."""
+
+    def test_summary_generator_used_when_provided(self, pack):
+        """A provided summary_generator's output replaces the template."""
+        engine = make_engine([[3, 4], [5, 5], [3, 3], [4, 4]])
+        me = MissionEngine(engine, pack)
+        mission = me.accept_mission(me.generate_hook())
+        meet_min_scenes(engine, mission)
+
+        def gen(record, log_entries):
+            return "The Vega cargo run ended with the crew richer and a step ahead of the guild."
+
+        me.resolve_mission(mission, MissionEnding.SUCCESS, summary_generator=gen)
+
+        assert engine.state.chapter_summaries
+        assert engine.state.chapter_summaries[-1] == (
+            "The Vega cargo run ended with the crew richer and a step ahead of the guild."
+        )
+
+    def test_template_fallback_when_generator_returns_none(self, pack):
+        """When the generator signals LLM failure (None), the template ships."""
+        engine = make_engine([[3, 4], [5, 5], [3, 3], [4, 4]])
+        me = MissionEngine(engine, pack)
+        mission = me.accept_mission(me.generate_hook())
+        meet_min_scenes(engine, mission)
+
+        def gen(record, log_entries):
+            return None  # LLM unavailable / failed
+
+        me.resolve_mission(mission, MissionEnding.SUCCESS, summary_generator=gen)
+
+        # Template summary always mentions the mission and the ending.
+        assert engine.state.chapter_summaries
+        assert "success" in engine.state.chapter_summaries[-1].lower()
+
+    def test_invalid_llm_summary_falls_back_to_template(self, pack):
+        """An LLM summary that fails mechanical-claim validation is rejected;
+        the safe template ships instead (R19 validation gate)."""
+        engine = make_engine([[3, 4], [5, 5], [3, 3], [4, 4]])
+        me = MissionEngine(engine, pack)
+        mission = me.accept_mission(me.generate_hook())
+        meet_min_scenes(engine, mission)
+
+        def gen(record, log_entries):
+            # Leaks mechanical claims — must be rejected by the validator.
+            return "The crew rolled 2d6+3 vs 8 for a strong hit (DM +2)."
+
+        me.resolve_mission(mission, MissionEnding.SUCCESS, summary_generator=gen)
+
+        summary = engine.state.chapter_summaries[-1]
+        # The invalid LLM text must NOT have shipped; the template did.
+        assert "2d6" not in summary.lower()
+        assert "vs 8" not in summary.lower()
+
+    def test_template_fallback_when_generator_raises(self, pack):
+        """When the generator raises an exception, the engine catches it and
+        ships the template summary (mission resolution never crashes)."""
+        engine = make_engine([[3, 4], [5, 5], [3, 3], [4, 4]])
+        me = MissionEngine(engine, pack)
+        mission = me.accept_mission(me.generate_hook())
+        meet_min_scenes(engine, mission)
+
+        def gen(record, log_entries):
+            raise RuntimeError("provider timeout")
+
+        me.resolve_mission(mission, MissionEnding.SUCCESS, summary_generator=gen)
+
+        # Template summary always mentions the mission and the ending.
+        assert engine.state.chapter_summaries
+        assert "success" in engine.state.chapter_summaries[-1].lower()
