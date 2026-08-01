@@ -201,6 +201,26 @@ def _disposition_label(value: int) -> str:
     return "neutral"
 
 
+def _mission_summary(active_mission: dict | None) -> str | None:
+    """Render ``state.active_mission`` as a human-readable string (LLM-1, R2).
+
+    ``Mission.to_dict()`` stores the hook as a nested dict; the curated view's
+    ``active_mission`` field is ``str | None``. Passing the raw dict raised a
+    Pydantic ValidationError whenever a mission was active — silently killing
+    all adventure LLM narration and free-text classification. Build a concise
+    "patron — objective" summary (falling back to the description) so the view
+    stays string-typed.
+    """
+    if not active_mission:
+        return None
+    hook = active_mission.get("hook") or {}
+    if isinstance(hook, dict):
+        parts = [hook.get("patron"), hook.get("objective")]
+        summary = " — ".join(p for p in parts if p)
+        return summary or hook.get("description") or None
+    return str(hook) if hook else None
+
+
 def build_curated_view_for_scene(
     state: GameState,
     scaffold_texts: list[str],
@@ -243,7 +263,7 @@ def build_curated_view_for_scene(
                 )
             )
 
-    active = state.active_mission.get("hook") if state.active_mission else None
+    active = _mission_summary(state.active_mission)
     return build_curated_view(
         state,
         scene_npcs=npc_summaries,
