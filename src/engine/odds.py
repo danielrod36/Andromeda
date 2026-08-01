@@ -182,8 +182,6 @@ def format_odds_line(odds: CheckOdds) -> str:
     untrained = " (untrained)" if not odds.trained else ""
 
     if odds.profile == "classic":
-        from src.rulesets.profiles import RESOLUTION_TARGET
-
         pct = _pct(odds.success_probability)
         return f"{dm} vs {RESOLUTION_TARGET} · {pct}% {band_label(odds.success_probability)}{untrained}"
 

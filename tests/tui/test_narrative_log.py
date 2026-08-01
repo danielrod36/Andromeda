@@ -25,14 +25,18 @@ def test_add_rewind_divider_emits_prominent_marker():
     removed narration (divider line "rewound to scene start") before restoring.'
     A dim add_separator is too subtle — the rewind must read as a hard boundary.
     """
+    from src.tui.widgets.narrative_log import rewind_divider_text
+
     log = NarrativeLogWidget()
     log.add_rewind_divider("scene start")
     assert len(log.captured_lines) == 1
     line = log.captured_lines[0]
     assert "rewound" in line.lower()
     assert "scene start" in line.lower()
-    # Prominent (amber/yellow), not the dim separator styling.
-    assert "yellow" in line
+    # captured_lines now holds plain source text (no markup); the prominent
+    # amber/yellow styling is verified on the rendered markup instead.
+    assert "yellow" not in line
+    assert "yellow" in rewind_divider_text()
 
 
 def test_add_rewind_divider_default_label():
@@ -64,3 +68,21 @@ def test_add_engine_receipt_captures_source_not_markup():
     log = NarrativeLogWidget()
     log.add_engine_receipt("2D6 [4,2] = 6 vs 8 — Failure")
     assert log.captured_lines == ["2D6 [4,2] = 6 vs 8 — Failure"]
+
+
+def test_rewind_divider_text_is_bold_and_yellow():
+    """The styling helper wraps the rewind boundary in bold + amber styling."""
+    from src.tui.widgets.narrative_log import rewind_divider_text
+
+    out = rewind_divider_text("scene start")
+    assert "REWOUND TO SCENE START" in out  # source preserved
+    assert "bold" in out  # visually distinct from prose
+    assert "yellow" in out  # amber, not the dim separator styling
+    assert out.startswith("[bold")
+
+
+def test_add_rewind_divider_captures_source_not_markup():
+    """The widget method writes styled output but captures the source string."""
+    log = NarrativeLogWidget()
+    log.add_rewind_divider("scene start")
+    assert log.captured_lines == ["REWOUND TO SCENE START"]

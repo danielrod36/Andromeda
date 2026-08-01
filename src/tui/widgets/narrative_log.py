@@ -28,6 +28,16 @@ def engine_receipt_text(text: str) -> str:
     return f"[bold cyan]⚙ {text}[/bold cyan]"
 
 
+def rewind_divider_text(label: str = "scene start") -> str:
+    """Wrap a rewind boundary in prominent provenance styling.
+
+    Returns Rich markup. The divider reads as a hard state boundary, not a
+    soft visual break (mirrors :func:`engine_receipt_text` so styling is
+    separable from the captured source text).
+    """
+    return f"[bold yellow]══ REWOUND TO {label.upper()} ══[/bold yellow]"
+
+
 class NarrativeLogWidget(RichLog):
     """Scrolling narrative log panel.
 
@@ -96,10 +106,13 @@ class NarrativeLogWidget(RichLog):
         below from the replayed scene. Plan interstitial decision: show a rewind
         notice marking removed narration ("rewound to scene start") before
         restoring.
+
+        The source text (not the markup) is captured into
+        :attr:`captured_lines` for scrollback integrity and assertions, matching
+        :meth:`add_engine_receipt`.
         """
-        text = f"[bold yellow]══ REWOUND TO {label.upper()} ══[/bold yellow]"
-        self.captured_lines.append(text)
-        self.write(text)
+        self.captured_lines.append(f"REWOUND TO {label.upper()}")
+        self.write(rewind_divider_text(label))
 
     def add_section(self, title: str) -> None:
         """Add a section header."""
