@@ -111,8 +111,9 @@ async def config_submit(request: Request) -> HTMLResponse | RedirectResponse:
     else:
         seed = secrets.randbelow(2**31)
 
-    # Validate theme pack against installed packs.
-    valid_packs = set(discover_packs().keys())
+    # Validate theme pack against installed packs.  "scifi" is always valid —
+    # it's the bundled fallback when discover_packs() finds nothing.
+    valid_packs = set(discover_packs().keys()) | {"scifi"}
     if theme_pack not in valid_packs:
         errors["theme_pack"] = f"Unknown theme pack: {theme_pack}."
 
