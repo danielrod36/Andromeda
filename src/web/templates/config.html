@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Andromeda — New Campaign</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main id="spine">
+    <h1>New Campaign</h1>
+    <form method="post" action="/config">
+      <p>
+        <label for="name">Character Name</label>
+        <input type="text" id="name" name="name" value="{{ name }}" required>
+        {% if errors.name %}<span class="error">{{ errors.name }}</span>{% endif %}
+      </p>
+      <p>
+        <label for="seed">Seed (optional — leave blank for random)</label>
+        <input type="text" id="seed" name="seed" value="{{ seed }}">
+        {% if errors.seed %}<span class="error">{{ errors.seed }}</span>{% endif %}
+      </p>
+      <p>
+        <label for="theme_pack">Theme Pack</label>
+        <select id="theme_pack" name="theme_pack">
+          {% for pid, pname in packs %}
+          <option value="{{ pid }}" {% if theme_pack == pid %}selected{% endif %}>{{ pname }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.theme_pack %}<span class="error">{{ errors.theme_pack }}</span>{% endif %}
+      </p>
+      <p>
+        <label for="resolution_profile">Resolution Profile</label>
+        <select id="resolution_profile" name="resolution_profile">
+          <option value="narrative" {% if resolution_profile == "narrative" %}selected{% endif %}>Narrative (PbtA-style)</option>
+          <option value="classic" {% if resolution_profile == "classic" %}selected{% endif %}>Classic (Success/Failure)</option>
+        </select>
+      </p>
+      <p>
+        <label for="death_mode">Death Mode</label>
+        <select id="death_mode" name="death_mode">
+          <option value="narrative" {% if death_mode == "narrative" %}selected{% endif %}>Narrative (injuries, no death)</option>
+          <option value="checkpoint" {% if death_mode == "checkpoint" %}selected{% endif %}>Checkpoint (rewind on death)</option>
+          <option value="ironman" {% if death_mode == "ironman" %}selected{% endif %}>Ironman (permanent death)</option>
+        </select>
+      </p>
+      <button type="submit">Begin Lifepath</button>
+      <a href="/menu">Cancel</a>
+    </form>
+  </main>
+</body>
+</html>
