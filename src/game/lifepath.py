@@ -24,7 +24,7 @@ import logging
 from src.engine.commands import Engine, SetFlagCommand
 from src.engine.lifepath import LifepathRunner
 from src.engine.state import GameState
-from src.game.views import PhaseView
+from src.game.views import ChoiceOption, PhaseView
 from src.themepacks.base import LoadedThemePack
 
 logger = logging.getLogger(__name__)
@@ -172,22 +172,234 @@ class LifepathController:
     # ------------------------------------------------------------------
 
     def get_phase_view(self) -> PhaseView:
-        """Build a PhaseView for the current phase.
+        """Build a PhaseView for the current phase (U7 enrichment).
 
-        This is a minimal implementation that returns the phase identifier
-        and prompt. Full choice/odds/receipt assembly is added in U7 (web
-        lifepath screens) when templates consume this layer.
+        Returns choices, receipts, and prompts for each phase. The web
+        shell renders these via Jinja templates; the TUI keeps its own
+        rendering frozen (KTD-3/KTD-8).
         """
         phase = self.determine_phase()
-        prompts = {
-            "roll_characteristics": "Roll your characteristic pool.",
-            "assign_characteristics": "Assign each rolled value to a characteristic.",
-            "choose_background_skills": "Pick your background skills.",
-            "choose_career": "Choose a career to qualify for.",
-            "run_survival": "Rolling survival...",
-            "complete": "Lifepath complete.",
-        }
+        state = self._engine.state
+        char = state.character
+
+        if phase == "roll_characteristics":
+            return PhaseView(
+                phase=phase,
+                prompt="Roll six 2D6 values for your characteristics.",
+                choices=[ChoiceOption(label="Roll Pool", option_id="roll_pool")],
+            )
+
+        if phase == "assign_characteristics":
+            pool = char.unassigned_rolls
+            assigned = set(char.characteristics.keys())
+            stats = ["STR", "DEX", "END", "INT", "EDU", "SOC"]
+            unassigned_stats = [s for s in stats if s not in assigned]
+            choices = []
+            for i, val in enumerate(pool):
+                stat = unassigned_stats[i] if i < len(unassigned_stats) else f"slot_{i}"
+                choices.append(
+                    ChoiceOption(
+                        label=f"Assign {val} to {stat}",
+                        option_id=f"assign:{i}:{stat}",
+                    )
+                )
+            return PhaseView(
+                phase=phase,
+                prompt=f"Assign pool values: {list(pool)}",
+                choices=choices,
+                drawer_pinned=True,
+            )
+
+        if phase == "choose_background_skills":
+            picks_left = (
+                char.background_picks_remaining if char.background_picks_remaining > 0 else 3
+            )
+            bg_skills = (
+                list(self._pack.background_skills[:6]) if self._pack.background_skills else []
+            )
+            choices = [
+                ChoiceOption(label=f"{s} (level 0)", option_id=f"bg_skill:{s}")
+                for s in bg_skills[:6]
+            ]
+            return PhaseView(
+                phase=phase,
+                prompt=f"Pick {picks_left} background skills (level 0).",
+                choices=choices,
+                drawer_pinned=True,
+            )
+
+        if phase == "choose_career":
+            careers = list(self._pack.careers.values())[:8]
+            choices = [
+                ChoiceOption(
+                    label=f"{c.name}",
+                    option_id=f"career:{c.id}",
+                    description=c.description[:80] + "..."
+                    if len(c.description) > 80
+                    else c.description,
+                )
+                for c in careers
+            ]
+            return PhaseView(
+                phase=phase,
+                prompt="Choose a career to qualify for.",
+                choices=choices,
+            )
+
+        if phase == "run_survival":
+            career_id = char.career
+            term_number = char.terms + 1
+            result = self._runner.start_term(career_id, term_number)
+            self._runner.run_survival_step(career_id, result)
+            receipts = [f"Survival: {'passed' if result.survival_success else 'failed'}"]
+            if not result.survival_success and result.died:
+                return PhaseView(
+                    phase="complete",
+                    prompt="The character did not survive.",
+                    receipts=receipts,
+                )
+            self._set_term_phase("choose_commission")
+            return PhaseView(
+                phase="choose_commission",
+                prompt=f"Term {term_number} — Survival passed.",
+                receipts=receipts,
+                choices=[
+                    ChoiceOption(label="Continue term", option_id="auto_term"),
+                ],
+            )
+
+        if phase == "complete":
+            return PhaseView(
+                phase="complete",
+                prompt=f"Lifepath complete. Character: {char.name}, Career: {char.career}, Terms: {char.terms}.",
+                choices=[ChoiceOption(label="Begin Adventure", option_id="begin_adventure")]
+                if char.alive and "mustered_out=true" in state.narrative_log
+                else [],
+            )
+
+        # Fallback: auto-advance term phases that don't need explicit UI.
+        if phase in TERM_PHASES:
+            return PhaseView(
+                phase=phase,
+                prompt=f"Processing: {phase.replace('_', ' ')}...",
+                choices=[ChoiceOption(label="Continue", option_id="auto_advance")],
+            )
+
         return PhaseView(
             phase=phase,
-            prompt=prompts.get(phase, phase.replace("_", " ").title()),
+            prompt=phase.replace("_", " ").title(),
         )
+
+    # ------------------------------------------------------------------
+    # Choice application — routes a choice to the appropriate step (U7).
+    # ------------------------------------------------------------------
+
+    def apply_choice(self, option_id: str) -> PhaseView:
+        """Apply a player's choice and return the next PhaseView (U7).
+
+        Routes the ``option_id`` to the appropriate LifepathRunner method.
+        Sets term_phase flags via SetFlagCommand (KTD-3 byte-identical).
+        After applying, returns the updated PhaseView.
+        """
+        state = self._engine.state
+        char = state.character
+
+        if option_id == "roll_pool":
+            self._runner.roll_pool()
+            return self.get_phase_view()
+
+        if option_id.startswith("assign:"):
+            parts = option_id.split(":", 2)
+            pool_index = int(parts[1])
+            stat_name = parts[2] if len(parts) > 2 else ""
+            self._runner.assign_characteristic(stat_name, pool_index)
+            return self.get_phase_view()
+
+        if option_id.startswith("bg_skill:"):
+            skill = option_id.split(":", 1)[1]
+            # Apply the background skill pick.
+            if char.background_picks_remaining <= 0:
+                char.background_picks_remaining = 3
+            char.skills[skill] = 0
+            char.background_picks_remaining -= 1
+            if char.background_picks_remaining <= 0:
+                char.background_picks_remaining = 0
+            return self.get_phase_view()
+
+        if option_id.startswith("career:"):
+            career_id = option_id.split(":", 1)[1]
+            qual = self._runner.qualify(career_id)
+            if qual.success:
+                self._runner.run_basic_training(career_id)
+            return self.get_phase_view()
+
+        if option_id == "auto_term" or option_id == "auto_advance":
+            return self._auto_advance_term()
+
+        if option_id == "begin_adventure":
+            return self.get_phase_view()
+
+        # Unknown choice — return current view unchanged.
+        return self.get_phase_view()
+
+    def _auto_advance_term(self) -> PhaseView:
+        """Auto-resolve the current term sub-phase and advance (U7).
+
+        For the web MVP, mechanical sub-phases (commission, advancement,
+        skills, aging) are auto-resolved. The player faces an explicit
+        choice only at re-enlist (continue vs muster out).
+        """
+        phase = self.determine_phase()
+        state = self._engine.state
+        char = state.character
+        career_id = char.career
+
+        if phase == "choose_commission":
+            # Skip commission (optional) and advancement.
+            self._set_term_phase("choose_advancement")
+            return self.get_phase_view()
+
+        if phase == "choose_advancement":
+            # Auto-pick first skill table and run advancement.
+            result = getattr(self, "_current_term_result", None)
+            if result is None:
+                # Reconstruct or start fresh — for MVP, just advance.
+                self._set_term_phase("choose_skills")
+                return self.get_phase_view()
+            self._runner.run_advancement_step(career_id, result)
+            self._set_term_phase("choose_skills")
+            return self.get_phase_view()
+
+        if phase == "choose_skills":
+            # Auto-resolve skills and advance to aging.
+            self._set_term_phase("run_aging")
+            return self.get_phase_view()
+
+        if phase == "run_aging":
+            result = getattr(self, "_current_term_result", None)
+            if result:
+                self._runner.run_aging_step(result)
+            self._set_term_phase("re_enlist")
+            return self.get_phase_view()
+
+        if phase == "re_enlist":
+            # Present the re-enlist / muster-out choice.
+            return PhaseView(
+                phase="re_enlist",
+                prompt="Re-enlist for another term or muster out?",
+                choices=[
+                    ChoiceOption(label="Re-enlist", option_id="reenlist_continue"),
+                    ChoiceOption(label="Muster Out", option_id="reenlist_muster"),
+                ],
+            )
+
+        if phase == "muster_out" or phase == "muster_out_allocate":
+            # Complete mustering out.
+            self._runner.muster_out(career_id)
+            from src.engine.commands import SetFlagCommand
+
+            self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            return self.get_phase_view()
+
+        # Default: just re-determine phase.
+        return self.get_phase_view()
