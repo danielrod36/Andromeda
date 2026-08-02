@@ -7,7 +7,9 @@ the web layer never touches ``GameState`` directly outside ``Engine.apply``.
 Security contracts (U4):
 - Same-origin guard: rejects non-GET requests whose Origin/Referer host
   doesn't match the server, so browser-mediated cross-origin POSTs from
-  other open pages can't drive actions.
+  other open pages can't drive actions. The server's own host must also be
+  in an allowlist, blocking DNS-rebinding attacks where an attacker's
+  domain resolves to 127.0.0.1 and Origin/Host match each other.
 - Output-encoding: Jinja autoescape is enabled globally; ``|safe`` is only
   used on markdown that has been rendered server-side with markdown-it-py's
   secure defaults (raw HTML disabled).
@@ -16,6 +18,7 @@ Security contracts (U4):
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -35,10 +38,20 @@ class SameOriginGuard(BaseHTTPMiddleware):
     Browser Same-Origin Policy blocks *reading* cross-origin responses, but
     not *sending* cross-origin form POSTs. Without this guard, any website
     open in the player's browser could fire POSTs at the localhost server —
-    resolving checks, creating campaigns, or burning LLM quota. The guard
-    checks the Origin header (falling back to Referer) and rejects requests
-    whose host doesn't match the server's own host:port.
+    resolving checks, creating campaigns, or burning LLM quota.
+
+    Two checks:
+    1. The server's own host must be in ``_ALLOWED_HOSTS`` — blocks
+       DNS-rebinding attacks where an attacker's domain resolves to
+       127.0.0.1 and Origin/Host would match each other but both be
+       attacker-controlled.
+    2. The Origin header (falling back to Referer) must match the server's
+       host:port, so cross-origin pages can't POST.
     """
+
+    #: Hosts the server will accept. The web shell is single-player
+    #: localhost; any other host is suspicious (likely DNS rebinding).
+    _ALLOWED_HOSTS = frozenset({"127.0.0.1", "localhost"})
 
     async def dispatch(self, request: Request, call_next):
         if request.method == "GET":
@@ -47,6 +60,11 @@ class SameOriginGuard(BaseHTTPMiddleware):
         # Determine the server's own host:port.
         server_host = request.url.hostname or "127.0.0.1"
         server_port = request.url.port or (443 if request.url.scheme == "https" else 80)
+
+        # Block DNS-rebinding: if Host isn't localhost, reject even if
+        # Origin matches (both could be attacker-controlled).
+        if server_host not in self._ALLOWED_HOSTS:
+            return HTMLResponse("<h1>403 — Unexpected host</h1>", status_code=403)
 
         # Check Origin header first, then Referer.
         origin = request.headers.get("origin", "")
@@ -59,13 +77,11 @@ class SameOriginGuard(BaseHTTPMiddleware):
             # Origin: "http://127.0.0.1:8000" → "127.0.0.1:8000"
             # Referer: "http://127.0.0.1:8000/saves" → "127.0.0.1:8000"
             try:
-                from urllib.parse import urlparse
-
                 parsed = urlparse(header_val)
-                req_host = parsed.hostname or ""
-                req_port = parsed.port
-            except Exception:
+            except ValueError:
                 continue
+            req_host = parsed.hostname or ""
+            req_port = parsed.port
 
             if req_host != server_host:
                 # Different host — reject.

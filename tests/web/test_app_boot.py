@@ -11,7 +11,8 @@ from fastapi.testclient import TestClient
 def _get_client() -> TestClient:
     from src.web.app import create_app
 
-    return TestClient(create_app())
+    # Use 127.0.0.1 as base_url so requests pass the host allowlist.
+    return TestClient(create_app(), base_url="http://127.0.0.1")
 
 
 class TestAppBoot:
@@ -106,7 +107,7 @@ class TestSameOriginGuard:
             response = client.post(
                 "/",
                 data={"test": "value"},
-                headers={"Origin": "http://testserver"},
+                headers={"Origin": "http://127.0.0.1"},
             )
         # 405 is expected — there's no POST handler for / yet.
         # The point is we get past the guard (not 403).
@@ -133,3 +134,21 @@ class TestSameOriginGuard:
         with _get_client() as client:
             response = client.get("/")
         assert response.status_code == 200
+
+    def test_dns_rebinding_rejected(self):
+        """A POST whose Host and Origin match but aren't localhost is rejected.
+
+        Simulates a DNS-rebinding attack: an attacker's domain resolves to
+        127.0.0.1, so the browser treats the POST as same-origin. The guard
+        must still reject it because the Host isn't in the allowlist.
+        """
+        from src.web.app import create_app
+
+        client = TestClient(create_app(), base_url="http://evil.example.com")
+        with client:
+            response = client.post(
+                "/",
+                data={"test": "value"},
+                headers={"Origin": "http://evil.example.com"},
+            )
+        assert response.status_code == 403
