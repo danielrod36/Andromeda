@@ -84,11 +84,15 @@ Single JSON documents, atomic writes (temp file + `os.replace`). Schema versioni
 
 A Textual client over the engine. Screen flow: `MainMenu → CampaignConfig → Lifepath → Adventure`. The TUI calls `engine.apply(cmd)` through a `LifepathRunner` and auto-saves after every lifepath step. The engine package has **zero TUI imports** — keep it that way.
 
+### Web shell (`src/web/`)
+
+A FastAPI + Jinja + htmx + SSE web client over the engine (in development — U4+). Screen flow mirrors the TUI but renders HTML server-side. The web shell is single-player localhost (`127.0.0.1`); a same-origin guard middleware rejects cross-origin POSTs. Start with `uv run andromeda-web`. The engine package has **zero web imports** — keep it that way.
+
 ## Key Invariants (don't break these)
 
 1. **All mutations go through `Engine.apply`.** Direct `GameState` field writes break determinism, audit, and replay.
 2. **All randomness goes through a `Roller` on a named stream** — never `random` at module level.
-3. **The engine has no TUI or LLM imports** — it's a plain sync package. The TUI and LLM adapter are clients.
+3. **The engine has no TUI, web, or LLM imports** — it's a plain sync package. The TUI, web shell, and LLM adapter are clients.
 4. **The LLM only narrates** — its only state influence is through tool calls that route Commands through the funnel.
 5. **`GameState` must stay JSON-serializable** — every field round-trips through `model_dump_json` (note: RNG live instances are `PrivateAttr`, rebuilt from snapshots on load).
 

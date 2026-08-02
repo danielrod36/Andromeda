@@ -1,0 +1,138 @@
+/* Andromeda app styles (U4) — layout shell only.
+   Gameplay styling (receipts, dockets, pills, change-lines) arrives in later units.
+*/
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--ink);
+  color: var(--vellum);
+  font-family: var(--font-prose);
+  font-size: 18px;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Status strip — always visible */
+#status-strip {
+  height: var(--strip-height);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(201, 162, 39, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0 1rem;
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+  color: var(--haze);
+  flex-shrink: 0;
+}
+
+/* Main row: spine + drawer */
+#main-row {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Reading spine — 68ch centered prose stream */
+#spine {
+  flex: 1;
+  max-width: var(--spine-width);
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  overflow-y: auto;
+}
+
+/* Drawer — hidden by default, pinned during lifepath */
+#drawer {
+  width: 28rem;
+  border-left: 1px solid rgba(201, 162, 39, 0.15);
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+#drawer[hidden] { display: none; }
+
+.drawer-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.drawer-tabs button {
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+  background: none;
+  border: none;
+  color: var(--haze);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 2px solid transparent;
+}
+
+.drawer-tabs button:hover { color: var(--vellum); }
+.drawer-tabs button.active { border-bottom-color: var(--brass); color: var(--vellum); }
+
+/* Choice dock */
+#choice-dock {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(201, 162, 39, 0.15);
+  flex-shrink: 0;
+}
+
+/* Free-text bar */
+#freetext-bar {
+  padding: 0.5rem 1rem;
+  border-top: 1px solid rgba(201, 162, 39, 0.1);
+  flex-shrink: 0;
+}
+
+#freetext-bar input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--vellum);
+  font-family: var(--font-prose);
+  font-size: 1rem;
+}
+
+#freetext-bar input:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
+/* Placeholder text */
+.placeholder {
+  color: var(--haze);
+  font-style: italic;
+}
+
+/* Responsive: narrow viewport — overlay drawer */
+@media (max-width: 900px) {
+  #drawer:not([hidden]) {
+    position: fixed;
+    right: 0;
+    top: var(--strip-height);
+    bottom: 0;
+    width: 100%;
+    max-width: 28rem;
+    background: var(--ink);
+    z-index: 10;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* Visible keyboard focus */
+*:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
