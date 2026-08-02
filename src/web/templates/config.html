@@ -24,8 +24,9 @@
       <p>
         <label for="theme_pack">Theme Pack</label>
         <select id="theme_pack" name="theme_pack">
-          <option value="scifi" {% if theme_pack == "scifi" %}selected{% endif %}>Sci-Fi</option>
-          <option value="fantasy" {% if theme_pack == "fantasy" %}selected{% endif %}>Fantasy</option>
+          {% for pid, pname in packs %}
+          <option value="{{ pid }}" {% if theme_pack == pid %}selected{% endif %}>{{ pname }}</option>
+          {% endfor %}
         </select>
         {% if errors.theme_pack %}<span class="error">{{ errors.theme_pack }}</span>{% endif %}
       </p>

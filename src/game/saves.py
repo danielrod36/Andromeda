@@ -1,18 +1,20 @@
-"""Save discovery, naming, and resume routing — shared by both shells (U6).
+"""Save discovery, naming, and resume routing — shared save utilities (U6).
 
-Hoisted from src/tui/app.py so the web shell and TUI use one implementation
-(no drift against R11). The TUI is refactored to consume these functions
-(KTD-8 freeze exception).
+Hoisted from src/tui/app.py so the web shell has a single implementation of
+save discovery, filename sanitization, and the resume phase predicate. The
+TUI retains its own copies for now; adopting these functions across both
+shells is a follow-up task (R11 drift-prevention).
 """
 
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-logger = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from src.engine.state import GameState
 
 
 @dataclass
@@ -109,7 +111,7 @@ def discover_saves(saves_dir: str | Path) -> list[SaveInfo]:
 # ---------------------------------------------------------------------------
 
 
-def determine_resume_route(state) -> str:
+def determine_resume_route(state: GameState) -> str:
     """Determine which web route a saved game should resume into (U6).
 
     This is the web-shell resume predicate — it replaces the TUI's
@@ -140,7 +142,8 @@ def determine_resume_route(state) -> str:
         return "freetext_prompt"
 
     # Mid-lifepath: characteristics not assigned, or no career yet, or
-    # term flags present without mustering out.
+    # term flags present without mustering out.  The six Cepheus stats are
+    # STR, DEX, END, INT, EDU, SOC.
     if len(char.characteristics) < 6:
         return "lifepath"
     if not char.career:

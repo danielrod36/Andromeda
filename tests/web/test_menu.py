@@ -2,21 +2,33 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 
-def _get_client(saves_dir: Path | None = None) -> TestClient:
-    """Create a test client with an isolated saves directory."""
+@contextmanager
+def _get_client(saves_dir: Path | None = None) -> Iterator[TestClient]:
+    """Create a test client with an isolated saves directory.
+
+    Restores ``DEFAULT_SAVES_DIR`` on exit so tests can't leak paths into
+    later tests that call this helper without an explicit ``saves_dir``.
+    """
     from src.web.app import create_app
     from src.web.routes import menu as menu_module
 
+    original = menu_module.DEFAULT_SAVES_DIR
     if saves_dir is not None:
         menu_module.DEFAULT_SAVES_DIR = saves_dir
         saves_dir.mkdir(parents=True, exist_ok=True)
 
-    return TestClient(create_app(), base_url="http://127.0.0.1")
+    try:
+        with TestClient(create_app(), base_url="http://127.0.0.1") as client:
+            yield client
+    finally:
+        menu_module.DEFAULT_SAVES_DIR = original
 
 
 class TestMainMenu:
@@ -103,6 +115,54 @@ class TestCampaignConfig:
             )
         assert response.status_code == 200
         assert "number" in response.text.lower() or "error" in response.text.lower()
+
+    def test_config_post_invalid_theme_pack_rerenders(self, tmp_path: Path):
+        """Unknown theme pack re-renders the form with an error."""
+        with _get_client(tmp_path / "saves") as client:
+            response = client.post(
+                "/config",
+                data={"name": "Hero", "theme_pack": "nonexistent"},
+                headers={"Origin": "http://127.0.0.1"},
+            )
+        assert response.status_code == 200
+        assert "theme pack" in response.text.lower()
+
+    def test_config_post_invalid_resolution_profile_rerenders(self, tmp_path: Path):
+        """Unknown resolution profile re-renders the form with an error."""
+        with _get_client(tmp_path / "saves") as client:
+            response = client.post(
+                "/config",
+                data={"name": "Hero", "resolution_profile": "bogus"},
+                headers={"Origin": "http://127.0.0.1"},
+            )
+        assert response.status_code == 200
+        assert "resolution profile" in response.text.lower()
+
+    def test_config_post_invalid_death_mode_rerenders(self, tmp_path: Path):
+        """Unknown death mode re-renders the form with an error."""
+        with _get_client(tmp_path / "saves") as client:
+            response = client.post(
+                "/config",
+                data={"name": "Hero", "death_mode": "bogus"},
+                headers={"Origin": "http://127.0.0.1"},
+            )
+        assert response.status_code == 200
+        assert "death mode" in response.text.lower()
+
+    def test_config_post_name_with_spaces_sanitized(self, tmp_path: Path):
+        """A name with spaces is sanitized to underscores in the save filename."""
+        saves_dir = tmp_path / "saves"
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/config",
+                data={"name": "Han Solo", "seed": "42"},
+                headers={"Origin": "http://127.0.0.1"},
+                follow_redirects=False,
+            )
+        assert response.status_code == 303
+        # Filename should use underscores, not spaces.
+        assert (saves_dir / "Han_Solo.json").exists()
+        assert not (saves_dir / "Han Solo.json").exists()
 
 
 class TestSavesList:
@@ -229,6 +289,63 @@ class TestResumeRouting:
             )
         assert response.status_code == 303
         assert "/play/" in response.headers.get("location", "")
+
+    def test_resume_mustered_out_routes_to_adventure(self, tmp_path: Path):
+        """A mustered-out character with full characteristics routes to adventure."""
+        from src.engine.persistence import save
+        from src.engine.state import CampaignConfig, GameState
+
+        state = GameState.new(seed=42)
+        state.campaign = CampaignConfig()
+        state.character.name = "Veteran"
+        state.character.alive = True
+        state.character.career = "navy"
+        state.character.characteristics = {
+            "STR": 7,
+            "DEX": 6,
+            "END": 5,
+            "INT": 8,
+            "EDU": 9,
+            "SOC": 6,
+        }
+        state.narrative_log.append("mustered_out=true")
+        saves_dir = tmp_path / "saves"
+        saves_dir.mkdir(parents=True, exist_ok=True)
+        save(state, saves_dir / "Veteran.json")
+
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/resume",
+                data={"save": "Veteran"},
+                headers={"Origin": "http://127.0.0.1"},
+                follow_redirects=False,
+            )
+        assert response.status_code == 303
+        assert "/adventure/" in response.headers.get("location", "")
+
+    def test_resume_nonexistent_save_redirects_to_saves(self, tmp_path: Path):
+        """A nonexistent save name redirects back to the saves list."""
+        with _get_client(tmp_path / "saves") as client:
+            response = client.post(
+                "/resume",
+                data={"save": "Ghost"},
+                headers={"Origin": "http://127.0.0.1"},
+                follow_redirects=False,
+            )
+        assert response.status_code == 303
+        assert "/saves" in response.headers.get("location", "")
+
+    def test_resume_empty_save_redirects_to_saves(self, tmp_path: Path):
+        """An empty save field redirects back to the saves list."""
+        with _get_client(tmp_path / "saves") as client:
+            response = client.post(
+                "/resume",
+                data={"save": ""},
+                headers={"Origin": "http://127.0.0.1"},
+                follow_redirects=False,
+            )
+        assert response.status_code == 303
+        assert "/saves" in response.headers.get("location", "")
 
 
 class TestPathTraversalProtection:
