@@ -142,12 +142,15 @@ class LifepathScreen(Screen):
     LifepathScreen.narrow.show-sheet #main-area { layout: vertical; }
     LifepathScreen.short #choice-menu { height: 6; }
     LifepathScreen.short #status-bar { height: 1; }
+    /* U1/TUI-5: dimmed inputs while a worker is in flight. */
+    LifepathScreen.busy #choice-menu { opacity: 0.5; }
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("tab", "focus_next", "Next panel"),
         Binding("shift+tab", "focus_previous", "Prev panel"),
         Binding("c", "toggle_sheet", "Char sheet"),
+        Binding("escape", "cancel_generation", "Cancel", show=True),
         Binding("pageup", "scroll_log_up", "Log up", show=False),
         Binding("pagedown", "scroll_log_down", "Log down", show=False),
         Binding("home", "scroll_log_home", "Log top", show=False),
@@ -156,6 +159,10 @@ class LifepathScreen(Screen):
 
     #: always_update ensures choices refresh even when phase string is unchanged.
     phase = reactive("init", always_update=True)
+    #: True while a narration worker is in flight — input locked (U1/TUI-5).
+    _busy = reactive(False)
+    #: Current LLM attempt number for the generating indicator (U1/TUI-5).
+    _narration_attempt = reactive(0)
     _mounted = False
 
     def __init__(self) -> None:
@@ -451,6 +458,34 @@ class LifepathScreen(Screen):
         """Refresh the choice menu when phase changes."""
         self._update_choices()
 
+    def watch__busy(self, busy: bool) -> None:
+        """Toggle dimmed visual state when busy flag changes (U1/TUI-5)."""
+        if busy:
+            self.add_class("busy")
+        else:
+            self.remove_class("busy")
+            self._narration_attempt = 0
+
+    def watch__narration_attempt(self, attempt: int) -> None:
+        """Update the status bar with the attempt counter (U1/TUI-5)."""
+        if self._busy and attempt > 0:
+            bar = self.query_one("#status-bar", Label)
+            bar.update(f"[yellow]Generating narration… attempt {attempt}[/yellow]")
+
+    #: Active worker reference for Esc cancellation (U1/TUI-5).
+    _active_worker = None
+
+    def action_cancel_generation(self) -> None:
+        """Cancel an in-flight narration worker (U1/TUI-5).
+
+        Esc aborts the active LLM call. The worker's exception handler
+        supplies template fallback prose. The engine outcome was already
+        locked before narration started, so cancellation never alters
+        mechanics.
+        """
+        if self._active_worker is not None and self._active_worker.is_running:
+            self._active_worker.cancel()
+
     # ------------------------------------------------------------------
     # Choice management.
     # ------------------------------------------------------------------
@@ -687,6 +722,8 @@ class LifepathScreen(Screen):
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Dispatch choice selection to the appropriate step handler."""
+        if self._busy:
+            return  # Input locked during narration (U1/TUI-5).
         option_id = event.option.id
         if option_id is None:
             return
@@ -2008,9 +2045,11 @@ class LifepathScreen(Screen):
         # LLM narration — async via worker.
         cm = self.query_one(ChoiceMenuWidget)
         cm.clear_choices()
+        self._busy = True  # U1/TUI-5: input lock.
+        self._narration_attempt = 0
         self._narrate("[dim]Generating narration...[/dim]")
 
-        self.run_worker(
+        self._active_worker = self.run_worker(
             self._narrate_with_llm(narration_type, result_obj, template_fn, on_complete)
         )
 
@@ -2021,9 +2060,16 @@ class LifepathScreen(Screen):
         template_fn,
         on_complete=None,
     ) -> None:
-        """Worker: fetch LLM narration, display it, then call on_complete."""
+        """Worker: fetch LLM narration, display it, then call on_complete.
+
+        U1/TUI-5: passes an ``on_attempt`` callback so the generating
+        indicator reflects the current attempt number. The busy flag is
+        cleared in the ``finally`` block.
+        """
         # Guard against the screen being disposed while the worker runs.
         if not self._mounted or self.app.engine is None:
+            self._busy = False
+            self._active_worker = None
             if on_complete:
                 on_complete()
             return
@@ -2041,17 +2087,26 @@ class LifepathScreen(Screen):
             state = self.app.engine.state
             engine = self.app.engine
 
+            def attempt_cb(k: int) -> None:
+                self._narration_attempt = k
+
             if narration_type == "qualification":
-                nar = await adapter.narrate_qualification(state, engine, result_obj)
+                nar = await adapter.narrate_qualification(
+                    state, engine, result_obj, on_attempt=attempt_cb
+                )
             elif narration_type == "term":
-                nar = await adapter.narrate_term(state, engine, result_obj)
+                nar = await adapter.narrate_term(state, engine, result_obj, on_attempt=attempt_cb)
             elif narration_type == "mustering_out":
-                nar = await adapter.narrate_mustering_out(state, engine, result_obj)
+                nar = await adapter.narrate_mustering_out(
+                    state, engine, result_obj, on_attempt=attempt_cb
+                )
             elif narration_type == "lifepath_summary":
                 # Build a LifepathResult from the event log for the summary.
                 lifepath = self._build_lifepath_result_for_summary()
                 if lifepath:
-                    nar = await adapter.narrate_lifepath(state, engine, lifepath)
+                    nar = await adapter.narrate_lifepath(
+                        state, engine, lifepath, on_attempt=attempt_cb
+                    )
                 else:
                     nar = None
             else:
@@ -2062,6 +2117,8 @@ class LifepathScreen(Screen):
                 if nar.llm_failed:
                     self._narrate("[dim](LLM failed — template fallback)[/dim]")
                     self._update_status_bar(nar.failure_kind)
+                else:
+                    self._update_status_bar()
             else:
                 prose = template_fn()
                 if prose:
@@ -2073,6 +2130,8 @@ class LifepathScreen(Screen):
             if prose:
                 self._narrate_paragraph(prose)
         finally:
+            self._busy = False
+            self._active_worker = None
             if on_complete:
                 on_complete()
 

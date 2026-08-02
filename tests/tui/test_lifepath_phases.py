@@ -1919,3 +1919,77 @@ def test_career_choice_description_not_truncated():
     assert long_description in desc
     assert "Qualify: INT target 6" in desc
     assert "Survival: END target 5" in desc
+
+
+# ---------------------------------------------------------------------------
+# U1 / TUI-5: Input lock during lifepath narration.
+# ---------------------------------------------------------------------------
+
+
+class TestLifepathInputLock:
+    """U1/TUI-5: inputs are locked during lifepath term narration."""
+
+    async def test_input_locked_during_term_narration(self, seeded_app):
+        """Same locking as adventure: option selection ignored during narration.
+
+        Configures a slow mock adapter so the narration worker stays in flight
+        while the test verifies the busy flag and input guard.
+        """
+        import asyncio
+
+        from src.llm.adapter import NarrationResult
+        from src.tui.settings import LLMSettings
+
+        app = seeded_app
+        # Configure LLM so the worker path is taken.
+        app.llm_settings = LLMSettings(
+            provider="anthropic", model="claude-sonnet-5", api_key="fake-key"
+        )
+
+        narration_started = asyncio.Event()
+
+        class SlowAdapter:
+            async def narrate_qualification(self, state, engine, result_obj, *, on_attempt=None):
+                if on_attempt:
+                    on_attempt(1)
+                narration_started.set()
+                await asyncio.sleep(0.3)
+                return NarrationResult(prose="LLM qualification text.", source="llm")
+
+            async def narrate_term(self, state, engine, result_obj, *, on_attempt=None):
+                if on_attempt:
+                    on_attempt(1)
+                narration_started.set()
+                await asyncio.sleep(0.3)
+                return NarrationResult(prose="LLM term text.", source="llm")
+
+            async def narrate_mustering_out(self, *a, **kw):
+                return NarrationResult(prose="LLM mustering text.", source="llm")
+
+            async def narrate_lifepath(self, *a, **kw):
+                return NarrationResult(prose="LLM summary text.", source="llm")
+
+        app.create_llm_adapter = lambda: SlowAdapter()
+
+        async with app.run_test() as pilot:
+            screen = await push_lifepath(app, pilot)
+            await play_through_characteristics(app, pilot)
+            await select_first(app, pilot)  # choose career
+
+            # Qualification narration worker starts.
+            await asyncio.wait_for(narration_started.wait(), timeout=2)
+            await pilot.pause()
+
+            # While busy, selecting should be ignored.
+            assert screen._busy is True
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            phase_before = screen.phase
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            assert screen.phase == phase_before  # No phase change.
+
+            # Wait for narration to complete.
+            await asyncio.sleep(0.4)
+            await pilot.pause()
+            assert screen._busy is False

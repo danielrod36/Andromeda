@@ -58,8 +58,15 @@ def adventure_app(tmp_path: Path) -> CepheusApp:
     The engine has a ForcedRoller with enough queued rolls for oracle tables,
     mission tables, and scene checks. Tests that need more rolls extend the
     queue via ``app.engine.roller.extend(...)``.
+
+    LLM is explicitly unconfigured so classify/narration use the synchronous
+    template/keyword paths. Tests that need an adapter set ``screen._adapter``
+    directly.
     """
+    from src.tui.settings import LLMSettings
+
     app = CepheusApp(saves_dir=tmp_path)
+    app.llm_settings = LLMSettings()  # Unconfigured — template mode.
     # Queue: 4 mission table rolls + 2 oracle rolls + 1 check + buffer.
     queue = [
         [3, 4],
@@ -1030,7 +1037,10 @@ class TestTask20MechanicsDisplay:
 
     async def test_classic_profile_uses_binary_vocabulary(self, tmp_path: Path):
         """Classic profile labels show Success/Failure, not strong_hit/miss."""
+        from src.tui.settings import LLMSettings
+
         app = CepheusApp(saves_dir=tmp_path)
+        app.llm_settings = LLMSettings()  # Unconfigured — no narration worker.
         queue = [
             [3, 4],
             [5, 5],
@@ -1180,6 +1190,11 @@ class TestAdventureLLMWiring:
                     characteristic="SOC",
                 )
 
+            async def classify_freetext_async(
+                self, text, scaffold, view, valid_skill_ids, *, on_attempt=None
+            ):
+                return self.classify_freetext(text, scaffold, view, valid_skill_ids)
+
             async def narrate_scene(self, *a, **kw):
                 from src.llm.adapter import NarrationResult
 
@@ -1203,6 +1218,7 @@ class TestAdventureLLMWiring:
             inp.value = "I bribe the dock officer"
             await pilot.press("enter")
             await pilot.pause()
+            await pilot.pause()  # U1: classify runs in a worker now.
 
             # Should show the LLM-classified check for confirmation.
             assert cm.option_list.option_count == 2
@@ -1331,3 +1347,220 @@ class TestChapterSummaryWiring:
 
             assert app.engine.state.chapter_summaries
             assert llm_summary in app.engine.state.chapter_summaries
+
+
+# ---------------------------------------------------------------------------
+# U1 / TUI-5: Input lock during narration and classify workers.
+# ---------------------------------------------------------------------------
+
+
+class TestInputLock:
+    """U1/TUI-5: inputs are locked while a narration/classify worker is in flight."""
+
+    async def test_option_ignored_during_narration(self, adventure_app: CepheusApp):
+        """Option selection during in-flight narration is ignored; no second scene resolves."""
+        import asyncio
+
+        from src.llm.adapter import NarrationResult
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4], [3, 3]])
+
+        narration_started = asyncio.Event()
+        release = asyncio.Event()
+
+        class BlockingAdapter:
+            llm_configured = True
+
+            async def classify_freetext_async(self, *a, **kw):
+                return None
+
+            async def narrate_scene(self, scaffold, outcome_facts, view, *, on_attempt=None):
+                if on_attempt:
+                    on_attempt(1)
+                narration_started.set()
+                await release.wait()
+                return NarrationResult(prose="LLM scene text", source="llm")
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            screen._adapter = BlockingAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Select option 0 to trigger resolution + narration.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Wait for narration worker to start.
+            await asyncio.wait_for(narration_started.wait(), timeout=2)
+            await pilot.pause()
+
+            # While busy, try selecting another option — should be ignored.
+            assert screen._busy is True
+            scene_before = screen._current_scene
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Scene should not have advanced (no second resolution).
+            assert screen._current_scene is scene_before
+
+            # Release the narration worker.
+            release.set()
+            await pilot.pause()
+            await pilot.pause()
+            assert screen._busy is False
+
+    async def test_freetext_ignored_during_narration(self, adventure_app: CepheusApp):
+        """Free-text submission during in-flight narration is ignored."""
+        import asyncio
+
+        from src.llm.adapter import NarrationResult
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4], [3, 3]])
+
+        narration_started = asyncio.Event()
+        release = asyncio.Event()
+
+        class BlockingAdapter:
+            llm_configured = True
+
+            async def classify_freetext_async(self, *a, **kw):
+                return None
+
+            async def narrate_scene(self, scaffold, outcome_facts, view, *, on_attempt=None):
+                narration_started.set()
+                await release.wait()
+                return NarrationResult(prose="LLM scene text", source="llm")
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            screen._adapter = BlockingAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Trigger narration.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            await asyncio.wait_for(narration_started.wait(), timeout=2)
+            await pilot.pause()
+
+            assert screen._busy is True
+
+            # Submit free-text — should be ignored.
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "I hack the terminal"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # No classification should have been attempted.
+            assert screen._pending_freetext is None
+
+            # Release the narration worker.
+            release.set()
+            await pilot.pause()
+            await pilot.pause()
+            assert screen._busy is False
+
+    async def test_esc_cancels_narration_to_template(self, adventure_app: CepheusApp):
+        """Esc during narration produces template prose and re-enables inputs."""
+        import asyncio
+
+        from src.llm.adapter import NarrationResult
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4], [3, 3]])
+
+        class HangingAdapter:
+            llm_configured = True
+
+            async def classify_freetext_async(self, *a, **kw):
+                return None
+
+            async def narrate_scene(self, scaffold, outcome_facts, view, *, on_attempt=None):
+                if on_attempt:
+                    on_attempt(1)
+                await asyncio.sleep(10)  # Hangs until cancelled.
+                return NarrationResult(prose="should not reach", source="llm")
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            screen._adapter = HangingAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Trigger narration.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            await pilot.pause()
+
+            assert screen._busy is True
+
+            # Press Esc to cancel.
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+
+            # Busy should be cleared and template fallback shown.
+            assert screen._busy is False
+
+            # The log should contain template narration (scaffold text).
+            log = screen.query_one(NarrativeLogWidget)
+            assert len(log.captured_lines) > 0  # Something was narrated.
+
+    async def test_indicator_hidden_after_completion(self, adventure_app: CepheusApp):
+        """Generating indicator is hidden after successful narration."""
+
+        from src.llm.adapter import NarrationResult
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4], [3, 3]])
+
+        class FastAdapter:
+            llm_configured = True
+
+            async def classify_freetext_async(self, *a, **kw):
+                return None
+
+            async def narrate_scene(self, scaffold, outcome_facts, view, *, on_attempt=None):
+                if on_attempt:
+                    on_attempt(1)
+                return NarrationResult(prose="LLM narration complete.", source="llm")
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            screen._adapter = FastAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Trigger narration.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+            await pilot.pause()
+            await pilot.pause()
+
+            # After completion: busy cleared, attempt reset, no "busy" class.
+            assert screen._busy is False
+            assert screen._narration_attempt == 0
+            assert not screen.has_class("busy")

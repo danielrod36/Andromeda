@@ -250,6 +250,26 @@ class TestInvalidOutputRejection:
         # Template narration should contain term info.
         assert len(result.prose) > 0
 
+    @pytest.mark.asyncio
+    async def test_on_attempt_fires_per_retry(self, state, engine, term_result):
+        """U1/TUI-5: on_attempt callback fires once per LLM attempt.
+
+        With max_retries=3 and always-invalid output, the adapter's manual
+        retry loop fires on_attempt(1), on_attempt(2), on_attempt(3) before
+        falling back to template.
+        """
+        test_model = TestModel(custom_output_args={"prose": ""})
+        adapter = LLMAdapter(
+            config=AdapterConfig(max_retries=3, request_limit=10),
+            test_model=test_model,
+        )
+        attempts: list[int] = []
+        result = await adapter.narrate_term(state, engine, term_result, on_attempt=attempts.append)
+
+        assert attempts == [1, 2, 3]
+        assert result.llm_failed is True
+        assert result.source == "template"
+
 
 # ---------------------------------------------------------------------------
 # AE12 — Full lifepath narration faithfulness.
