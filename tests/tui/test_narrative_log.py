@@ -173,8 +173,9 @@ class TestExtendedCapture:
         log.add_paragraph("para")
         log.add_result("result")
         after = len(log.captured_lines)
-        # Each method should have captured at least one line.
-        assert after > before + 7  # add_section and add_paragraph write extras
+        # Exact count catches any method that silently stops capturing:
+        # add_section(3) + add_paragraph(2) + 5 single-capture methods = 11.
+        assert after == before + 11
 
 
 class TestCaptureIntegrityUnderTrimming:
