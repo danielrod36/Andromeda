@@ -131,7 +131,7 @@ class TestExtendedCapture:
     def test_add_roll_captures(self):
         """add_roll captures a plain-text summary (not markup)."""
         log = NarrativeLogWidget()
-        log.add_roll("Survival", "2D6(4+3)", 7, 1, 8, True, "Servicable")
+        log.add_roll("Survival", "2D6(4+3)", 7, 1, 8, True, "Serviceable")
         assert any("Survival" in line for line in log.captured_lines)
         assert all("bold" not in line for line in log.captured_lines if "Survival" in line)
 
@@ -189,3 +189,94 @@ class TestCaptureIntegrityUnderTrimming:
         assert len(log.captured_lines) == 20
         assert log.captured_lines[0] == "Line 0"
         assert log.captured_lines[-1] == "Line 19"
+
+
+class TestAnchorBehavior:
+    """U2/TUI-6: drift detection, hold-position-on-write, re-anchor.
+
+    These are Pilot-driven (mounted widget) tests because the anchor logic
+    keys off ``scroll_y`` / ``max_scroll_y``, which are only meaningful once
+    the widget is laid out in a real app.
+    """
+
+    @staticmethod
+    def _host(widget: NarrativeLogWidget):
+        """Build a minimal App hosting the given widget."""
+        from textual.app import App, ComposeResult
+
+        class _Host(App):
+            def compose(self) -> ComposeResult:
+                yield widget
+
+        return _Host()
+
+    async def test_drift_on_scroll_up(self):
+        """Scrolling away from the bottom sets drifted=True, auto_scroll=False."""
+        app = self._host(NarrativeLogWidget())
+        async with app.run_test(size=(40, 6)) as pilot:
+            log = app.query_one(NarrativeLogWidget)
+            for i in range(25):
+                log.add_line(f"line {i}")
+            await pilot.pause()
+            # Anchored at the bottom to start.
+            assert log.max_scroll_y > 0
+            assert log.drifted is False
+            assert log.auto_scroll is True
+
+            log.scroll_to(y=0, animate=False, immediate=True)
+            await pilot.pause()
+            assert log.scroll_y == 0
+            assert log.drifted is True
+            assert log.auto_scroll is False
+
+    async def test_drifted_write_holds_position(self):
+        """A write while drifted does not move the viewport."""
+        app = self._host(NarrativeLogWidget())
+        async with app.run_test(size=(40, 6)) as pilot:
+            log = app.query_one(NarrativeLogWidget)
+            for i in range(25):
+                log.add_line(f"line {i}")
+            await pilot.pause()
+            log.scroll_to(y=0, animate=False, immediate=True)
+            await pilot.pause()
+            assert log.drifted is True
+
+            y_before = log.scroll_y
+            log.add_line("new content while drifted")
+            await pilot.pause()
+            # Viewport held; max_scroll_y grew but scroll_y stayed put.
+            assert log.scroll_y == y_before
+            assert log.drifted is True
+
+    async def test_scroll_end_reanchors(self):
+        """scroll_end clears drifted and re-enables auto_scroll."""
+        app = self._host(NarrativeLogWidget())
+        async with app.run_test(size=(40, 6)) as pilot:
+            log = app.query_one(NarrativeLogWidget)
+            for i in range(25):
+                log.add_line(f"line {i}")
+            await pilot.pause()
+            log.scroll_to(y=0, animate=False, immediate=True)
+            await pilot.pause()
+            assert log.drifted is True
+
+            log.scroll_end(animate=False, immediate=True)
+            await pilot.pause()
+            assert log.drifted is False
+            assert log.auto_scroll is True
+            assert log.scroll_y >= log.max_scroll_y - 0.5
+
+    async def test_anchored_write_follows_to_bottom(self):
+        """A write while anchored keeps the viewport pinned to the bottom."""
+        app = self._host(NarrativeLogWidget())
+        async with app.run_test(size=(40, 6)) as pilot:
+            log = app.query_one(NarrativeLogWidget)
+            for i in range(25):
+                log.add_line(f"line {i}")
+            await pilot.pause()
+            assert log.auto_scroll is True
+
+            log.add_line("tail line while anchored")
+            await pilot.pause()
+            assert log.scroll_y >= log.max_scroll_y - 0.5
+            assert log.drifted is False

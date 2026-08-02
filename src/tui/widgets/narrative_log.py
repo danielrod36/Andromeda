@@ -102,13 +102,18 @@ class NarrativeLogWidget(RichLog):
     # Anchor-aware scroll logic (U2/TUI-6).
     # ------------------------------------------------------------------
 
-    def watch_scroll_y(self, value: float) -> None:
+    def watch_scroll_y(self, old_value: float, new_value: float) -> None:
         """Update drifted state when the scroll position changes (U2/TUI-6).
 
         At or near the bottom → anchored (drifted=False, auto_scroll=True).
         Away from the bottom → drifted (drifted=True, auto_scroll=False).
+
+        Chains to ``Widget.watch_scroll_y`` so the parent's scrollbar-sync,
+        anchor-check, and scroll-refresh invariants still hold (RichLog
+        inherits ``watch_scroll_y`` from ``Widget``).
         """
-        at_bottom = self.max_scroll_y <= 0 or value >= self.max_scroll_y - 0.5
+        super().watch_scroll_y(old_value, new_value)
+        at_bottom = self.max_scroll_y <= 0 or new_value >= self.max_scroll_y - 0.5
         self.drifted = not at_bottom
         self.auto_scroll = at_bottom
 
@@ -216,14 +221,16 @@ class NarrativeLogWidget(RichLog):
         dm_str = f"+{dm}" if dm >= 0 else str(dm)
         result = "SUCCESS" if success else "FAILURE"
         color = "green" if success else "red"
-        tier_str = f" [yellow]({tier})[/yellow]" if tier else ""
+        tier_suffix_markup = f" [yellow]({tier})[/yellow]" if tier else ""
+        tier_suffix_plain = f" ({tier})" if tier else ""
         markup = (
             f"[dim]{label}[/dim] [bold]{dice}={total}[/bold]"
             f" + DM({dm_str}) = {total + dm} vs {target}"
-            f" → [{color}]{result}[/{color}]{tier_str}"
+            f" → [{color}]{result}[/{color}]{tier_suffix_markup}"
         )
         source = (
-            f"{label} {dice}={total} DM({dm_str}) = {total + dm} vs {target} {result}{tier_str}"
+            f"{label} {dice}={total} DM({dm_str}) = {total + dm} vs {target}"
+            f" {result}{tier_suffix_plain}"
         )
         self._write_anchored(markup, capture=source)
 
