@@ -14,8 +14,12 @@ uv run pytest tests/ -v
 ## Play
 
 ```bash
-uv run python -m src.tui
-# or: uv run andromeda
+# Terminal (TUI):
+uv run andromeda
+
+# Web shell (in development):
+uv run andromeda-web
+# then open http://127.0.0.1:8000
 ```
 
 ## Architecture
@@ -24,6 +28,7 @@ uv run python -m src.tui
 - **Rule-sets** (`src/rulesets/`) — pluggable resolution mechanics behind a Protocol interface
 - **Theme packs** (`src/themepacks/`) — YAML content data (careers, skills, oracle tables)
 - **TUI** (`src/tui/`) — Textual rich terminal shell over the engine library
+- **Web** (`src/web/`) — FastAPI + Jinja + htmx + SSE web shell (in development)
 - **LLM** (`src/llm/`) — Pydantic AI adapter for narration with tool-call-only mutations
 
 ## Design Principle

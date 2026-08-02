@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{{ theme }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Andromeda</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js"></script>
+</head>
+<body>
+
+  <!-- Status strip: always visible — character ref, mission, credits, LLM status -->
+  <header id="status-strip">
+    <span class="status-char-ref">—</span>
+    <span class="status-mission">No active mission</span>
+    <span class="status-credits">Cr 0</span>
+    <span class="status-llm">No LLM connected</span>
+  </header>
+
+  <!-- Main row: reading spine + drawer -->
+  <main id="main-row">
+    <!-- Reading spine: 68ch stream of typed blocks -->
+    <section id="spine" aria-live="polite">
+      <p class="placeholder">The adventure begins here.</p>
+    </section>
+
+    <!-- Right drawer: Sheet / World / Audit tabs — hidden by default -->
+    <aside id="drawer" hidden>
+      <nav class="drawer-tabs">
+        <button data-tab="sheet">Sheet</button>
+        <button data-tab="world">World</button>
+        <button data-tab="audit">Audit</button>
+      </nav>
+      <div class="drawer-content"><!-- populated by htmx fragments --></div>
+    </aside>
+  </main>
+
+  <!-- Choice dock: numbered cards with skill, difficulty, DM, odds -->
+  <section id="choice-dock">
+    <p class="placeholder">Choices will appear here.</p>
+  </section>
+
+  <!-- Free-text bar: always available -->
+  <section id="freetext-bar">
+    <form hx-post="/action" hx-target="#spine" hx-swap="beforeend">
+      <input
+        type="text"
+        name="freetext"
+        placeholder="Or type your own action and press Enter…"
+        autocomplete="off"
+      >
+      <button type="submit" hidden></button>
+    </form>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
