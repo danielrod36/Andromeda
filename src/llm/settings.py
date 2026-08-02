@@ -10,9 +10,13 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, field_validator
+
+if TYPE_CHECKING:
+    from src.llm.adapter import LLMAdapter
 
 from src.llm.providers import PROVIDER_CONFIGS, get_provider_config
 
@@ -165,7 +169,7 @@ def apply_llm_env(settings: LLMSettings) -> None:
             os.environ[key] = value
 
 
-def create_llm_adapter(settings: LLMSettings):
+def create_llm_adapter(settings: LLMSettings) -> LLMAdapter | None:
     """Build an :class:`LLMAdapter` from settings (U5 hoist from app.py).
 
     Returns a configured adapter when settings are complete, or ``None``

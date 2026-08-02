@@ -22,13 +22,19 @@ Four rules protect the engine invariants across the session lifecycle:
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from src.engine.commands import Engine
 from src.engine.persistence import load, save
 from src.engine.state import GameState
 from src.llm.settings import LLMSettings, create_llm_adapter
+
+if TYPE_CHECKING:
+    from src.llm.adapter import LLMAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +99,7 @@ class GameSession:
         return self._engine
 
     @property
-    def adapter(self):
+    def adapter(self) -> LLMAdapter | None:
         """The configured LLM adapter, or None for template mode."""
         return self._adapter
 
@@ -143,23 +149,28 @@ class GameSession:
 
         # Write main document (atomic: temp + os.replace via persistence.save).
         save(self.state, self._save_path)
-        self._last_write_hash = self._compute_disk_hash()
 
         # Rule 2: write checkpoint sidecar if in checkpoint death mode.
         if self.state.campaign.death_mode == "checkpoint":
             self._write_sidecar()
 
+        # Capture the hash AFTER all writes (main + sidecar) so the stored
+        # hash matches the on-disk state the next save() compares against.
+        self._last_write_hash = self._compute_disk_hash()
+
     def _write_sidecar(self) -> None:
-        """Write the checkpoint sidecar document."""
+        """Write the checkpoint sidecar document atomically."""
         sidecar_path = self.checkpoint_sidecar_path
         # The sidecar stores the checkpoint snapshot if one exists;
         # otherwise it's a minimal document recording the death mode.
         sidecar_data = {"death_mode": "checkpoint", "save_version": self.state.save_version}
-        import json
 
-        tmp = sidecar_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(sidecar_data, indent=2), encoding="utf-8")
-        tmp.replace(sidecar_path)
+        tmp = sidecar_path.with_suffix(sidecar_path.suffix + ".tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(sidecar_data, indent=2))
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, sidecar_path)
 
     def _compute_disk_hash(self) -> str | None:
         """Hash the on-disk document pair (main + sidecar) for stale-write detection."""

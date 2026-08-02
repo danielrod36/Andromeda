@@ -106,6 +106,51 @@ class TestPhaseDetermination:
         result = LifepathController.get_latest_term_phase(engine.state)
         assert result is None
 
+    def test_choose_aging_reduction_advances_when_pending_empty(self):
+        """choose_aging_reduction auto-advances to re_enlist when pending_aging is empty.
+
+        Parity with the TUI (lines 327-329): all aging slots consumed → re_enlist.
+        """
+        engine = _make_engine()
+        pack = load_scifi_pack()
+        controller = LifepathController(engine, pack)
+
+        engine.state.character.career = "navy"
+        engine.state.character.characteristics = {
+            "STR": 7,
+            "DEX": 8,
+            "END": 6,
+            "INT": 10,
+            "EDU": 9,
+            "SOC": 5,
+        }
+        engine.state.character.alive = True
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_aging_reduction"))
+        # pending_aging defaults to empty list.
+        assert controller.determine_phase() == "re_enlist"
+
+    def test_choose_aging_reduction_stays_when_pending_present(self):
+        """choose_aging_reduction stays when pending_aging still has slots."""
+        from src.engine.state import AgingSlot
+
+        engine = _make_engine()
+        pack = load_scifi_pack()
+        controller = LifepathController(engine, pack)
+
+        engine.state.character.career = "navy"
+        engine.state.character.characteristics = {
+            "STR": 7,
+            "DEX": 8,
+            "END": 6,
+            "INT": 10,
+            "EDU": 9,
+            "SOC": 5,
+        }
+        engine.state.character.alive = True
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_aging_reduction"))
+        engine.state.character.pending_aging = [AgingSlot(group="physical", points=1)]
+        assert controller.determine_phase() == "choose_aging_reduction"
+
 
 class TestPhaseView:
     """U5: PhaseView assembly."""

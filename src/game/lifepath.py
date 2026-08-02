@@ -10,6 +10,11 @@ KTD-3 parity: phase flags (``term_phase=...``, ``mustered_out=true``,
 ``reenlist_outcome=...``) are read and written byte-identical to the TUI's
 ``SetFlagCommand`` convention so TUI-written saves reconstruct identically
 in ``src/game/`` and vice versa.
+
+The ``choose_skills`` exhaustion auto-advance is deferred to U7: it
+requires reconstructing ``_current_term_result`` from the event log
+(~80 lines of event-scanning in the TUI's ``_reconstruct_term_state``),
+which is delivered alongside the web lifepath screens that consume it.
 """
 
 from __future__ import annotations
@@ -102,6 +107,11 @@ class LifepathController:
         Reads the same flags and character fields the TUI does. This is the
         canonical phase resolver for both shells — the TUI keeps its own copy
         frozen (KTD-3 byte-parity) until OQ1 is decided.
+
+        Parity note: ``choose_aging_reduction`` auto-advances to ``re_enlist``
+        when ``pending_aging`` is empty (ported from the TUI). The
+        ``choose_skills`` exhaustion check is deferred to U7 (see module
+        docstring).
         """
         state = self._engine.state
         char = state.character
@@ -122,6 +132,9 @@ class LifepathController:
             if term_phase == "choose_career_change":
                 return "choose_career_change"
             # Background skills phase.
+            # Two checks for KTD-3 parity with the TUI: -1 is the "uninitialized"
+            # sentinel (first entry, needs setup); >0 means picks remain mid-phase.
+            # 0 falls through to choose_career (phase complete).
             if not char.career_history:
                 if char.background_picks_remaining == -1:
                     return "choose_background_skills"
@@ -147,6 +160,9 @@ class LifepathController:
             if term_phase == "muster_out_allocate":
                 return "muster_out_allocate"
             if term_phase in TERM_PHASES:
+                # All pending aging slots consumed — advance to re_enlist.
+                if term_phase == "choose_aging_reduction" and not char.pending_aging:
+                    return "re_enlist"
                 return term_phase
             # Unknown term_phase falls through to a fresh term start.
         return "run_survival"

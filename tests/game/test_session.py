@@ -125,6 +125,57 @@ class TestSaveAndStaleWrite:
 
         assert session.checkpoint_sidecar_path == tmp_path / "campaign.checkpoint.json"
 
+    def test_checkpoint_mode_writes_sidecar(self, tmp_path: Path):
+        """Checkpoint death mode writes a sidecar alongside the main save."""
+        state = _make_state()
+        state.campaign = CampaignConfig(death_mode="checkpoint")
+        engine = Engine(state)
+        save_path = tmp_path / "save.json"
+        session = GameSession(save_path, engine=engine)
+
+        session.save()
+        assert save_path.exists()
+        assert session.checkpoint_sidecar_path.exists()
+
+    def test_checkpoint_mode_double_save_no_false_positive(self, tmp_path: Path):
+        """Two consecutive saves in checkpoint mode must not raise StaleWriteError.
+
+        Regression: the stale-write hash was captured after the main write but
+        before the sidecar write, so the second save saw the sidecar as an
+        external modification. The hash is now captured after all writes.
+        """
+        state = _make_state()
+        state.campaign = CampaignConfig(death_mode="checkpoint")
+        engine = Engine(state)
+        save_path = tmp_path / "save.json"
+        session = GameSession(save_path, engine=engine)
+
+        session.save()
+        session.state.character.name = "Changed"
+        session.save()  # Must not raise.
+
+    def test_checkpoint_mode_stale_write_still_detected(self, tmp_path: Path):
+        """Stale-write detection still works in checkpoint mode."""
+        state_a = _make_state(seed=1)
+        state_a.campaign = CampaignConfig(death_mode="checkpoint")
+        state_a.character.name = "Alpha"
+        engine_a = Engine(state_a)
+        save_path = tmp_path / "save.json"
+        session_a = GameSession(save_path, engine=engine_a)
+        session_a.save()
+
+        # Session B writes to the same path.
+        state_b = _make_state(seed=2)
+        state_b.campaign = CampaignConfig(death_mode="checkpoint")
+        state_b.character.name = "Beta"
+        engine_b = Engine(state_b)
+        session_b = GameSession(save_path, engine=engine_b)
+        session_b.save()
+
+        # Session A tries to save again — should detect stale write.
+        with pytest.raises(StaleWriteError):
+            session_a.save()
+
 
 class TestSaveLoadRoundTrip:
     """U5: session loads from a saved file."""
