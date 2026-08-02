@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import secrets
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,12 +25,13 @@ from src.engine.lifepath import LifepathRunner
 from src.engine.narration import Narrator
 from src.engine.persistence import load, save
 from src.engine.state import CampaignConfig, GameState
+from src.llm.settings import LLMSettings, apply_llm_env, load_settings
+from src.llm.settings import create_llm_adapter as _create_llm_adapter
 from src.themepacks.base import get_pack
 from src.themepacks.cepheus_scifi import load_scifi_pack
 from src.tui.screens.adventure import AdventureScreen
 from src.tui.screens.lifepath import LifepathScreen
 from src.tui.screens.main_menu import MainMenuScreen
-from src.tui.settings import LLMSettings, load_settings
 
 # ---------------------------------------------------------------------------
 # Save metadata.
@@ -313,15 +313,8 @@ class CepheusApp(App):
 
     @staticmethod
     def _apply_llm_env(settings: LLMSettings) -> None:
-        """Populate provider-specific env vars from settings.
-
-        Pydantic AI's provider clients read ``ANTHROPIC_API_KEY``,
-        ``OPENAI_API_KEY``, etc. We set them so the adapter can construct
-        agents without explicit key passing.
-        """
-        for key, value in settings.env_overrides().items():
-            if value:
-                os.environ[key] = value
+        """Populate provider-specific env vars from settings (U5: delegates to src.llm.settings)."""
+        apply_llm_env(settings)
 
     def apply_llm_settings(self, settings: LLMSettings) -> None:
         """Update LLM settings at runtime (called by the settings screen).
@@ -337,17 +330,10 @@ class CepheusApp(App):
 
         Returns a configured adapter when settings are complete, or ``None``
         when no model/key is set (caller should use template narration).
-        """
-        if not self.llm_settings.is_configured:
-            return None
-        from src.llm.adapter import AdapterConfig, LLMAdapter
 
-        return LLMAdapter(
-            AdapterConfig(
-                model=self.llm_settings.model_string,
-                max_retries=self.llm_settings.max_retries,
-            )
-        )
+        U5: delegates to src.llm.settings.create_llm_adapter (hoisted).
+        """
+        return _create_llm_adapter(self.llm_settings)
 
     @staticmethod
     def generate_seed() -> int:
