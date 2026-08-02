@@ -406,7 +406,6 @@ class AdventureScreen(Screen):
         # Build choice list from the current scene's options (new or live).
         cm = self.query_one(ChoiceMenuWidget)
         pack = self.app.pack
-        state = self.app.engine.state
         profile = state.campaign.resolution_profile
         choices = []
         descriptions = []
@@ -990,6 +989,9 @@ class AdventureScreen(Screen):
         self._narrate("Interpretation rejected. Choose an option or rephrase.")
         self._pending_freetext = None
         self.app.engine.apply(SetPendingFreetextCommand(payload=None))
+        # Persist the clear so a quit after rejecting doesn't restore a
+        # stale prompt (U3/TUI-6).
+        self.app.save_game()
         # Restore the typed text for rephrasing and focus the input.
         inp = self.query_one("#adv-input", Input)
         if self._freetext_draft is not None:

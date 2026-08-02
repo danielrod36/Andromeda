@@ -359,7 +359,8 @@ class SetPendingFreetextCommand(Command):
             if missing:
                 raise ValueError(f"pending_freetext payload missing required keys: {missing}")
             check = self.payload["check"]
-            assert isinstance(check, dict)
+            if not isinstance(check, dict):
+                raise ValueError("pending_freetext check must be a dict")
             check_keys = {"label", "skill", "characteristic", "difficulty"}
             missing_check = check_keys - set(check.keys())
             if missing_check:
