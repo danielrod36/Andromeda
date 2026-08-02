@@ -116,6 +116,11 @@ class SceneCheckCommand(Command):
     difficulty: str
     profile: str = "narrative"
     ratified: tuple[str, ...] = ()
+    #: When True, mutate also clears ``state.pending_freetext`` — used when
+    #: resolving a free-text check so the clear is atomic with the resolution
+    #: (no two-command crash window where a save could capture the resolution
+    #: event but leave the pending prompt stale). (U3/TUI-6)
+    clear_pending_freetext: bool = False
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
         return roller.roll("combat", ndice=2, sides=6)
@@ -137,6 +142,11 @@ class SceneCheckCommand(Command):
         profile_obj: ResolutionProfile
         profile_obj = ClassicProfile() if self.profile == "classic" else NarrativeProfile()
         outcome = profile_obj.resolve(roll.total, total_dm)
+
+        # U3/TUI-6: atomically clear pending_freetext when resolving a
+        # free-text check, so a save between resolve and clear is impossible.
+        if self.clear_pending_freetext:
+            state.pending_freetext = None
 
         return Event(
             kind=EventKind.ROLL,
@@ -316,6 +326,58 @@ class RatifyFactCommand(Command):
 # ---------------------------------------------------------------------------
 # Data structures (transient — not serialized).
 # ---------------------------------------------------------------------------
+
+
+class SetPendingFreetextCommand(Command):
+    """Set or clear the pending free-text interpretation state (TUI-6, R7).
+
+    When ``payload`` is a dict, stores it in ``state.pending_freetext`` so a
+    quit/resume restores the exact accept/reject prompt. When ``None``,
+    clears the field (player rejected the interpretation).
+
+    The payload carries:
+    - ``text``: the original free-text input
+    - ``check``: serialized :class:`SceneOption` (label, skill, characteristic,
+      difficulty, life_threatening — all fields that drive DM math and defeat
+      handling, so a thin payload would resolve a different check)
+    - ``scaffold``: serialized :class:`SceneScaffold` snapshot
+    - ``options``: list of serialized :class:`SceneOption` the scaffold produced
+
+    Accept-path clearing is handled by :class:`SceneCheckCommand` with
+    ``clear_pending_freetext=True`` so the clear is atomic with the resolution
+    (no two-command crash window).
+    """
+
+    command_type: ClassVar[str] = "set_pending_freetext"
+
+    payload: dict | None = None
+
+    def validate(self, state: GameState) -> None:
+        if self.payload is not None:
+            required = {"text", "check", "scaffold", "options"}
+            missing = required - set(self.payload.keys())
+            if missing:
+                raise ValueError(f"pending_freetext payload missing required keys: {missing}")
+            check = self.payload["check"]
+            if not isinstance(check, dict):
+                raise ValueError("pending_freetext check must be a dict")
+            check_keys = {"label", "skill", "characteristic", "difficulty"}
+            missing_check = check_keys - set(check.keys())
+            if missing_check:
+                raise ValueError(f"pending_freetext check missing required keys: {missing_check}")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.pending_freetext = self.payload
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=(
+                "Free-text interpretation pending"
+                if self.payload is not None
+                else "Free-text interpretation resolved"
+            ),
+            changes={"pending_freetext": self.payload},
+        )
 
 
 @dataclass
@@ -596,6 +658,8 @@ class SceneEngine:
         self,
         scaffold: SceneScaffold,
         option: SceneOption,
+        *,
+        clear_pending_freetext: bool = False,
     ) -> SceneCheckResult:
         """Resolve a scene check through the command funnel.
 
@@ -608,6 +672,11 @@ class SceneEngine:
         is ratified as an NPC via :func:`ratify_fact_as_npc` (R24, AE9).
         Ratified fact names are recorded on the check result so narration
         can reference the mechanical activation.
+
+        Args:
+            clear_pending_freetext: When True, the SceneCheckCommand also
+                clears ``state.pending_freetext`` atomically (U3/TUI-6) —
+                used when resolving a free-text check the player accepted.
         """
         # Deferred import: retrieval.py imports RatifyFactCommand from this
         # module, so a top-level import would create a circular dependency.
@@ -636,6 +705,7 @@ class SceneEngine:
             difficulty=option.difficulty,
             profile=self.engine.state.campaign.resolution_profile,
             ratified=tuple(ratified),
+            clear_pending_freetext=clear_pending_freetext,
         )
         event = self.engine.apply(cmd)
         c = event.changes

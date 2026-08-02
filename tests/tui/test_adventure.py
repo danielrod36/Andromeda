@@ -1625,3 +1625,205 @@ class TestInputLock:
             # Busy cleared and input text restored.
             assert screen._busy is False
             assert inp.value == "I hack the terminal"
+
+
+# ---------------------------------------------------------------------------
+# U3 / TUI-6: Free-text draft persistence across quit/resume.
+# ---------------------------------------------------------------------------
+
+
+class TestFreetextPersistence:
+    """U3/TUI-6: pending free-text state survives save/quit/load."""
+
+    async def test_pending_freetext_persists_after_save(self, adventure_app: CepheusApp):
+        """After classify, state.pending_freetext is set and autosaved."""
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
+
+        async with app.run_test() as pilot:
+            await push_adventure(app, pilot)
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Submit free-text.
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "I bribe the dock officer"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # State should have pending_freetext set.
+            assert app.engine.state.pending_freetext is not None
+            assert app.engine.state.pending_freetext["text"] == "I bribe the dock officer"
+            check = app.engine.state.pending_freetext["check"]
+            assert "label" in check
+            assert "skill" in check
+
+    async def test_resume_restores_interpretation_prompt(self, adventure_app: CepheusApp):
+        """A saved pending_freetext restores the accept/reject prompt on resume."""
+        from src.engine.scene import SetPendingFreetextCommand
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
+
+        # Pre-set pending_freetext in engine state (simulating a save from
+        # a prior session where the player quit mid-interpretation).
+        payload = {
+            "text": "I bribe the dock officer",
+            "check": {
+                "label": "Bribe the guard",
+                "skill": "broker",
+                "characteristic": "SOC",
+                "difficulty": "average",
+            },
+            "scaffold": {
+                "focus": "Dock",
+                "focus_description": "A busy starport dock",
+                "situation": "Guards are watching",
+                "npc_hint": "Dock officer",
+            },
+            "options": [
+                {
+                    "label": "Fight the guard",
+                    "skill": "gun_combat_slug_rifle",
+                    "characteristic": "DEX",
+                    "difficulty": "difficult",
+                }
+            ],
+        }
+        app.engine.apply(SetPendingFreetextCommand(payload=payload))
+
+        # Set an active mission so _determine_phase returns "scene_active"
+        # (required for _present_scene to run and detect pending_freetext).
+        app.engine.state.active_mission = {
+            "id": "test_mission",
+            "hook": {"patron": "Test", "objective": "Test", "complication": "", "reward": ""},
+            "scenes_completed": 0,
+            "min_scenes": 3,
+        }
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            await pilot.pause()
+
+            # _present_scene should detect pending_freetext and restore the prompt.
+            assert screen._pending_freetext is not None
+            assert screen._freetext_draft == "I bribe the dock officer"
+
+            # Accept/reject choices should be visible.
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            assert cm.option_list.option_count == 2
+
+    async def test_crash_window_no_reprompt(self, adventure_app: CepheusApp):
+        """If the resolution event landed but pending_freetext wasn't cleared,
+        the screen does NOT re-prompt (crash-window guard).
+
+        Craft: set pending_freetext, then append a scene_check event (simulating
+        the resolution happened). On resume, the screen should NOT restore the
+        interpretation prompt — the check was already resolved.
+        """
+        from src.engine.scene import SetPendingFreetextCommand
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4], [3, 3]])
+
+        async with app.run_test() as pilot:
+            await push_adventure(app, pilot)
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Set pending state manually.
+            app.engine.apply(
+                SetPendingFreetextCommand(
+                    payload={
+                        "text": "stale",
+                        "check": {
+                            "label": "Stale",
+                            "skill": "broker",
+                            "characteristic": "SOC",
+                            "difficulty": "average",
+                        },
+                        "scaffold": {
+                            "focus": "F",
+                            "focus_description": "D",
+                            "situation": "S",
+                            "npc_hint": "",
+                        },
+                        "options": [
+                            {
+                                "label": "Opt1",
+                                "skill": "broker",
+                                "characteristic": "SOC",
+                                "difficulty": "average",
+                            }
+                        ],
+                    }
+                )
+            )
+            # Simulate: the resolution already happened (clear pending via SceneCheckCommand).
+            from src.engine.scene import SceneCheckCommand
+
+            app.engine.apply(
+                SceneCheckCommand(
+                    skill="broker",
+                    characteristic="SOC",
+                    difficulty="average",
+                    clear_pending_freetext=True,
+                )
+            )
+            await pilot.pause()
+
+            # pending_freetext should be None (cleared by the check).
+            assert app.engine.state.pending_freetext is None
+
+    async def test_reject_persists_clear_to_save(self, adventure_app: CepheusApp):
+        """Rejecting an interpretation persists the clear so a reload doesn't
+        restore a stale prompt (U3/TUI-6).
+
+        Without ``save_game()`` after reject, the save file written during
+        ``_persist_pending_freetext`` still has ``pending_freetext`` set, and
+        a quit-after-reload would restore a prompt the player already dismissed.
+        """
+        from src.engine.persistence import load
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3]])
+
+        async with app.run_test() as pilot:
+            await push_adventure(app, pilot)
+
+            # Drive to the free-text prompt: select option 0, type, submit.
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "I bribe the dock officer"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # pending_freetext is now set and saved to disk.
+            assert app.engine.state.pending_freetext is not None
+
+            # Reject the interpretation (choice index 1).
+            cm.option_list.highlighted = 1
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Engine state cleared in memory.
+            assert app.engine.state.pending_freetext is None
+
+        # The save file on disk must also reflect the clear — this is the
+        # fix: reject persists the clear so quit-after-reject is safe.
+        save_path = app.saves_dir / "TestHero.json"
+        loaded = load(save_path)
+        assert loaded.pending_freetext is None

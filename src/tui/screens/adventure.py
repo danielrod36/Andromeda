@@ -375,11 +375,21 @@ class AdventureScreen(Screen):
         generating a replacement scene and checkpoint snapshot. Callers that
         want the next scene beat clear ``_current_scene`` before assigning
         ``phase = "scene_active"``.
+
+        U3/TUI-6: if ``state.pending_freetext`` is set (quit during free-text
+        interpretation), restores the interpretation prompt from the snapshot
+        and skips scene regeneration + checkpoint snapshot — regenerating
+        would consume oracle-stream rolls and silently change the scene.
         """
+        # U3/TUI-6: restore pending free-text prompt from saved state.
+        state = self.app.engine.state
+        if state.pending_freetext is not None and self._pending_freetext is None:
+            self._restore_pending_freetext(state.pending_freetext)
+            return
+
         if self._current_scene is None:
             # Take a checkpoint snapshot at scene start (F4 cycle) for
             # checkpoint death mode (AE3).
-            state = self.app.engine.state
             if state.campaign.death_mode == "checkpoint":
                 self.app.checkpoint_mgr.take_snapshot(state)
 
@@ -396,7 +406,6 @@ class AdventureScreen(Screen):
         # Build choice list from the current scene's options (new or live).
         cm = self.query_one(ChoiceMenuWidget)
         pack = self.app.pack
-        state = self.app.engine.state
         profile = state.campaign.resolution_profile
         choices = []
         descriptions = []
@@ -828,6 +837,111 @@ class AdventureScreen(Screen):
         )
         self._pending_freetext = check
         self._freetext_draft = text
+        # U3/TUI-6: persist the pending state so quit/resume restores the prompt.
+        self._persist_pending_freetext(text, check)
+
+    def _persist_pending_freetext(self, text: str, check) -> None:
+        """Serialize the pending free-text state into GameState (U3/TUI-6).
+
+        Stores the full interpreted check + scene snapshot so a resume can
+        restore the exact prompt without regenerating the scene (which would
+        consume oracle-stream rolls and silently change the scene).
+        """
+        from src.engine.scene import SetPendingFreetextCommand
+
+        scaffold = self._current_scene.scaffold
+        payload = {
+            "text": text,
+            "check": {
+                "label": check.label,
+                "skill": check.skill,
+                "characteristic": check.characteristic,
+                "difficulty": check.difficulty,
+                "description": check.description,
+                "life_threatening": check.life_threatening,
+            },
+            "scaffold": {
+                "focus": scaffold.focus,
+                "focus_description": scaffold.focus_description,
+                "situation": scaffold.situation,
+                "npc_hint": scaffold.npc_hint or "",
+            },
+            "options": [
+                {
+                    "label": opt.label,
+                    "skill": opt.skill,
+                    "characteristic": opt.characteristic,
+                    "difficulty": opt.difficulty,
+                    "description": opt.description,
+                    "life_threatening": opt.life_threatening,
+                }
+                for opt in self._current_scene.options
+            ],
+        }
+        self.app.engine.apply(SetPendingFreetextCommand(payload=payload))
+        self.app.save_game()
+
+    def _restore_pending_freetext(self, payload: dict) -> None:
+        """Restore the accept/reject prompt from a saved pending state (U3/TUI-6).
+
+        Reconstructs ``_current_scene``, ``_pending_freetext``, and
+        ``_freetext_draft`` from the serialized payload, then displays the
+        accept/reject prompt. Does NOT regenerate the scene or take a
+        checkpoint snapshot — the scene is restored from the snapshot
+        exactly as it was when the player quit.
+        """
+        from src.engine.scene import SceneOption, SceneScaffold
+
+        scaffold_data = payload["scaffold"]
+        scaffold = SceneScaffold(
+            focus=scaffold_data["focus"],
+            focus_description=scaffold_data["focus_description"],
+            situation=scaffold_data["situation"],
+            npc_hint=scaffold_data.get("npc_hint") or None,
+        )
+        options = [
+            SceneOption(
+                label=o["label"],
+                skill=o["skill"],
+                characteristic=o["characteristic"],
+                difficulty=o["difficulty"],
+                description=o.get("description", ""),
+                life_threatening=o.get("life_threatening", False),
+            )
+            for o in payload["options"]
+        ]
+
+        check_data = payload["check"]
+        check = SceneOption(
+            label=check_data["label"],
+            skill=check_data["skill"],
+            characteristic=check_data["characteristic"],
+            difficulty=check_data["difficulty"],
+            description=check_data.get("description", ""),
+            life_threatening=check_data.get("life_threatening", False),
+        )
+
+        # Reconstruct _current_scene so the accept handler can resolve
+        # against the same scaffold + options.
+        from src.engine.scene import SceneResult
+
+        self._current_scene = SceneResult(scaffold=scaffold, options=options)
+        self._pending_freetext = check
+        self._freetext_draft = payload["text"]
+
+        pack = self.app.pack
+        self._narrate(
+            f"Interpreted as: {check.label} (skill: {skill_display_name(pack, check.skill)}, "
+            f"difficulty: {check.difficulty})"
+        )
+        cm = self.query_one(ChoiceMenuWidget)
+        cm.set_choices(
+            "Confirm interpreted action:",
+            [
+                ("Accept — Proceed with this check", "accept_freetext"),
+                ("Reject — Rephrase or pick an option", "reject_freetext"),
+            ],
+        )
 
     def _do_accept_freetext(self) -> None:
         """Accept the interpreted free-text check and resolve it."""
@@ -835,7 +949,9 @@ class AdventureScreen(Screen):
         option = self._pending_freetext
 
         self._narrate(f"You attempt: {option.label}")
-        check_result = scene_engine.resolve_scene(self._current_scene.scaffold, option)
+        check_result = scene_engine.resolve_scene(
+            self._current_scene.scaffold, option, clear_pending_freetext=True
+        )
         self._narrate_receipt(self._mechanics_line(check_result))
 
         consequences = scene_engine.apply_consequences(check_result, self._current_scene.scaffold)
@@ -864,9 +980,18 @@ class AdventureScreen(Screen):
         structured options rather than generating a replacement scene.
         The typed free-text is restored into the Input for rephrasing and the
         Input is focused (Task 20).
+
+        U3/TUI-6: clears ``pending_freetext`` from engine state via command
+        so a save after rejection doesn't restore a stale prompt.
         """
+        from src.engine.scene import SetPendingFreetextCommand
+
         self._narrate("Interpretation rejected. Choose an option or rephrase.")
         self._pending_freetext = None
+        self.app.engine.apply(SetPendingFreetextCommand(payload=None))
+        # Persist the clear so a quit after rejecting doesn't restore a
+        # stale prompt (U3/TUI-6).
+        self.app.save_game()
         # Restore the typed text for rephrasing and focus the input.
         inp = self.query_one("#adv-input", Input)
         if self._freetext_draft is not None:
