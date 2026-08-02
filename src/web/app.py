@@ -119,6 +119,11 @@ def create_app() -> FastAPI:
     # Security: same-origin guard for mutation endpoints.
     app.add_middleware(SameOriginGuard)
 
+    # U6: menu, config, saves, resume routes.
+    from src.web.routes.menu import router as menu_router
+
+    app.include_router(menu_router)
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
         """Serve the base layout shell — four regions, no gameplay yet (U4)."""

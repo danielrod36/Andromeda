@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Andromeda — Saves</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main id="spine">
+    <h1>Saved Campaigns</h1>
+    {% if saves %}
+    <ul class="save-list">
+      {% for save in saves %}
+      <li class="save-entry">
+        <form method="post" action="/resume" style="display:inline">
+          <input type="hidden" name="save" value="{{ save.name }}">
+          <button type="submit" class="save-link">
+            <strong>{{ save.character_name or save.name }}</strong>
+            — {{ save.career or "No career" }}, {{ save.terms }} term(s)
+            {% if not save.alive %} <span class="dead">[DEAD]</span>{% endif %}
+            <small>({{ save.theme_pack }})</small>
+          </button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="placeholder">No saved campaigns yet.
+      <a href="/config">Start a new campaign</a>.</p>
+    {% endif %}
+    <p><a href="/menu">Back to menu</a></p>
+  </main>
+</body>
+</html>
