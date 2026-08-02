@@ -228,10 +228,11 @@ def test_migrate_v1_to_v2(tmp_path: Path):
     p = tmp_path / "old.json"
     p.write_text(json.dumps(v1))
     loaded = load(p)
-    assert loaded.save_version == 2
+    assert loaded.save_version == CURRENT_SAVE_VERSION
     assert loaded.character.credits == 0
     assert loaded.character.background_picks_remaining == -1
     assert loaded.open_threads == []
+    assert loaded.pending_freetext is None  # v3 field defaulted by migration.
 
 
 def test_migrate_rejects_newer_version():
@@ -313,3 +314,58 @@ def test_overwrite_existing_save_replaces_cleanly(tmp_path: Path):
     loaded = load(path)
     assert loaded.character.name == "Beta"
     assert loaded.seed == 20
+
+
+# ---------------------------------------------------------------------------
+# U3 / TUI-6: v2→v3 migration adds pending_freetext.
+# ---------------------------------------------------------------------------
+
+
+class TestV2ToV3Migration:
+    """v2 saves migrate to v3 with pending_freetext=None."""
+
+    def test_v2_save_loads_with_pending_freetext_none(self, tmp_path: Path):
+        """A v2 save loads at v3 with pending_freetext defaulted to None."""
+        from src.engine.state import GameState
+
+        v2 = json.loads(GameState.new(seed=7).model_dump_json())
+        v2["save_version"] = 2
+        v2.pop("pending_freetext", None)
+        p = tmp_path / "v2.json"
+        p.write_text(json.dumps(v2))
+        loaded = load(p)
+        assert loaded.save_version == 3
+        assert loaded.pending_freetext is None
+
+    def test_v3_save_round_trips_pending_freetext(self, tmp_path: Path):
+        """A v3 save with pending_freetext set round-trips correctly."""
+        from src.engine.state import GameState
+
+        state = GameState.new(seed=42)
+        state.pending_freetext = {
+            "text": "I bribe the guard",
+            "check": {
+                "label": "Bribe",
+                "skill": "broker",
+                "characteristic": "SOC",
+                "difficulty": "average",
+            },
+            "scaffold": {
+                "focus": "Dock",
+                "focus_description": "Busy",
+                "situation": "Tense",
+                "npc_hint": "",
+            },
+            "options": [],
+        }
+        p = tmp_path / "v3.json"
+        save(state, p)
+        loaded = load(p)
+        assert loaded.save_version == 3
+        assert loaded.pending_freetext is not None
+        assert loaded.pending_freetext["text"] == "I bribe the guard"
+        assert loaded.pending_freetext["check"]["skill"] == "broker"
+
+    def test_current_save_version_is_3(self):
+        """CURRENT_SAVE_VERSION is 3 after U3."""
+        assert current_save_version() == 3

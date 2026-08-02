@@ -1376,3 +1376,158 @@ class TestFreetextLLMClassifier:
         result = se.classify_freetext("I bribe the dock officer", scaffold)
         assert result is not None
         assert result.interpreted_check.skill == "broker"
+
+
+# ---------------------------------------------------------------------------
+# U3 / TUI-6: SetPendingFreetextCommand + SceneCheckCommand atomic clear.
+# ---------------------------------------------------------------------------
+
+
+class TestSetPendingFreetextCommand:
+    """U3/TUI-6: set/clear pending_freetext via command funnel."""
+
+    def test_sets_pending_freetext(self):
+        """SetPendingFreetextCommand stores the payload in state."""
+        from src.engine.scene import SetPendingFreetextCommand
+
+        state = GameState.new(seed=42)
+        engine = Engine(state)
+        payload = {
+            "text": "I bribe the guard",
+            "check": {
+                "label": "Bribe",
+                "skill": "broker",
+                "characteristic": "SOC",
+                "difficulty": "average",
+            },
+            "scaffold": {
+                "focus": "Dock",
+                "focus_description": "Busy",
+                "situation": "Tense",
+                "npc_hint": "",
+            },
+            "options": [],
+        }
+        engine.apply(SetPendingFreetextCommand(payload=payload))
+        assert state.pending_freetext == payload
+
+    def test_clears_pending_freetext(self):
+        """SetPendingFreetextCommand with payload=None clears the field."""
+        from src.engine.scene import SetPendingFreetextCommand
+
+        state = GameState.new(seed=42)
+        engine = Engine(state)
+        state.pending_freetext = {"text": "old", "check": {}, "scaffold": {}, "options": []}
+        engine.apply(SetPendingFreetextCommand(payload=None))
+        assert state.pending_freetext is None
+
+    def test_invalid_payload_raises_in_validate(self):
+        """Payload missing required keys raises ValueError; state untouched."""
+        from src.engine.scene import SetPendingFreetextCommand
+
+        state = GameState.new(seed=42)
+        engine = Engine(state)
+        with pytest.raises(ValueError, match="missing required keys"):
+            engine.apply(SetPendingFreetextCommand(payload={"text": "incomplete"}))
+        assert state.pending_freetext is None
+
+    def test_invalid_check_raises_in_validate(self):
+        """Check missing required keys raises ValueError; state untouched."""
+        from src.engine.scene import SetPendingFreetextCommand
+
+        state = GameState.new(seed=42)
+        engine = Engine(state)
+        with pytest.raises(ValueError, match="check missing"):
+            engine.apply(
+                SetPendingFreetextCommand(
+                    payload={"text": "x", "check": {"label": "ok"}, "scaffold": {}, "options": []}
+                )
+            )
+        assert state.pending_freetext is None
+
+
+class TestSceneCheckClearsPending:
+    """U3/TUI-6: SceneCheckCommand with clear_pending_freetext=True clears atomically."""
+
+    def test_clear_pending_on_resolve(self):
+        """Resolving a free-text check clears pending_freetext in the same mutate."""
+        from src.engine.scene import SetPendingFreetextCommand
+
+        state = GameState.new(seed=42)
+        state.character.characteristics = {
+            "STR": 7,
+            "DEX": 8,
+            "END": 6,
+            "INT": 10,
+            "EDU": 9,
+            "SOC": 5,
+        }
+        state.character.skills = {"Persuade": 1}
+        engine = Engine(state)
+
+        # Set pending state.
+        engine.apply(
+            SetPendingFreetextCommand(
+                payload={
+                    "text": "x",
+                    "check": {
+                        "label": "L",
+                        "skill": "Persuade",
+                        "characteristic": "SOC",
+                        "difficulty": "average",
+                    },
+                    "scaffold": {},
+                    "options": [],
+                }
+            )
+        )
+        assert state.pending_freetext is not None
+
+        # Resolve with clear_pending_freetext=True.
+        from src.engine.scene import SceneCheckCommand
+
+        engine.apply(
+            SceneCheckCommand(
+                skill="Persuade",
+                characteristic="SOC",
+                difficulty="average",
+                clear_pending_freetext=True,
+            )
+        )
+        assert state.pending_freetext is None
+
+    def test_no_clear_without_flag(self):
+        """Normal SceneCheckCommand does NOT clear pending_freetext."""
+        from src.engine.scene import SceneCheckCommand, SetPendingFreetextCommand
+
+        state = GameState.new(seed=42)
+        state.character.characteristics = {
+            "STR": 7,
+            "DEX": 8,
+            "END": 6,
+            "INT": 10,
+            "EDU": 9,
+            "SOC": 5,
+        }
+        state.character.skills = {"Persuade": 1}
+        engine = Engine(state)
+        engine.apply(
+            SetPendingFreetextCommand(
+                payload={
+                    "text": "x",
+                    "check": {
+                        "label": "L",
+                        "skill": "Persuade",
+                        "characteristic": "SOC",
+                        "difficulty": "average",
+                    },
+                    "scaffold": {},
+                    "options": [],
+                }
+            )
+        )
+        engine.apply(
+            SceneCheckCommand(skill="Persuade", characteristic="SOC", difficulty="average")
+        )
+        # pending_freetext is still set because clear flag was False.
+        assert state.pending_freetext is not None

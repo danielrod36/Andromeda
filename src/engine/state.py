@@ -139,7 +139,7 @@ class GameState(BaseModel):
     continues the exact same roll sequence.
     """
 
-    save_version: int = 2
+    save_version: int = 3
     seed: int
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     character: Character = Field(default_factory=Character)
@@ -154,6 +154,12 @@ class GameState(BaseModel):
     # --- save schema v2 ---
     open_threads: list[str] = Field(default_factory=list)
     mission_counter: int = 0
+    # --- save schema v3 (U3/TUI-6): free-text draft persistence ---
+    #: When set, a free-text interpretation is pending the player's accept/reject.
+    #: Carries the full serialized check + scene snapshot so resume restores the
+    #: exact prompt without regenerating the scene (which would consume oracle
+    #: rolls). ``None`` when no interpretation is pending.
+    pending_freetext: dict | None = None
 
     @classmethod
     def new(cls, seed: int, **kwargs: object) -> GameState:

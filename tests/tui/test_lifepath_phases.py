@@ -1947,20 +1947,21 @@ class TestLifepathInputLock:
         )
 
         narration_started = asyncio.Event()
+        release = asyncio.Event()
 
-        class SlowAdapter:
+        class BlockingAdapter:
             async def narrate_qualification(self, state, engine, result_obj, *, on_attempt=None):
                 if on_attempt:
                     on_attempt(1)
                 narration_started.set()
-                await asyncio.sleep(0.3)
+                await release.wait()
                 return NarrationResult(prose="LLM qualification text.", source="llm")
 
             async def narrate_term(self, state, engine, result_obj, *, on_attempt=None):
                 if on_attempt:
                     on_attempt(1)
                 narration_started.set()
-                await asyncio.sleep(0.3)
+                await release.wait()
                 return NarrationResult(prose="LLM term text.", source="llm")
 
             async def narrate_mustering_out(self, *a, **kw):
@@ -1969,7 +1970,7 @@ class TestLifepathInputLock:
             async def narrate_lifepath(self, *a, **kw):
                 return NarrationResult(prose="LLM summary text.", source="llm")
 
-        app.create_llm_adapter = lambda: SlowAdapter()
+        app.create_llm_adapter = lambda: BlockingAdapter()
 
         async with app.run_test() as pilot:
             screen = await push_lifepath(app, pilot)
@@ -1989,7 +1990,8 @@ class TestLifepathInputLock:
             await pilot.pause()
             assert screen.phase == phase_before  # No phase change.
 
-            # Wait for narration to complete.
-            await asyncio.sleep(0.4)
+            # Release the narration worker.
+            release.set()
+            await pilot.pause()
             await pilot.pause()
             assert screen._busy is False
