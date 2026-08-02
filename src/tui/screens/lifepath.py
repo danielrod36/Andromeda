@@ -30,6 +30,7 @@ fetched asynchronously via ``run_worker``; otherwise the template
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import suppress
 from typing import ClassVar
 
@@ -163,6 +164,8 @@ class LifepathScreen(Screen):
     _busy = reactive(False)
     #: Current LLM attempt number for the generating indicator (U1/TUI-5).
     _narration_attempt = reactive(0)
+    #: Active worker reference for Esc cancellation (U1/TUI-5).
+    _active_worker = None
     _mounted = False
 
     def __init__(self) -> None:
@@ -471,9 +474,6 @@ class LifepathScreen(Screen):
         if self._busy and attempt > 0:
             bar = self.query_one("#status-bar", Label)
             bar.update(f"[yellow]Generating narration… attempt {attempt}[/yellow]")
-
-    #: Active worker reference for Esc cancellation (U1/TUI-5).
-    _active_worker = None
 
     def action_cancel_generation(self) -> None:
         """Cancel an in-flight narration worker (U1/TUI-5).
@@ -2124,11 +2124,18 @@ class LifepathScreen(Screen):
                 if prose:
                     self._narrate_paragraph(prose)
 
+        except asyncio.CancelledError:
+            # U1/TUI-5: Esc pressed — show template fallback prose.
+            prose = template_fn()
+            if prose:
+                self._narrate_paragraph(prose)
+            self._update_status_bar()
         except Exception:
             # Fall back to template on any error.
             prose = template_fn()
             if prose:
                 self._narrate_paragraph(prose)
+            self._update_status_bar()
         finally:
             self._busy = False
             self._active_worker = None

@@ -23,6 +23,7 @@ Phase state is reconstructable from GameState (AE8).
 
 from __future__ import annotations
 
+import asyncio
 from typing import ClassVar
 
 from rich.markup import escape
@@ -269,8 +270,8 @@ class AdventureScreen(Screen):
         """Cancel an in-flight narration/classify worker (U1/TUI-5).
 
         Esc aborts the active LLM call. The worker's exception handler
-        supplies template fallback prose for narration, or simply abandons
-        a classify attempt (the draft stays in the input for rephrasing).
+        supplies template fallback prose for narration, or restores the
+        typed text to the input for a cancelled classify attempt.
         The engine outcome was already locked before narration started, so
         cancellation never alters mechanics.
         """
@@ -736,8 +737,9 @@ class AdventureScreen(Screen):
 
         Runs the LLM classification off the event loop via
         ``classify_freetext_async``. On success, displays the interpreted
-        check and offers accept/reject. On failure or cancellation, falls
-        back to the keyword classifier.
+        check and offers accept/reject. On Esc cancellation, restores the
+        typed text to the input so the player can rephrase. On any other
+        failure, falls back to the keyword classifier.
         """
         scaffold = self._current_scene.scaffold
         scene_engine = self._get_scene_engine()
@@ -781,7 +783,14 @@ class AdventureScreen(Screen):
                 classification = scene_engine.classify_freetext(text, scaffold)
 
             self._display_freetext_classification(text, classification)
+            self._update_status_bar()
 
+        except asyncio.CancelledError:
+            # U1/TUI-5: Esc pressed — restore the draft so the player can
+            # rephrase or pick a structured option.
+            inp = self.query_one("#adv-input", Input)
+            inp.value = text
+            self._narrate("[dim]Classification cancelled — input restored.[/dim]")
         except Exception:
             # Never raise from classify — fall back to keyword path silently.
             try:
@@ -932,8 +941,6 @@ class AdventureScreen(Screen):
         (``CancelledError``), supplies template fallback prose — the engine
         outcome was already locked, so mechanics are unaffected.
         """
-        import asyncio
-
         if not self._mounted or self.app.engine is None:
             self._busy = False
             return
@@ -960,43 +967,20 @@ class AdventureScreen(Screen):
             prose = LLMAdapter._template_scene(scaffold, outcome_facts)
             if prose:
                 self._narrate(prose)
+            self._update_status_bar()
         except Exception:
             # Never raise from narration — template outcomes already shown.
-            pass
+            self._update_status_bar()
         finally:
             self._busy = False
             self._active_worker = None
-
-    def _make_llm_classifier(self):
-        """Build a sync classifier closure for SceneEngine.classify_freetext.
-
-        Captures the adapter, state, and pack to provide the view and
-        valid_skill_ids the adapter needs. Returns ``None`` when no adapter
-        is configured.
-        """
-        if self._adapter is None:
-            return None
-        adapter = self._adapter
-        state = self.app.engine.state
-        pack = self.app.pack
-
-        def classifier(text: str, scaffold):
-            view = build_curated_view_for_scene(
-                state,
-                [scaffold.focus_description, scaffold.situation],
-                text,
-            )
-            valid_skill_ids = set(pack.skills.keys())
-            return adapter.classify_freetext(text, scaffold, view, valid_skill_ids)
-
-        return classifier
 
     def _make_summary_generator(self):
         """Build a sync summary closure for MissionEngine.resolve_mission (CHAP-1).
 
         Captures the adapter and state to provide the curated view the adapter
         needs. Returns ``None`` when no adapter is configured (the engine then
-        uses the deterministic template summary). Mirrors ``_make_llm_classifier``.
+        uses the deterministic template summary).
         """
         if self._adapter is None:
             return None

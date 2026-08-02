@@ -54,6 +54,10 @@ from src.llm.tools import TOOL_REGISTRY, ToolDeps
 
 logger = logging.getLogger(__name__)
 
+#: Callback fired before each LLM attempt so screens can render
+#: "narrating… attempt k" (U1). The int argument is the 1-based attempt.
+AttemptCallback = Callable[[int], None]
+
 # ---------------------------------------------------------------------------
 # Structured output models.
 # ---------------------------------------------------------------------------
@@ -333,9 +337,28 @@ class LLMAdapter:
     # Retry loop with per-attempt callback (U1 — TUI-5).
     # ------------------------------------------------------------------
 
-    #: Callback fired before each LLM attempt so screens can render
-    #: "narrating… attempt k" (U1). The int argument is the 1-based attempt.
-    AttemptCallback = Callable[[int], None]
+    #: Maximum number of attempts for a single LLM call: one initial
+    #: attempt plus ``max_retries`` retries (matching pydantic-ai's own
+    #: ``retries`` budget semantics).
+    def _total_attempts(self) -> int:
+        if self.config.max_retries < 1:
+            raise ValueError(f"max_retries must be at least 1, got {self.config.max_retries}")
+        return self.config.max_retries + 1
+
+    @staticmethod
+    def _rejection_prompt(full_prompt: str, exc: Exception) -> str:
+        """Build a follow-up prompt that feeds the rejection reason back.
+
+        Appends to ``full_prompt`` (not the original prompt) so prior
+        rejection reasons accumulate across retries. Each retry is a fresh
+        ``agent.run()`` with no conversation history, so the model needs the
+        cumulative context to avoid repeating the same mistake.
+        """
+        return (
+            f"{full_prompt}\n\n"
+            f"Your previous response was rejected: {exc}. "
+            f"Please try again, addressing this feedback."
+        )
 
     async def _run_agent(
         self,
@@ -348,9 +371,11 @@ class LLMAdapter:
         """Run a Pydantic AI agent with a manual retry loop (U1).
 
         Agents are constructed with ``retries=0`` so the adapter owns retry
-        semantics. This helper loops up to ``max_retries`` times, calling
-        ``on_attempt(k)`` before each attempt so screens can show a generating
-        indicator with an attempt counter.
+        semantics. This helper performs up to ``max_retries + 1`` attempts
+        (one initial plus ``max_retries`` retries, matching pydantic-ai's
+        own ``retries`` budget), calling ``on_attempt(k)`` before each
+        attempt so screens can show a generating indicator with an attempt
+        counter.
 
         On each retry the rejection message from the previous attempt is
         prepended to the prompt, preserving the within-conversation retry
@@ -359,9 +384,10 @@ class LLMAdapter:
         Raises the last exception if all retries are exhausted — callers
         catch it and fall back to template narration.
         """
+        total = self._total_attempts()
         full_prompt = prompt
         last_exc: Exception | None = None
-        for attempt in range(1, self.config.max_retries + 1):
+        for attempt in range(1, total + 1):
             if on_attempt is not None:
                 on_attempt(attempt)
             try:
@@ -375,16 +401,49 @@ class LLMAdapter:
                 # UnexpectedModelBehavior — catch both so the manual loop
                 # owns all retry semantics (U1/TUI-5).
                 last_exc = exc
-                if attempt < self.config.max_retries:
+                if attempt < total:
                     # Feed the rejection reason back so the model can correct.
-                    full_prompt = (
-                        f"{prompt}\n\n"
-                        f"Your previous response was rejected: {exc}. "
-                        f"Please try again, addressing this feedback."
-                    )
+                    full_prompt = self._rejection_prompt(full_prompt, exc)
                     continue
                 raise
         # Unreachable — loop either returns or raises on final attempt.
+        raise last_exc  # type: ignore[misc]
+
+    def _run_agent_sync_retry(
+        self,
+        agent: Agent,
+        prompt: str,
+        *,
+        deps: ToolDeps | None = None,
+        on_attempt: AttemptCallback | None = None,
+    ) -> Any:
+        """Sync counterpart to :meth:`_run_agent` for non-TUI callers.
+
+        Mirrors the async retry loop but delegates the actual call to
+        :meth:`_run_agent_sync` (which handles the event-loop-aware
+        ``run_sync`` fallback). Used by :meth:`summarize_chapter` and the
+        deprecated :meth:`classify_freetext` so they retain the same retry
+        budget as the async narration paths.
+        """
+        total = self._total_attempts()
+        full_prompt = prompt
+        last_exc: Exception | None = None
+        for attempt in range(1, total + 1):
+            if on_attempt is not None:
+                on_attempt(attempt)
+            try:
+                return self._run_agent_sync(
+                    agent,
+                    full_prompt,
+                    deps=deps,
+                    usage_limits=self._usage_limits(),
+                )
+            except (ModelRetry, UnexpectedModelBehavior) as exc:
+                last_exc = exc
+                if attempt < total:
+                    full_prompt = self._rejection_prompt(full_prompt, exc)
+                    continue
+                raise
         raise last_exc  # type: ignore[misc]
 
     # ------------------------------------------------------------------
@@ -722,11 +781,10 @@ class LLMAdapter:
         deps = ToolDeps(engine=None, state=None)
 
         try:
-            result = self._run_agent_sync(
+            result = self._run_agent_sync_retry(
                 self._classify_agent,
                 prompt,
                 deps=deps,
-                usage_limits=self._usage_limits(),
             )
             # Post-call validation: skill_id must be in the valid set.
             if result.output.skill_id not in valid_skill_ids:
@@ -809,11 +867,10 @@ class LLMAdapter:
         deps = ToolDeps(engine=None, state=None)  # Read-only context.
 
         try:
-            result = self._run_agent_sync(
+            result = self._run_agent_sync_retry(
                 self._scene_agent,
                 prompt,
                 deps=deps,
-                usage_limits=self._usage_limits(),
             )
             prose = result.output.prose.strip()
             return prose or None

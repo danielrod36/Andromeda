@@ -1564,3 +1564,64 @@ class TestInputLock:
             assert screen._busy is False
             assert screen._narration_attempt == 0
             assert not screen.has_class("busy")
+
+    async def test_esc_during_classify_restores_input(self, adventure_app: CepheusApp):
+        """Esc during LLM classify restores the typed text to the input (U1/TUI-5).
+
+        The input was cleared when the worker started; on cancellation the
+        worker's CancelledError handler restores it so the player can rephrase.
+        """
+        import asyncio
+
+        app = adventure_app
+        app.engine.roller.extend([[5, 5], [4, 4], [3, 3], [5, 5], [4, 4], [3, 3]])
+
+        classify_started = asyncio.Event()
+
+        class HangingClassifyAdapter:
+            llm_configured = True
+
+            async def classify_freetext_async(self, *a, **kw):
+                classify_started.set()
+                await asyncio.sleep(10)  # Hangs until cancelled.
+                return None
+
+            async def narrate_scene(self, scaffold, outcome_facts, view, *, on_attempt=None):
+                from src.llm.adapter import NarrationResult
+
+                return NarrationResult(prose="scene", source="llm")
+
+        async with app.run_test() as pilot:
+            screen = await push_adventure(app, pilot)
+            screen._adapter = HangingClassifyAdapter()
+
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            # Accept mission + enter scene.
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            # Type free-text and submit to trigger the classify worker.
+            inp = app.screen.query_one("#adv-input", Input)
+            inp.focus()
+            await pilot.pause()
+            inp.value = "I hack the terminal"
+            await pilot.press("enter")
+            await pilot.pause()
+
+            # Wait for the classify worker to start.
+            await asyncio.wait_for(classify_started.wait(), timeout=2)
+            await pilot.pause()
+
+            assert screen._busy is True
+            # Input was cleared when the worker started.
+            assert inp.value == ""
+
+            # Press Esc to cancel.
+            await pilot.press("escape")
+            await pilot.pause()
+            await pilot.pause()
+
+            # Busy cleared and input text restored.
+            assert screen._busy is False
+            assert inp.value == "I hack the terminal"
