@@ -21,11 +21,13 @@ rejection, ``UsageLimits`` on every turn.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, field_validator
 from pydantic_ai import Agent, ModelRetry
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import UsageLimits
 
@@ -51,6 +53,10 @@ from src.llm.state_view import CuratedView, build_curated_view
 from src.llm.tools import TOOL_REGISTRY, ToolDeps
 
 logger = logging.getLogger(__name__)
+
+#: Callback fired before each LLM attempt so screens can render
+#: "narrating… attempt k" (U1). The int argument is the 1-based attempt.
+AttemptCallback = Callable[[int], None]
 
 # ---------------------------------------------------------------------------
 # Structured output models.
@@ -270,7 +276,7 @@ class LLMAdapter:
             output_type=LifepathNarration,
             system_prompt=SYSTEM_PROMPT,
             deps_type=ToolDeps,
-            retries=self.config.max_retries,
+            retries=0,  # Adapter owns the retry loop (U1 on_attempt support).
             defer_model_check=defer,
         )
         # Register tools.
@@ -283,7 +289,7 @@ class LLMAdapter:
             output_type=FullLifepathNarration,
             system_prompt=SYSTEM_PROMPT,
             deps_type=ToolDeps,
-            retries=self.config.max_retries,
+            retries=0,
             defer_model_check=defer,
         )
         for tool_func in TOOL_REGISTRY.values():
@@ -295,7 +301,7 @@ class LLMAdapter:
             output_type=SceneNarration,
             system_prompt=SYSTEM_PROMPT,
             deps_type=ToolDeps,
-            retries=self.config.max_retries,
+            retries=0,
             defer_model_check=defer,
         )
 
@@ -305,7 +311,7 @@ class LLMAdapter:
             output_type=FreeTextCheck,
             system_prompt=SYSTEM_PROMPT,
             deps_type=ToolDeps,
-            retries=self.config.max_retries,
+            retries=0,
             defer_model_check=defer,
         )
 
@@ -328,6 +334,119 @@ class LLMAdapter:
         return UsageLimits(**kwargs)
 
     # ------------------------------------------------------------------
+    # Retry loop with per-attempt callback (U1 — TUI-5).
+    # ------------------------------------------------------------------
+
+    #: Maximum number of attempts for a single LLM call: one initial
+    #: attempt plus ``max_retries`` retries (matching pydantic-ai's own
+    #: ``retries`` budget semantics).
+    def _total_attempts(self) -> int:
+        if self.config.max_retries < 1:
+            raise ValueError(f"max_retries must be at least 1, got {self.config.max_retries}")
+        return self.config.max_retries + 1
+
+    @staticmethod
+    def _rejection_prompt(full_prompt: str, exc: Exception) -> str:
+        """Build a follow-up prompt that feeds the rejection reason back.
+
+        Appends to ``full_prompt`` (not the original prompt) so prior
+        rejection reasons accumulate across retries. Each retry is a fresh
+        ``agent.run()`` with no conversation history, so the model needs the
+        cumulative context to avoid repeating the same mistake.
+        """
+        return (
+            f"{full_prompt}\n\n"
+            f"Your previous response was rejected: {exc}. "
+            f"Please try again, addressing this feedback."
+        )
+
+    async def _run_agent(
+        self,
+        agent: Agent,
+        prompt: str,
+        *,
+        deps: ToolDeps | None = None,
+        on_attempt: AttemptCallback | None = None,
+    ) -> Any:
+        """Run a Pydantic AI agent with a manual retry loop (U1).
+
+        Agents are constructed with ``retries=0`` so the adapter owns retry
+        semantics. This helper performs up to ``max_retries + 1`` attempts
+        (one initial plus ``max_retries`` retries, matching pydantic-ai's
+        own ``retries`` budget), calling ``on_attempt(k)`` before each
+        attempt so screens can show a generating indicator with an attempt
+        counter.
+
+        On each retry the rejection message from the previous attempt is
+        prepended to the prompt, preserving the within-conversation retry
+        quality (the model sees why its prior output was rejected).
+
+        Raises the last exception if all retries are exhausted — callers
+        catch it and fall back to template narration.
+        """
+        total = self._total_attempts()
+        full_prompt = prompt
+        last_exc: Exception | None = None
+        for attempt in range(1, total + 1):
+            if on_attempt is not None:
+                on_attempt(attempt)
+            try:
+                return await agent.run(
+                    full_prompt,
+                    deps=deps,
+                    usage_limits=self._usage_limits(),
+                )
+            except (ModelRetry, UnexpectedModelBehavior) as exc:
+                # With retries=0, pydantic-ai wraps ModelRetry into
+                # UnexpectedModelBehavior — catch both so the manual loop
+                # owns all retry semantics (U1/TUI-5).
+                last_exc = exc
+                if attempt < total:
+                    # Feed the rejection reason back so the model can correct.
+                    full_prompt = self._rejection_prompt(full_prompt, exc)
+                    continue
+                raise
+        # Unreachable — loop either returns or raises on final attempt.
+        raise last_exc  # type: ignore[misc]
+
+    def _run_agent_sync_retry(
+        self,
+        agent: Agent,
+        prompt: str,
+        *,
+        deps: ToolDeps | None = None,
+        on_attempt: AttemptCallback | None = None,
+    ) -> Any:
+        """Sync counterpart to :meth:`_run_agent` for non-TUI callers.
+
+        Mirrors the async retry loop but delegates the actual call to
+        :meth:`_run_agent_sync` (which handles the event-loop-aware
+        ``run_sync`` fallback). Used by :meth:`summarize_chapter` and the
+        deprecated :meth:`classify_freetext` so they retain the same retry
+        budget as the async narration paths.
+        """
+        total = self._total_attempts()
+        full_prompt = prompt
+        last_exc: Exception | None = None
+        for attempt in range(1, total + 1):
+            if on_attempt is not None:
+                on_attempt(attempt)
+            try:
+                return self._run_agent_sync(
+                    agent,
+                    full_prompt,
+                    deps=deps,
+                    usage_limits=self._usage_limits(),
+                )
+            except (ModelRetry, UnexpectedModelBehavior) as exc:
+                last_exc = exc
+                if attempt < total:
+                    full_prompt = self._rejection_prompt(full_prompt, exc)
+                    continue
+                raise
+        raise last_exc  # type: ignore[misc]
+
+    # ------------------------------------------------------------------
     # Term narration.
     # ------------------------------------------------------------------
 
@@ -336,6 +455,8 @@ class LLMAdapter:
         state: GameState,
         engine: Engine,
         term_result: TermResult,
+        *,
+        on_attempt: AttemptCallback | None = None,
     ) -> NarrationResult:
         """Narrate a single term's events using the LLM (R11, AE12).
 
@@ -345,6 +466,7 @@ class LLMAdapter:
             state: The canonical game state.
             engine: The engine (for tool deps / command funnel).
             term_result: The mechanical result for this term.
+            on_attempt: Optional callback fired before each LLM attempt (U1).
 
         Returns:
             :class:`NarrationResult` with prose and metadata.
@@ -363,11 +485,7 @@ class LLMAdapter:
         deps = ToolDeps(engine=engine, state=state)
 
         try:
-            result = await self._agent.run(
-                prompt,
-                deps=deps,
-                usage_limits=self._usage_limits(),
-            )
+            result = await self._run_agent(self._agent, prompt, deps=deps, on_attempt=on_attempt)
             return NarrationResult(
                 prose=result.output.prose,
                 source="llm",
@@ -398,6 +516,8 @@ class LLMAdapter:
         state: GameState,
         engine: Engine,
         qual_result: QualificationResult,
+        *,
+        on_attempt: AttemptCallback | None = None,
     ) -> NarrationResult:
         """Narrate a career qualification check.
 
@@ -427,11 +547,7 @@ class LLMAdapter:
         deps = ToolDeps(engine=engine, state=state)
 
         try:
-            result = await self._agent.run(
-                prompt,
-                deps=deps,
-                usage_limits=self._usage_limits(),
-            )
+            result = await self._run_agent(self._agent, prompt, deps=deps, on_attempt=on_attempt)
             return NarrationResult(
                 prose=result.output.prose,
                 source="llm",
@@ -459,6 +575,8 @@ class LLMAdapter:
         state: GameState,
         engine: Engine,
         mo_result: MusteringOutResult,
+        *,
+        on_attempt: AttemptCallback | None = None,
     ) -> NarrationResult:
         """Narrate mustering-out benefits.
 
@@ -495,11 +613,7 @@ class LLMAdapter:
         deps = ToolDeps(engine=engine, state=state)
 
         try:
-            result = await self._agent.run(
-                prompt,
-                deps=deps,
-                usage_limits=self._usage_limits(),
-            )
+            result = await self._run_agent(self._agent, prompt, deps=deps, on_attempt=on_attempt)
             return NarrationResult(
                 prose=result.output.prose,
                 source="llm",
@@ -527,6 +641,8 @@ class LLMAdapter:
         state: GameState,
         engine: Engine,
         lifepath_result: LifepathResult,
+        *,
+        on_attempt: AttemptCallback | None = None,
     ) -> NarrationResult:
         """Narrate the entire lifepath with the LLM (AE12).
 
@@ -548,10 +664,8 @@ class LLMAdapter:
         deps = ToolDeps(engine=engine, state=state)
 
         try:
-            result = await self._full_agent.run(
-                prompt,
-                deps=deps,
-                usage_limits=self._usage_limits(),
+            result = await self._run_agent(
+                self._full_agent, prompt, deps=deps, on_attempt=on_attempt
             )
             return NarrationResult(
                 prose=result.output.prose,
@@ -581,6 +695,8 @@ class LLMAdapter:
         scaffold,
         outcome_facts: list[str],
         view: CuratedView,
+        *,
+        on_attempt: AttemptCallback | None = None,
     ) -> NarrationResult:
         """Narrate a scene's events using the LLM (R14).
 
@@ -593,6 +709,7 @@ class LLMAdapter:
             scaffold: :class:`SceneScaffold` with focus/situation/NPC hints.
             outcome_facts: Mechanical outcome facts as human-readable strings.
             view: The curated state view for this scene.
+            on_attempt: Optional callback fired before each LLM attempt (U1).
 
         Returns:
             :class:`NarrationResult` with prose and metadata.
@@ -607,10 +724,8 @@ class LLMAdapter:
         deps = ToolDeps(engine=None, state=None)  # Read-only context.
 
         try:
-            result = await self._scene_agent.run(
-                prompt,
-                deps=deps,
-                usage_limits=self._usage_limits(),
+            result = await self._run_agent(
+                self._scene_agent, prompt, deps=deps, on_attempt=on_attempt
             )
             return NarrationResult(
                 prose=result.output.prose,
@@ -645,6 +760,11 @@ class LLMAdapter:
         ``ModelRetry``. On exhaustion or any error, returns ``None`` so the
         caller falls back to the keyword map.
 
+        .. deprecated::
+            Use :meth:`classify_freetext_async` from within a Textual worker
+            to avoid blocking the event loop (U1). This sync method remains
+            for backward compatibility and non-TUI callers.
+
         Args:
             text: The free-text player input.
             scaffold: The current :class:`SceneScaffold`.
@@ -661,13 +781,53 @@ class LLMAdapter:
         deps = ToolDeps(engine=None, state=None)
 
         try:
-            result = self._run_agent_sync(
+            result = self._run_agent_sync_retry(
                 self._classify_agent,
                 prompt,
                 deps=deps,
-                usage_limits=self._usage_limits(),
             )
             # Post-call validation: skill_id must be in the valid set.
+            if result.output.skill_id not in valid_skill_ids:
+                raise ModelRetry(
+                    f"skill_id '{result.output.skill_id}' is not in the valid set: "
+                    f"{sorted(valid_skill_ids)}"
+                )
+            return result.output
+        except Exception as exc:
+            logger.warning("Free-text classification failed, returning None: %s", exc)
+            return None
+
+    async def classify_freetext_async(
+        self,
+        text: str,
+        scaffold,
+        view: CuratedView,
+        valid_skill_ids: set[str],
+        *,
+        on_attempt: AttemptCallback | None = None,
+    ) -> FreeTextCheck | None:
+        """Async free-text classification — never blocks the event loop (U1).
+
+        Mirrors :meth:`classify_freetext` but uses ``await agent.run()``
+        via the adapter's manual retry loop, so it can run inside a Textual
+        ``run_worker`` coroutine without a thread-pool fallback.
+
+        Returns ``None`` on failure/exhaustion so the caller falls back to
+        the keyword map. Never raises.
+        """
+        if not self.llm_configured:
+            return None
+
+        prompt = build_classification_prompt(text, scaffold, view, valid_skill_ids)
+        deps = ToolDeps(engine=None, state=None)
+
+        try:
+            result = await self._run_agent(
+                self._classify_agent,
+                prompt,
+                deps=deps,
+                on_attempt=on_attempt,
+            )
             if result.output.skill_id not in valid_skill_ids:
                 raise ModelRetry(
                     f"skill_id '{result.output.skill_id}' is not in the valid set: "
@@ -707,11 +867,10 @@ class LLMAdapter:
         deps = ToolDeps(engine=None, state=None)  # Read-only context.
 
         try:
-            result = self._run_agent_sync(
+            result = self._run_agent_sync_retry(
                 self._scene_agent,
                 prompt,
                 deps=deps,
-                usage_limits=self._usage_limits(),
             )
             prose = result.output.prose.strip()
             return prose or None

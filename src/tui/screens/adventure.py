@@ -23,6 +23,7 @@ Phase state is reconstructable from GameState (AE8).
 
 from __future__ import annotations
 
+import asyncio
 from typing import ClassVar
 
 from rich.markup import escape
@@ -39,6 +40,7 @@ from src.engine.odds import compute_check_odds, format_odds_line
 from src.engine.scene import SceneCheckResult, SceneEngine
 from src.engine.skills import skill_display_name
 from src.engine.state import Injury
+from src.llm.adapter import LLMAdapter
 from src.llm.state_view import build_curated_view, build_curated_view_for_scene
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
@@ -104,12 +106,16 @@ class AdventureScreen(Screen):
     AdventureScreen.narrow.show-sheet #adv-content-area { height: 1fr; }
     AdventureScreen.narrow.show-sheet #adv-main-area { layout: vertical; }
     AdventureScreen.short #adv-choice-menu { height: 6; }
+    /* U1/TUI-5: dimmed inputs while a worker is in flight. */
+    AdventureScreen.busy #adv-choice-menu { opacity: 0.5; }
+    AdventureScreen.busy #adv-input { opacity: 0.5; }
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("tab", "focus_next", "Next panel"),
         Binding("shift+tab", "focus_previous", "Prev panel"),
         Binding("c", "toggle_sheet", "Char sheet"),
+        Binding("escape", "cancel_generation", "Cancel", show=True),
         Binding("pageup", "scroll_log_up", "Log up", show=False),
         Binding("pagedown", "scroll_log_down", "Log down", show=False),
         Binding("home", "scroll_log_home", "Log top", show=False),
@@ -118,6 +124,10 @@ class AdventureScreen(Screen):
 
     #: Phase state machine — always_update so refreshes happen on re-entry.
     phase = reactive("init", always_update=True)
+    #: True while a narration or classify worker is in flight — input locked (U1/TUI-5).
+    _busy = reactive(False)
+    #: Current LLM attempt number for the generating indicator (U1/TUI-5).
+    _narration_attempt = reactive(0)
     _mounted = False
 
     # Transient adventure state. ``None`` means "not live": hooks are
@@ -131,6 +141,8 @@ class AdventureScreen(Screen):
     _freetext_draft: str | None = None
     #: LLM adapter — None when no LLM is configured (template-only mode).
     _adapter = None
+    #: Active worker reference for Esc cancellation (U1/TUI-5).
+    _active_worker = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="adv-main-area"):
@@ -239,6 +251,32 @@ class AdventureScreen(Screen):
     def watch_phase(self, old_phase: str, new_phase: str) -> None:
         """Refresh the choice menu when phase changes."""
         self._update_choices()
+
+    def watch__busy(self, busy: bool) -> None:
+        """Toggle dimmed visual state when busy flag changes (U1/TUI-5)."""
+        if busy:
+            self.add_class("busy")
+        else:
+            self.remove_class("busy")
+            self._narration_attempt = 0
+
+    def watch__narration_attempt(self, attempt: int) -> None:
+        """Update the status bar with the attempt counter (U1/TUI-5)."""
+        if self._busy and attempt > 0:
+            bar = self.query_one("#adv-status-bar", Label)
+            bar.update(f"[yellow]Generating narration… attempt {attempt}[/yellow]")
+
+    def action_cancel_generation(self) -> None:
+        """Cancel an in-flight narration/classify worker (U1/TUI-5).
+
+        Esc aborts the active LLM call. The worker's exception handler
+        supplies template fallback prose for narration, or restores the
+        typed text to the input for a cancelled classify attempt.
+        The engine outcome was already locked before narration started, so
+        cancellation never alters mechanics.
+        """
+        if self._active_worker is not None and self._active_worker.is_running:
+            self._active_worker.cancel()
 
     # ------------------------------------------------------------------
     # Choice management.
@@ -649,9 +687,18 @@ class AdventureScreen(Screen):
         The LLM (or template classifier) interprets the free text into an
         engine-known check. The interpreted check is shown to the player
         for confirmation before resolution.
+
+        U1/TUI-5: when an LLM adapter is configured, classification runs
+        inside a ``run_worker`` coroutine so the event loop is not blocked
+        by the multi-second LLM call. While the worker is in flight, inputs
+        are locked and a generating indicator is shown. When no adapter is
+        configured, keyword classification is instant and runs synchronously.
         """
         if event.input.id != "adv-input":
             return
+
+        if self._busy:
+            return  # Input locked during narration/classify (U1/TUI-5).
 
         text = event.value.strip()
         if not text:
@@ -663,24 +710,107 @@ class AdventureScreen(Screen):
             event.input.value = ""
             return
 
-        scene_engine = self._get_scene_engine()
-        classification = scene_engine.classify_freetext(
-            text,
-            self._current_scene.scaffold,
-            llm_classifier=self._make_llm_classifier(),
-        )
+        event.input.value = ""
 
+        # U1/TUI-5: LLM classify can block for seconds — run in a worker.
+        if self._adapter is not None and self._adapter.llm_configured:
+            self._busy = True
+            self._narration_attempt = 0
+            self.query_one(ChoiceMenuWidget).clear_choices()
+            self._active_worker = self.run_worker(self._classify_freetext_worker(text))
+        else:
+            # No LLM — keyword classify is instant, run synchronously.
+            self._do_classify_freetext(text)
+
+    def _do_classify_freetext(self, text: str) -> None:
+        """Synchronous keyword classify + display (no LLM path).
+
+        Shared between the no-adapter path and the worker's keyword fallback.
+        """
+        scaffold = self._current_scene.scaffold
+        scene_engine = self._get_scene_engine()
+        classification = scene_engine.classify_freetext(text, scaffold)
+        self._display_freetext_classification(text, classification)
+
+    async def _classify_freetext_worker(self, text: str) -> None:
+        """Worker: classify free-text input via the async adapter (U1/TUI-5).
+
+        Runs the LLM classification off the event loop via
+        ``classify_freetext_async``. On success, displays the interpreted
+        check and offers accept/reject. On Esc cancellation, restores the
+        typed text to the input so the player can rephrase. On any other
+        failure, falls back to the keyword classifier.
+        """
+        scaffold = self._current_scene.scaffold
+        scene_engine = self._get_scene_engine()
+        classification = None
+
+        try:
+            if self._adapter is not None and self._adapter.llm_configured:
+                state = self.app.engine.state
+                view = build_curated_view_for_scene(
+                    state,
+                    [scaffold.focus_description, scaffold.situation],
+                    text,
+                )
+                pack = self.app.pack
+                valid_skill_ids = set(pack.skills.keys())
+                check = await self._adapter.classify_freetext_async(
+                    text,
+                    scaffold,
+                    view,
+                    valid_skill_ids,
+                    on_attempt=lambda k: setattr(self, "_narration_attempt", k),
+                )
+                if check is not None:
+                    from src.engine.scene import FreeTextClassification, SceneOption
+
+                    option = SceneOption(
+                        label=check.label,
+                        skill=check.skill_id,
+                        characteristic=check.characteristic,
+                        difficulty=check.difficulty,
+                        description=f"Interpreted from: '{text}'",
+                        life_threatening=check.life_threatening,
+                    )
+                    classification = FreeTextClassification(
+                        original_text=text,
+                        interpreted_check=option,
+                    )
+
+            # Keyword fallback when LLM returned None.
+            if classification is None:
+                classification = scene_engine.classify_freetext(text, scaffold)
+
+            self._display_freetext_classification(text, classification)
+            self._update_status_bar()
+
+        except asyncio.CancelledError:
+            # U1/TUI-5: Esc pressed — restore the draft so the player can
+            # rephrase or pick a structured option.
+            inp = self.query_one("#adv-input", Input)
+            inp.value = text
+            self._narrate("[dim]Classification cancelled — input restored.[/dim]")
+        except Exception:
+            # Never raise from classify — fall back to keyword path silently.
+            try:
+                classification = scene_engine.classify_freetext(text, scaffold)
+            except Exception:
+                classification = None
+            self._display_freetext_classification(text, classification)
+        finally:
+            self._busy = False
+            self._active_worker = None
+
+    def _display_freetext_classification(self, text: str, classification) -> None:
+        """Display the classification result: show the check or an error."""
         if classification is None:
-            # Escape user text: the log renders Rich markup, and raw input
-            # like "[/]" would otherwise crash with a MarkupError.
             self._narrate(
                 f"Could not interpret '{escape(text)}'. "
                 "Try rephrasing or select a structured option."
             )
-            event.input.value = ""
             return
 
-        # Show the interpreted check to the player (AE5).
         check = classification.interpreted_check
         pack = self.app.pack
         self._narrate(
@@ -688,7 +818,6 @@ class AdventureScreen(Screen):
             f"difficulty: {check.difficulty})"
         )
 
-        # Offer accept/reject choices.
         cm = self.query_one(ChoiceMenuWidget)
         cm.set_choices(
             "Confirm interpreted action:",
@@ -697,12 +826,8 @@ class AdventureScreen(Screen):
                 ("Reject — Rephrase or pick an option", "reject_freetext"),
             ],
         )
-
-        # Store the interpreted check for resolution. Preserve the typed text
-        # so a rejection can restore it for rephrasing (Task 20).
         self._pending_freetext = check
         self._freetext_draft = text
-        event.input.value = ""
 
     def _do_accept_freetext(self) -> None:
         """Accept the interpreted free-text check and resolve it."""
@@ -755,6 +880,8 @@ class AdventureScreen(Screen):
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Dispatch choice selection to the appropriate handler."""
+        if self._busy:
+            return  # Input locked during narration/classify (U1/TUI-5).
         option_id = event.option.id
         if option_id is None:
             return
@@ -788,6 +915,10 @@ class AdventureScreen(Screen):
 
         On LLM failure, sets the status bar to the appropriate degraded-mode
         surface string so the player understands why the narration changed.
+
+        U1/TUI-5: sets the busy flag and attempt counter so inputs are locked
+        while narration is in flight. The worker reference is stored for Esc
+        cancellation.
         """
         if self._adapter is None:
             return  # No LLM — mechanical outcomes already narrated.
@@ -798,11 +929,20 @@ class AdventureScreen(Screen):
             f"Skill: {check_result.skill} ({check_result.quality}, effect {check_result.effect:+d})",
         ] + [f"Consequence: {c}" for c in consequences]
 
-        self.run_worker(self._narrate_scene_async(scaffold, outcome_facts))
+        self._busy = True
+        self._narration_attempt = 0
+        self._active_worker = self.run_worker(self._narrate_scene_async(scaffold, outcome_facts))
 
     async def _narrate_scene_async(self, scaffold, outcome_facts: list[str]) -> None:
-        """Worker: fetch scene narration from the LLM, display it."""
+        """Worker: fetch scene narration from the LLM, display it.
+
+        U1/TUI-5: passes an ``on_attempt`` callback so the generating
+        indicator reflects the current attempt number. On Esc cancellation
+        (``CancelledError``), supplies template fallback prose — the engine
+        outcome was already locked, so mechanics are unaffected.
+        """
         if not self._mounted or self.app.engine is None:
+            self._busy = False
             return
         try:
             state = self.app.engine.state
@@ -810,45 +950,37 @@ class AdventureScreen(Screen):
                 state,
                 [scaffold.focus_description, scaffold.situation],
             )
-            result = await self._adapter.narrate_scene(scaffold, outcome_facts, view)
+            result = await self._adapter.narrate_scene(
+                scaffold,
+                outcome_facts,
+                view,
+                on_attempt=lambda k: setattr(self, "_narration_attempt", k),
+            )
             if result.prose:
                 self._narrate(result.prose)
             if result.llm_failed:
                 self._update_status_bar(result.failure_kind)
+            else:
+                self._update_status_bar()
+        except asyncio.CancelledError:
+            # U1/TUI-5: Esc pressed — show template fallback prose.
+            prose = LLMAdapter._template_scene(scaffold, outcome_facts)
+            if prose:
+                self._narrate(prose)
+            self._update_status_bar()
         except Exception:
             # Never raise from narration — template outcomes already shown.
-            pass
-
-    def _make_llm_classifier(self):
-        """Build a sync classifier closure for SceneEngine.classify_freetext.
-
-        Captures the adapter, state, and pack to provide the view and
-        valid_skill_ids the adapter needs. Returns ``None`` when no adapter
-        is configured.
-        """
-        if self._adapter is None:
-            return None
-        adapter = self._adapter
-        state = self.app.engine.state
-        pack = self.app.pack
-
-        def classifier(text: str, scaffold):
-            view = build_curated_view_for_scene(
-                state,
-                [scaffold.focus_description, scaffold.situation],
-                text,
-            )
-            valid_skill_ids = set(pack.skills.keys())
-            return adapter.classify_freetext(text, scaffold, view, valid_skill_ids)
-
-        return classifier
+            self._update_status_bar()
+        finally:
+            self._busy = False
+            self._active_worker = None
 
     def _make_summary_generator(self):
         """Build a sync summary closure for MissionEngine.resolve_mission (CHAP-1).
 
         Captures the adapter and state to provide the curated view the adapter
         needs. Returns ``None`` when no adapter is configured (the engine then
-        uses the deterministic template summary). Mirrors ``_make_llm_classifier``.
+        uses the deterministic template summary).
         """
         if self._adapter is None:
             return None

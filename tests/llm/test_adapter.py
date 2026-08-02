@@ -250,6 +250,64 @@ class TestInvalidOutputRejection:
         # Template narration should contain term info.
         assert len(result.prose) > 0
 
+    @pytest.mark.asyncio
+    async def test_on_attempt_fires_per_retry(self, state, engine, term_result):
+        """U1/TUI-5: on_attempt callback fires once per LLM attempt.
+
+        With max_retries=3 and always-invalid output, the adapter's manual
+        retry loop fires on_attempt(1) through on_attempt(4) — one initial
+        attempt plus three retries, matching pydantic-ai's ``retries``
+        budget semantics — before falling back to template.
+        """
+        test_model = TestModel(custom_output_args={"prose": ""})
+        adapter = LLMAdapter(
+            config=AdapterConfig(max_retries=3, request_limit=10),
+            test_model=test_model,
+        )
+        attempts: list[int] = []
+        result = await adapter.narrate_term(state, engine, term_result, on_attempt=attempts.append)
+
+        assert attempts == [1, 2, 3, 4]
+        assert result.llm_failed is True
+        assert result.source == "template"
+
+    @pytest.mark.asyncio
+    async def test_max_retries_below_1_raises_value_error(self):
+        """max_retries < 1 is rejected at the retry-loop level.
+
+        The narration methods catch all exceptions for template fallback, so
+        the guard is verified on ``_run_agent`` directly. This prevents the
+        confusing ``raise None`` → TypeError that would otherwise occur with
+        an empty retry range.
+        """
+        adapter = LLMAdapter(
+            config=AdapterConfig(max_retries=0, request_limit=10),
+            test_model=TestModel(custom_output_args={"prose": ""}),
+        )
+        with pytest.raises(ValueError, match="max_retries must be at least 1"):
+            await adapter._run_agent(adapter._agent, "test")
+
+    def test_rejection_prompt_accumulates_across_retries(self):
+        """Retry prompts accumulate all prior rejection reasons (PR feedback).
+
+        Each retry is a fresh ``agent.run()`` with no conversation history, so
+        the model needs cumulative rejection context to avoid repeating the
+        same mistake. ``_rejection_prompt`` must append, not rebuild from
+        the original prompt.
+        """
+        adapter = LLMAdapter(
+            config=AdapterConfig(max_retries=3, request_limit=10),
+            test_model=TestModel(custom_output_args={"prose": ""}),
+        )
+        p0 = "base prompt"
+        p1 = adapter._rejection_prompt(p0, ValueError("first error"))
+        p2 = adapter._rejection_prompt(p1, ValueError("second error"))
+
+        # Both rejections should be present in the accumulated prompt.
+        assert "first error" in p2
+        assert "second error" in p2
+        assert "base prompt" in p2
+
 
 # ---------------------------------------------------------------------------
 # AE12 — Full lifepath narration faithfulness.
@@ -703,3 +761,43 @@ class TestSummarizeChapter:
         adapter._scene_agent = None  # type: ignore[assignment]
         result = adapter.summarize_chapter({}, [], view_stub())
         assert result is None
+
+    def test_sync_retry_fires_on_attempt(self):
+        """Sync path (_run_agent_sync_retry) retries invalid output (U1 regression fix).
+
+        summarize_chapter previously relied on pydantic-ai's built-in retries.
+        After moving to retries=0 + manual loop, the sync path must still
+        retry. With max_retries=3 and always-empty prose, on_attempt fires
+        [1, 2, 3, 4] (1 initial + 3 retries) before returning None.
+        """
+        test_model = TestModel(custom_output_args={"prose": ""})
+        adapter = LLMAdapter(
+            config=AdapterConfig(max_retries=3, request_limit=10),
+            test_model=test_model,
+        )
+        attempts: list[int] = []
+        result = adapter.summarize_chapter(
+            {"hook": {"objective": "Test"}, "ending": "success", "scenes_completed": 1},
+            ["Log entry."],
+            view_stub(),
+            # summarize_chapter doesn't accept on_attempt directly, so verify
+            # via the internal sync retry helper instead.
+        )
+        # Empty prose → all retries fail → None fallback.
+        assert result is None
+
+        # Verify the sync retry loop fires the expected number of attempts.
+        adapter2 = LLMAdapter(
+            config=AdapterConfig(max_retries=3, request_limit=10),
+            test_model=TestModel(custom_output_args={"prose": ""}),
+        )
+        from src.llm.tools import ToolDeps
+
+        with pytest.raises(Exception):  # noqa: B017 (PT011 handled below)
+            adapter2._run_agent_sync_retry(
+                adapter2._scene_agent,
+                "test prompt",
+                deps=ToolDeps(engine=None, state=None),
+                on_attempt=attempts.append,
+            )
+        assert attempts == [1, 2, 3, 4]
