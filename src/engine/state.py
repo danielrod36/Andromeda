@@ -139,7 +139,7 @@ class GameState(BaseModel):
     continues the exact same roll sequence.
     """
 
-    save_version: int = 3
+    save_version: int = 4
     seed: int
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     character: Character = Field(default_factory=Character)
@@ -160,6 +160,13 @@ class GameState(BaseModel):
     #: exact prompt without regenerating the scene (which would consume oracle
     #: rolls). ``None`` when no interpretation is pending.
     pending_freetext: dict | None = None
+    # --- save schema v4 (U8): pending mission hook persistence ---
+    #: When set, a mission hook is awaiting the player's accept/refuse. Carries
+    #: the serialized :class:`~src.engine.mission.MissionHook` so resume
+    #: restores the exact hook without regenerating it (which would consume
+    #: oracle rolls and diverge from a no-save session). ``None`` when no hook
+    #: is pending (mission accepted, refused, or not yet offered).
+    pending_hook: dict | None = None
 
     @classmethod
     def new(cls, seed: int, **kwargs: object) -> GameState:
