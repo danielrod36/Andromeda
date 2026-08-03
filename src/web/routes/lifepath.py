@@ -12,36 +12,18 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from src.engine.commands import Engine
-from src.engine.persistence import load
 from src.game.lifepath import LifepathController
-from src.game.saves import resolve_save_path
-from src.themepacks.base import get_pack
-from src.themepacks.cepheus_scifi import load_scifi_pack
+from src.web.routes._saves import DEFAULT_SAVES_DIR, load_engine_for_save
 
 router = APIRouter(prefix="/play")
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
-#: Default saves directory (shared with menu routes).
-DEFAULT_SAVES_DIR = Path("saves")
-
 
 def _load_controller(save_name: str) -> tuple[LifepathController, Path]:
     """Load a save and construct a LifepathController."""
-    saves_dir = DEFAULT_SAVES_DIR
-    saves_dir.mkdir(parents=True, exist_ok=True)
-    save_path = resolve_save_path(saves_dir, save_name)
-    if not save_path.exists():
-        raise FileNotFoundError(f"Save not found: {save_name}")
-    state = load(save_path)
-    engine = Engine(state)
-    pack = (
-        load_scifi_pack()
-        if state.campaign.theme_pack == "scifi"
-        else get_pack(state.campaign.theme_pack)
-    )
+    engine, pack, save_path = load_engine_for_save(save_name, DEFAULT_SAVES_DIR)
     controller = LifepathController(engine, pack)
     return controller, save_path
 
