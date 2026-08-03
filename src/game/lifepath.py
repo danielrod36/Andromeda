@@ -373,13 +373,15 @@ class LifepathController:
     def _auto_advance_term(self) -> PhaseView:
         """Auto-resolve the current term sub-phase and advance (U7).
 
-        For the web MVP, mechanical sub-phases (commission, advancement,
-        skills, aging) are auto-resolved. The player faces an explicit
-        choice only at re-enlist (continue vs muster out).
+        For the web MVP, the full term (survival → advancement → aging)
+        runs in a single pass inside the ``run_survival`` handler. This
+        is deliberate: ``_current_term_result`` is an in-memory attribute
+        that doesn't persist across HTTP requests, so all mechanical
+        steps that depend on it must execute while it's still set. The
+        player faces an explicit choice only at re-enlist.
         """
         phase = self.determine_phase()
-        state = self._engine.state
-        char = state.character
+        char = self._engine.state.character
         career_id = char.career
 
         if phase == "run_survival":
@@ -394,37 +396,27 @@ class LifepathController:
                     prompt="The character did not survive.",
                     receipts=receipts,
                 )
-            self._set_term_phase("choose_commission")
-            return PhaseView(
-                phase="choose_commission",
-                prompt=f"Term {term_number} — Survival passed.",
-                receipts=receipts,
-                choices=[ChoiceOption(label="Continue term", option_id="auto_term")],
-            )
-
-        if phase == "choose_commission":
-            # Skip commission (optional) and advancement.
-            self._set_term_phase("choose_advancement")
-            return self.get_phase_view()
-
-        if phase == "choose_advancement":
-            result = self._current_term_result
-            if result:
-                self._runner.run_advancement_step(career_id, result)
-            self._set_term_phase("choose_skills")
-            return self.get_phase_view()
-
-        if phase == "choose_skills":
-            # Auto-resolve skills and advance to aging.
-            self._set_term_phase("run_aging")
-            return self.get_phase_view()
-
-        if phase == "run_aging":
-            result = self._current_term_result
-            if result:
-                self._runner.run_aging_step(result)
+            # Run advancement and aging while _current_term_result is in
+            # memory — the web shell reconstructs the controller per
+            # request, so these can't be deferred to separate clicks.
+            self._runner.run_advancement_step(career_id, result)
+            died = self._runner.run_aging_step(result)
+            if died:
+                return PhaseView(
+                    phase="complete",
+                    prompt="The character died of old age.",
+                    receipts=receipts,
+                )
             self._set_term_phase("re_enlist")
-            return self.get_phase_view()
+            return PhaseView(
+                phase="re_enlist",
+                prompt=f"Term {term_number} complete.",
+                receipts=receipts,
+                choices=[
+                    ChoiceOption(label="Re-enlist", option_id="reenlist_continue"),
+                    ChoiceOption(label="Muster Out", option_id="reenlist_muster"),
+                ],
+            )
 
         if phase == "re_enlist":
             return self.get_phase_view()

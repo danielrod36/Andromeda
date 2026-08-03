@@ -198,15 +198,23 @@ class TestTermLoop:
         # No term_phase flag should have been set just by viewing.
         assert controller.get_latest_term_phase(engine.state) is None
 
-    def test_auto_advance_run_survival_stores_term_result(self):
-        """_auto_advance_term for run_survival stores _current_term_result."""
+    def test_auto_advance_run_survival_runs_full_term(self):
+        """_auto_advance_term for run_survival resolves the full term in one pass.
+
+        Survival, advancement, and aging all execute while
+        _current_term_result is in memory — the web shell reconstructs
+        the controller per request so these can't be deferred.
+        """
         engine = _make_mid_lifepath_engine()
         controller = LifepathController(engine, load_scifi_pack())
         view = controller.apply_choice("auto_term")
-        # Survival passed (seed 42 with STR/END stats should survive Navy).
-        assert view.phase == "choose_commission"
+        # Full term resolved → re_enlist (not an intermediate sub-phase).
+        assert view.phase == "re_enlist"
         assert controller._current_term_result is not None
         assert any("Survival" in r for r in view.receipts)
+        # Advancement ran (aging produces no events at age ~22 — starts at 34+).
+        event_types = [e.command_type for e in engine.state.events]
+        assert "lifepath_advancement" in event_types
 
     def test_re_enlist_view_not_overridden_by_term_phases_fallback(self):
         """get_phase_view() for re_enlist returns choices, not a generic prompt."""
