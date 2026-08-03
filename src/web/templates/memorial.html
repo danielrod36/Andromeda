@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Andromeda — In Memoriam</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body data-theme="scifi">
+
+  <main id="spine">
+    <div class="memorial">
+      <h1 class="memorial-title">In Memoriam</h1>
+
+      {% if death_mode == "ironman" %}
+      <p class="memorial-subtitle">Ironman — death is permanent</p>
+      {% endif %}
+
+      <!-- Obituary -->
+      <div class="obituary">
+        {% for line in obituary_lines %}
+        <p class="obituary-line">{{ line }}</p>
+        {% endfor %}
+      </div>
+
+      <!-- Missions detail -->
+      {% if missions %}
+      <div class="memorial-missions">
+        <h2>Missions</h2>
+        <ul>
+          {% for mission in missions %}
+          <li class="mission-record {{ mission.ending }}">
+            {{ mission.objective }}
+            — <span class="ending">{{ mission.ending }}</span>
+            <small>({{ mission.scenes }} scenes)</small>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <!-- Notable rolls -->
+      {% if notable_rolls %}
+      <div class="memorial-rolls">
+        <h2>Notable Rolls</h2>
+        <ul>
+          {% for roll in notable_rolls %}
+          <li class="roll-record {{ roll.type }}">
+            {% if roll.type == "critical" %}★ Critical (natural 12){% else %}✦ Fumble (natural 2){% endif %}
+            — {{ roll.description }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <!-- Chapter summaries -->
+      {% if chapter_summaries %}
+      <details class="memorial-chapters">
+        <summary>Chapter Summaries</summary>
+        <div class="chapter-list">
+          {% for summary in chapter_summaries %}
+          <p class="chapter-summary">{{ summary }}</p>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+
+      <!-- Mode-appropriate interstitial -->
+      {% if interstitial_text %}
+      <div class="interstitial interstitial-{{ interstitial_mode }}">
+        <p>{{ interstitial_text }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Restart options -->
+      <div class="memorial-actions">
+        {% if death_mode == "ironman" %}
+        <a href="/config" class="action-button">Begin a New Story</a>
+        {% else %}
+        <a href="/adventure/{{ save_name }}" class="action-button">Continue</a>
+        {% endif %}
+        <a href="/menu" class="action-button secondary">Main Menu</a>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>
