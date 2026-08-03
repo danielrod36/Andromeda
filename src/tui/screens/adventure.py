@@ -42,13 +42,10 @@ from src.engine.skills import skill_display_name
 from src.engine.state import Injury
 from src.llm.adapter import LLMAdapter
 from src.llm.state_view import build_curated_view, build_curated_view_for_scene
+from src.llm.status import STATUS_CONNECTION_LOST, STATUS_NARRATION_UNAVAILABLE
 from src.tui.widgets.character_sheet import CharacterSheetWidget
 from src.tui.widgets.choice_menu import ChoiceMenuWidget
 from src.tui.widgets.narrative_log import NarrativeLogWidget
-
-#: Degraded-mode status surfaces (Task 24 — plan wording).
-STATUS_NARRATION_UNAVAILABLE = "narration unavailable — showing mechanical outcomes"
-STATUS_CONNECTION_LOST = "connection lost — template narration"
 
 
 class AdventureScreen(Screen):

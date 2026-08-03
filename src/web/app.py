@@ -134,6 +134,11 @@ def create_app() -> FastAPI:
 
     app.include_router(adventure_router)
 
+    # U10: SSE streaming narration.
+    from src.web.routes.stream import router as stream_router
+
+    app.include_router(stream_router)
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
         """Serve the base layout shell — four regions, no gameplay yet (U4)."""

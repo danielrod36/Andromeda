@@ -40,3 +40,19 @@ def load_engine_for_save(
         else get_pack(state.campaign.theme_pack)
     )
     return engine, pack, save_path
+
+
+def load_state_for_save(save_name: str, saves_dir: Path | None = None) -> tuple[GameState, Path]:
+    """Load a save and return ``(state, save_path)`` without constructing an Engine.
+
+    Used by read-only routes (e.g. SSE streaming) that need state but not
+    an Engine instance. Raises :class:`FileNotFoundError` if the save does
+    not exist.
+    """
+    directory = saves_dir or DEFAULT_SAVES_DIR
+    directory.mkdir(parents=True, exist_ok=True)
+    save_path = resolve_save_path(directory, save_name)
+    if not save_path.exists():
+        raise FileNotFoundError(f"Save not found: {save_name}")
+    state: GameState = load(save_path)
+    return state, save_path
