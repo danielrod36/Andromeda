@@ -260,6 +260,32 @@ class NextMissionIdCommand(Command):
         )
 
 
+class SetPendingHookCommand(Command):
+    """Set or clear the pending mission hook (U8).
+
+    When ``payload`` is a dict (serialized :class:`MissionHook`), stores it in
+    ``state.pending_hook`` so a quit/resume restores the exact hook without
+    regenerating it (regeneration would consume oracle rolls and diverge from
+    a no-save session). When ``None``, clears the field — used on accept,
+    refuse, or mission resolve so the hook is no longer pending.
+    """
+
+    command_type: ClassVar[str] = "set_pending_hook"
+
+    payload: dict | None = None
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.pending_hook = self.payload
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=(
+                "Mission hook pending" if self.payload is not None else "Mission hook cleared"
+            ),
+            changes={"pending_hook": self.payload},
+        )
+
+
 class ResolveMissionCommand(Command):
     """End the active mission with an explicit ending (Task 19, R23, AE15).
 

@@ -147,8 +147,10 @@ def test_campaign_config_defaults():
 
 
 def test_save_version_defaults_to_current():
+    from src.engine.persistence import current_save_version
+
     state = GameState.new(seed=1)
-    assert state.save_version == 3
+    assert state.save_version == current_save_version()
 
 
 # ---------------------------------------------------------------------------
@@ -172,10 +174,11 @@ def test_character_v2_fields_default():
 
 
 def test_gamestate_v2_fields_and_npc_union():
+    from src.engine.persistence import current_save_version
     from src.engine.state import GameState, NpcRecord
 
     s = GameState.new(seed=1)
-    assert s.save_version == 3
+    assert s.save_version == current_save_version()
     assert s.open_threads == []
     assert s.mission_counter == 0
     s.entities.append(NpcRecord(name="Dock Officer", disposition=-1))

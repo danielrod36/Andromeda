@@ -18,7 +18,7 @@ from pathlib import Path
 from src.engine.state import GameState
 
 #: Current save-file version. Bump when the schema changes; add a migrator.
-CURRENT_SAVE_VERSION = 3
+CURRENT_SAVE_VERSION = 4
 
 
 def _migrate_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
@@ -47,11 +47,19 @@ def _migrate_v2_to_v3(data: dict[str, object]) -> dict[str, object]:
     return data
 
 
+def _migrate_v3_to_v4(data: dict[str, object]) -> dict[str, object]:
+    """Add v4 field (pending_hook) with default None to v3 saves (U8)."""
+    data.setdefault("pending_hook", None)
+    data["save_version"] = 4
+    return data
+
+
 #: Migration functions keyed by source version. Each takes raw dict data at
 #: version N and returns dict data at version N+1. ``migrate`` walks the chain.
 _MIGRATIONS: dict[int, Callable[[dict[str, object]], dict[str, object]]] = {
     1: _migrate_v1_to_v2,
     2: _migrate_v2_to_v3,
+    3: _migrate_v3_to_v4,
 }
 
 

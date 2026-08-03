@@ -325,7 +325,7 @@ class TestV2ToV3Migration:
     """v2 saves migrate to v3 with pending_freetext=None."""
 
     def test_v2_save_loads_with_pending_freetext_none(self, tmp_path: Path):
-        """A v2 save loads at v3 with pending_freetext defaulted to None."""
+        """A v2 save loads at current version with pending_freetext defaulted to None."""
         from src.engine.state import GameState
 
         v2 = json.loads(GameState.new(seed=7).model_dump_json())
@@ -334,7 +334,7 @@ class TestV2ToV3Migration:
         p = tmp_path / "v2.json"
         p.write_text(json.dumps(v2))
         loaded = load(p)
-        assert loaded.save_version == 3
+        assert loaded.save_version == current_save_version()
         assert loaded.pending_freetext is None
 
     def test_v3_save_round_trips_pending_freetext(self, tmp_path: Path):
@@ -361,11 +361,53 @@ class TestV2ToV3Migration:
         p = tmp_path / "v3.json"
         save(state, p)
         loaded = load(p)
-        assert loaded.save_version == 3
+        assert loaded.save_version == current_save_version()
         assert loaded.pending_freetext is not None
         assert loaded.pending_freetext["text"] == "I bribe the guard"
         assert loaded.pending_freetext["check"]["skill"] == "broker"
 
-    def test_current_save_version_is_3(self):
-        """CURRENT_SAVE_VERSION is 3 after U3."""
-        assert current_save_version() == 3
+    def test_current_save_version_is_4(self):
+        """CURRENT_SAVE_VERSION is 4 after U8."""
+        assert current_save_version() == 4
+
+
+# ---------------------------------------------------------------------------
+# U8: v3→v4 migration adds pending_hook.
+# ---------------------------------------------------------------------------
+
+
+class TestV3ToV4Migration:
+    """v3 saves migrate to v4 with pending_hook=None."""
+
+    def test_v3_save_loads_with_pending_hook_none(self, tmp_path: Path):
+        """A v3 save loads at v4 with pending_hook defaulted to None."""
+        from src.engine.state import GameState
+
+        v3 = json.loads(GameState.new(seed=7).model_dump_json())
+        v3["save_version"] = 3
+        v3.pop("pending_hook", None)
+        p = tmp_path / "v3.json"
+        p.write_text(json.dumps(v3))
+        loaded = load(p)
+        assert loaded.save_version == 4
+        assert loaded.pending_hook is None
+
+    def test_v4_save_round_trips_pending_hook(self, tmp_path: Path):
+        """A v4 save with pending_hook set round-trips correctly."""
+        from src.engine.state import GameState
+
+        state = GameState.new(seed=42)
+        state.pending_hook = {
+            "patron": "Navy",
+            "objective": "Recover cargo",
+            "complication": "Pirates",
+            "reward": "100k Cr",
+            "description": "A Navy mission.",
+        }
+        p = tmp_path / "v4.json"
+        save(state, p)
+        loaded = load(p)
+        assert loaded.save_version == 4
+        assert loaded.pending_hook is not None
+        assert loaded.pending_hook["patron"] == "Navy"
+        assert loaded.pending_hook["objective"] == "Recover cargo"

@@ -7,6 +7,14 @@ adventure screen semantics — all mutations stay inside ``Engine.apply``.
 The controller never caches GameState — it reads through ``engine.state``
 every call so ``swap_state`` (rewind) is always reflected.
 
+Resume: ``_reconstruct_if_needed`` rebuilds the in-memory ``_current_hook``
+and ``_current_mission`` from ``state.pending_hook`` and
+``state.active_mission``. Scene options are *not* persisted across save/load
+(mid-decision saves inside a scene regenerate the scene on resume, matching
+the TUI's behavior); the hook and free-text interpretation paths are
+persisted because they are the prominent decision points and regenerating
+either would silently advance the oracle stream.
+
 Because the adapter's classify surface is synchronous, controller entry
 points that call it are documented as blocking and must run in a
 threadpool at the web layer (KTD-9).
@@ -17,9 +25,17 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from src.engine.checkpoint import CheckpointManager
 from src.engine.commands import Engine
 from src.engine.death import DefeatContext, get_death_strategy
-from src.engine.mission import Mission, MissionEnding, MissionEngine, MissionHook
+from src.engine.mission import (
+    Mission,
+    MissionEnding,
+    MissionEngine,
+    MissionHook,
+    SetMissionStateCommand,
+    SetPendingHookCommand,
+)
 from src.engine.odds import compute_check_odds, format_odds_line
 from src.engine.scene import (
     SceneCheckResult,
@@ -65,8 +81,16 @@ class AdventureController:
     missions → defeat. All mutations route through ``Engine.apply``.
 
     The controller holds transient state (current hook, current scene,
-    current mission) as instance attributes. These are rebuilt from
-    GameState on resume via ``_reconstruct_if_needed``.
+    current mission) as instance attributes. The hook and mission are
+    rebuilt from ``GameState`` on resume via ``_reconstruct_if_needed``;
+    the current scene is intentionally not persisted (mid-scene saves
+    regenerate, matching the TUI).
+
+    The controller owns a long-lived :class:`CheckpointManager` so the
+    scene-start snapshot survives across the adventure loop. Shells that
+    persist saves to disk are responsible for calling
+    ``checkpoint_mgr.save_snapshot`` / ``load_snapshot`` alongside the
+    main save (mirroring the TUI's app-level save).
     """
 
     def __init__(self, engine: Engine, pack: LoadedThemePack) -> None:
@@ -74,6 +98,7 @@ class AdventureController:
         self._pack = pack
         self._mission_engine = MissionEngine(engine, pack)
         self._scene_engine = SceneEngine(engine, pack)
+        self._checkpoint_mgr = CheckpointManager()
 
         # Transient state — rebuilt from GameState on resume.
         self._current_hook: MissionHook | None = None
@@ -96,15 +121,27 @@ class AdventureController:
     def pack(self) -> LoadedThemePack:
         return self._pack
 
+    @property
+    def checkpoint_mgr(self) -> CheckpointManager:
+        """The controller's long-lived checkpoint manager (for shells)."""
+        return self._checkpoint_mgr
+
     # ------------------------------------------------------------------
     # Reconstruction (AE8-safe resume).
     # ------------------------------------------------------------------
 
     def _reconstruct_if_needed(self) -> None:
-        """Rebuild transient state from GameState on construction/resume."""
+        """Rebuild transient state from GameState on construction/resume.
+
+        Restores ``_current_mission`` from ``state.active_mission`` and
+        ``_current_hook`` from ``state.pending_hook`` so resume doesn't
+        regenerate either (which would consume oracle rolls).
+        """
         state = self._engine.state
         if state.active_mission is not None:
             self._current_mission = Mission.from_dict(state.active_mission)
+        if state.pending_hook is not None:
+            self._current_hook = _hook_from_dict(state.pending_hook)
 
     # ------------------------------------------------------------------
     # Phase determination.
@@ -133,7 +170,17 @@ class AdventureController:
     # ------------------------------------------------------------------
 
     def get_view(self) -> AdventureView:
-        """Build an AdventureView for the current phase."""
+        """Build an AdventureView for the current phase.
+
+        .. note::
+
+            This method has side effects on first call in a phase: it lazily
+            generates the hook or scene via ``Engine.apply`` (oracle rolls).
+            ``_build_hook_view`` persists the hook; ``_build_scene_view``
+            runs the scene engine. Subsequent calls in the same phase are
+            pure reads (the transient state is cached). Treat this as a
+            refresh, not a pure query.
+        """
         phase = self.determine_phase()
 
         if phase == "hook_offered":
@@ -148,9 +195,12 @@ class AdventureController:
         return AdventureView(phase=phase)
 
     def _build_hook_view(self) -> AdventureView:
-        """Build the hook-offered view."""
+        """Build the hook-offered view, persisting the hook for resume."""
         if self._current_hook is None:
             self._current_hook = self._mission_engine.generate_hook()
+            # Persist so resume restores the hook without regenerating
+            # (regeneration would consume oracle rolls).
+            self._engine.apply(SetPendingHookCommand(payload=_hook_to_dict(self._current_hook)))
 
         hook = self._current_hook
         return AdventureView(
@@ -164,8 +214,7 @@ class AdventureController:
 
     def _build_scene_view(self) -> AdventureView:
         """Build the scene-active view with options and pre-commit odds."""
-        if self._current_scene is None:
-            self._current_scene = self._scene_engine.run_scene()
+        self._ensure_current_scene()
 
         scaffold = self._current_scene.scaffold
         state = self._engine.state
@@ -274,16 +323,25 @@ class AdventureController:
         self._current_mission = self._mission_engine.accept_mission(self._current_hook)
         self._current_hook = None
         self._current_scene = None
+        # The hook is no longer pending — clear it from canonical state.
+        self._engine.apply(SetPendingHookCommand(payload=None))
         return self.get_view()
 
     def _do_refuse_mission(self) -> AdventureView:
         self._current_hook = self._mission_engine.refuse_mission()
+        # Persist the newly generated hook so resume doesn't re-roll oracle.
+        self._engine.apply(SetPendingHookCommand(payload=_hook_to_dict(self._current_hook)))
         return self.get_view()
 
     def _do_resolve_option(self, option_index: int) -> AdventureView:
-        # Generate a fresh scene if the previous one was consumed.
-        if self._current_scene is None:
-            self._current_scene = self._scene_engine.run_scene()
+        self._ensure_current_scene()
+        if not 0 <= option_index < len(self._current_scene.options):
+            logger.warning(
+                "option_index %d out of range (0-%d)",
+                option_index,
+                len(self._current_scene.options) - 1,
+            )
+            return self.get_view()
         option = self._current_scene.options[option_index]
         scaffold = self._current_scene.scaffold
         check_result = self._scene_engine.resolve_scene(scaffold, option)
@@ -291,6 +349,13 @@ class AdventureController:
         receipts = [self._mechanics_line(check_result)]
         consequences = self._scene_engine.apply_consequences(check_result, scaffold)
         receipts.extend(f"→ {c}" for c in consequences)
+
+        # Advance the mission's progress gate before the defeat check: the
+        # scene happened regardless of outcome. In checkpoint mode a defeat
+        # rewinds state (undoing this increment); in narrative mode play
+        # continues and the scene counts; in ironman mode the character is
+        # dead and the count is moot.
+        self._record_scene_progress()
 
         # Defeat check.
         defeat = self._check_defeat(check_result, option, consequences)
@@ -305,8 +370,12 @@ class AdventureController:
         )
 
     def _do_push_for_ending(self) -> AdventureView:
-        if self._current_scene is None:
-            self._current_scene = self._scene_engine.run_scene()
+        if self._current_mission is None:
+            # Defensive: push_for_ending should only be offered with an active
+            # mission. Return the current view rather than crashing.
+            logger.warning("push_for_ending called with no active mission")
+            return self.get_view()
+        self._ensure_current_scene()
         option = self._current_scene.options[0]
         scaffold = self._current_scene.scaffold
 
@@ -340,6 +409,8 @@ class AdventureController:
 
         self._current_scene = None
         self._current_hook = None
+        # The hook from the resolved mission is gone; clear canonical state.
+        self._engine.apply(SetPendingHookCommand(payload=None))
 
         return AdventureView(
             phase="hook_offered",
@@ -351,13 +422,17 @@ class AdventureController:
     def _do_abandon_mission(self) -> AdventureView:
         consequences: list[str] = []
         mission = self._current_mission
-        if mission.abandonment_text:
+        if mission is not None and mission.abandonment_text:
             consequences.append(mission.abandonment_text)
+        if mission is None:
+            logger.warning("abandon_mission called with no active mission")
+            return self.get_view()
 
         self._mission_engine.resolve_mission(mission, MissionEnding.ABANDONMENT, consequences)
 
         self._current_scene = None
         self._current_hook = None
+        self._engine.apply(SetPendingHookCommand(payload=None))
 
         return AdventureView(
             phase="hook_offered",
@@ -457,6 +532,10 @@ class AdventureController:
         self._pending_freetext = None
         self._freetext_draft = None
 
+        # Advance the mission's progress gate before the defeat check (see
+        # _do_resolve_option for rationale).
+        self._record_scene_progress()
+
         # Defeat check.
         defeat = self._check_defeat(check_result, option, consequences)
         if defeat is not None:
@@ -522,15 +601,12 @@ class AdventureController:
 
     def _handle_defeat(self, reason: str) -> AdventureView:
         """Invoke the death strategy and return the defeat view."""
-        from src.engine.checkpoint import CheckpointManager
-
         state = self._engine.state
         death_mode = state.campaign.death_mode
 
-        checkpoint_mgr = CheckpointManager()
         strategy = get_death_strategy(
             death_mode,
-            checkpoint=checkpoint_mgr,
+            checkpoint=self._checkpoint_mgr,
             engine=self._engine,
         )
         context = DefeatContext(
@@ -547,6 +623,12 @@ class AdventureController:
 
         if result.restored_state is not None:
             self._engine.swap_state(result.restored_state)
+            # Re-sync all transient state from the restored canonical state.
+            # Without this, ``_current_mission`` is stale (pointing at the
+            # pre-rewind mission with wrong ``scenes_completed``), which
+            # would crash ``_do_push_for_ending`` / ``_do_abandon_mission``
+            # with AttributeError on ``mission.success_text`` etc.
+            self._reconstruct_if_needed()
 
         if not result.play_continues:
             return AdventureView(
@@ -578,9 +660,65 @@ class AdventureController:
                 "strong_hit": "Strong hit",
                 "weak_hit": "Weak hit",
                 "miss": "Miss",
-            }[result.quality]
+            }.get(result.quality, result.quality)
         trained_note = "" if result.trained else " (untrained)"
         return (
             f"2D6 [{dice}] = {raw}  DM {result.total_dm:+d} → {total} "
             f"vs 8 — {tier} (Effect {result.effect:+d}){trained_note}"
         )
+
+    def _ensure_current_scene(self) -> None:
+        """Generate a fresh scene if the previous one was consumed.
+
+        Takes a checkpoint snapshot at scene start when the campaign uses
+        checkpoint death mode (AE3). Mirrors the TUI's scene-start behavior
+        so ``restore()`` has a snapshot to rewind to on defeat.
+        """
+        if self._current_scene is not None:
+            return
+        state = self._engine.state
+        if state.campaign.death_mode == "checkpoint":
+            self._checkpoint_mgr.take_snapshot(state)
+        self._current_scene = self._scene_engine.run_scene()
+
+    def _record_scene_progress(self) -> None:
+        """Increment ``scenes_completed`` on the active mission (Task 19).
+
+        Routing the updated mission dict through ``SetMissionStateCommand``
+        keeps the progress gate (``push_for_ending`` availability and
+        ``ResolveMissionCommand.validate``) in sync with canonical state.
+        Without this, the gate never opens.
+        """
+        mission = self._current_mission
+        if mission is None:
+            return
+        mission.scenes_played += 1
+        mission.scenes_completed = mission.scenes_played
+        self._engine.apply(SetMissionStateCommand(mission_data=mission.to_dict()))
+
+
+# ----------------------------------------------------------------------
+# Hook serialization helpers (U8 — pending_hook persistence).
+# ----------------------------------------------------------------------
+
+
+def _hook_to_dict(hook: MissionHook) -> dict:
+    """Serialize a :class:`MissionHook` for ``state.pending_hook``."""
+    return {
+        "patron": hook.patron,
+        "objective": hook.objective,
+        "complication": hook.complication,
+        "reward": hook.reward,
+        "description": hook.description,
+    }
+
+
+def _hook_from_dict(data: dict) -> MissionHook:
+    """Reconstruct a :class:`MissionHook` from its serialized form."""
+    return MissionHook(
+        patron=data.get("patron", ""),
+        objective=data.get("objective", ""),
+        complication=data.get("complication", ""),
+        reward=data.get("reward", ""),
+        description=data.get("description", ""),
+    )
