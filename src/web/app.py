@@ -139,6 +139,11 @@ def create_app() -> FastAPI:
 
     app.include_router(stream_router)
 
+    # U12: Memorial route for dead characters.
+    from src.web.routes.memorial import router as memorial_router
+
+    app.include_router(memorial_router)
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
         """Serve the base layout shell — four regions, no gameplay yet (U4)."""
