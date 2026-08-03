@@ -49,27 +49,34 @@ async def stream_narration(save_name: str) -> StreamingResponse:
             yield build_error_block("Failed to load save.").to_sse()
             return
 
-        char = state.character
+        try:
+            char = state.character
 
-        # Build minimal template blocks from the current state.
-        scaffold = f"Character: {char.name}, Career: {char.career or '—'}"
-        # outcome_facts intentionally empty — populated when LLM narration is wired in.
-        outcome_facts: list[str] = []
-        receipts: list[str] = []
+            # Build minimal template blocks from the current state.
+            scaffold = f"Character: {char.name}, Career: {char.career or '—'}"
+            # outcome_facts intentionally empty — populated when LLM narration is wired in.
+            outcome_facts: list[str] = []
+            receipts: list[str] = []
 
-        # Extract recent events as receipts (last 3).
-        recent_events = state.events[-3:] if state.events else []
-        for event in recent_events:
-            if event.description:
-                receipts.append(event.description)
+            # Extract recent events as receipts (last 3).
+            recent_events = state.events[-3:] if state.events else []
+            for event in recent_events:
+                if event.description:
+                    receipts.append(event.description)
 
-        blocks = build_template_blocks(scaffold, outcome_facts, receipts)
+            blocks = build_template_blocks(scaffold, outcome_facts, receipts)
 
-        for block in blocks:
-            yield block.to_sse()
+            for block in blocks:
+                yield block.to_sse()
 
-        # Terminal done event.
-        yield build_done_block().to_sse()
+            # Terminal done event.
+            yield build_done_block().to_sse()
+        except Exception:
+            # Deliver an error event so the SSE client gets a terminal
+            # signal instead of a silent stream death, then re-raise so
+            # the exception still surfaces in server logs (not swallowed).
+            yield build_error_block("Narration generation failed.").to_sse()
+            raise
 
     return StreamingResponse(
         event_stream(),
