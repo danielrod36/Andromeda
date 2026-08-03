@@ -2,7 +2,7 @@
 
 Derives a structured obituary from the event log — career history, age,
 missions completed/abandoned, notable rolls (natural 2s and 12s from
-``audit_rolls``) — with a template epitath and mode-appropriate restart.
+``audit_rolls``) — with a template epitaph and mode-appropriate restart.
 
 Terminal status rides the existing ``character.alive`` field (set through
 the funnel by ``SetCharacterDeadCommand``): no new flag, no schema change.
@@ -10,21 +10,23 @@ The U6 phase predicate routes dead saves to the memorial route in the web
 shell; the TUI's existing dead-character game-over handling is unchanged
 (KTD-8).
 
-Checkpoint and narrative modes get their own interstitial content:
+Only Ironman death sets ``alive = False`` (Checkpoint rewinds with
+``alive`` still True; Narrative applies an injury with ``alive`` still
+True), so only Ironman saves reach the memorial as shipped.  The
+Checkpoint and Narrative interstitial branches below are forward-looking
+— they will be shown when a transient post-death interstitial screen is
+added (planned post-U12), and are exercised today via the test harness:
+
 - Checkpoint: names the rewind point (the scene the state was restored to).
 - Narrative: lists the applied injury (the lasting consequence).
 """
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 
 from src.engine.audit import EventKind, audit_rolls
 from src.engine.state import GameState, Injury
-
-logger = logging.getLogger(__name__)
-
 
 # ---------------------------------------------------------------------------
 # Structured memorial data.
@@ -227,7 +229,8 @@ def build_obituary(data: MemorialData) -> list[str]:
             parts.append(f"{failures} failed")
         if abandoned:
             parts.append(f"{abandoned} abandoned")
-        lines.append(f"Missions: {', '.join(parts)}.")
+        if parts:
+            lines.append(f"Missions: {', '.join(parts)}.")
 
         # Detail notable missions (up to 3).
         for mission in data.missions[:3]:

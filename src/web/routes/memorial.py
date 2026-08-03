@@ -33,12 +33,15 @@ async def memorial_screen(save_name: str, request: Request) -> HTMLResponse:
     """
     try:
         state, _ = load_state_for_save(save_name, DEFAULT_SAVES_DIR)
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError):
+        # FileNotFoundError: save missing; ValueError: corrupted JSON or
+        # path-traversal defense (resolve_save_path raises ValueError).
         return RedirectResponse(url="/saves", status_code=303)
 
-    # Safety: if the character is somehow alive, redirect to the resume flow.
+    # Safety: if the character is somehow alive, redirect to saves so the
+    # resume flow can route them correctly (memorial is for dead characters).
     if state.character.alive:
-        return RedirectResponse(url=f"/play/{save_name}", status_code=303)
+        return RedirectResponse(url="/saves", status_code=303)
 
     data = build_memorial(state)
     obituary_lines = build_obituary(data)

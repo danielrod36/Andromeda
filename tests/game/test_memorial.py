@@ -96,7 +96,7 @@ class TestBuildMemorial:
         assert data.terms == 3
         assert data.age == 30
         assert data.death_mode == "ironman"
-        assert not data.character_alive if hasattr(data, "character_alive") else True
+        assert data.death_reason  # populated from the set_character_dead event
 
     def test_death_reason_extracted(self):
         state = _make_dead_state(death_reason="overwhelmed by pirates")
