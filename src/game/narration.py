@@ -8,6 +8,7 @@ differently in the spine. The outcome is locked before streaming starts
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Literal
 
@@ -28,9 +29,6 @@ class NarrationBlock:
 
     def to_sse(self) -> str:
         """Serialize to an SSE ``data:`` line."""
-        # SSE format: "data: {json}\n\n"
-        import json
-
         return f"data: {json.dumps({'type': self.type, 'content': self.content})}\n\n"
 
 

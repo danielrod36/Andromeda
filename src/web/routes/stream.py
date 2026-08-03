@@ -19,22 +19,17 @@ spike results.
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from src.engine.persistence import load
 from src.game.narration import build_done_block, build_error_block, build_template_blocks
-from src.game.saves import resolve_save_path
+from src.web.routes._saves import DEFAULT_SAVES_DIR, load_state_for_save
 
 router = APIRouter(prefix="/stream")
 
-DEFAULT_SAVES_DIR = Path("saves")
-
 
 @router.get("/{save_name}/narration")
-async def stream_narration(save_name: str, request: Request) -> StreamingResponse:
+async def stream_narration(save_name: str) -> StreamingResponse:
     """Stream narration blocks for the current beat via SSE (U10).
 
     Emits typed blocks (narration, receipt, change) then a ``done`` event.
@@ -44,38 +39,37 @@ async def stream_narration(save_name: str, request: Request) -> StreamingRespons
 
     async def event_stream():
         try:
-            # Load the save and build template blocks (LLM streaming is
-            # a future enhancement — block-append delivery works universally).
-            saves_dir = DEFAULT_SAVES_DIR
-            save_path = resolve_save_path(saves_dir, save_name)
-            if not save_path.exists():
-                yield build_error_block("Save not found.").to_sse()
-                return
+            # Load the save (LLM streaming is a future enhancement —
+            # block-append delivery works universally).
+            state, _save_path = load_state_for_save(save_name, DEFAULT_SAVES_DIR)
+        except FileNotFoundError:
+            yield build_error_block("Save not found.").to_sse()
+            return
+        except (ValueError, OSError):
+            yield build_error_block("Failed to load save.").to_sse()
+            return
 
-            state = load(save_path)
-            char = state.character
+        char = state.character
 
-            # Build minimal template blocks from the current state.
-            scaffold = f"Character: {char.name}, Career: {char.career or '—'}"
-            outcome_facts: list[str] = []
-            receipts: list[str] = []
+        # Build minimal template blocks from the current state.
+        scaffold = f"Character: {char.name}, Career: {char.career or '—'}"
+        # outcome_facts intentionally empty — populated when LLM narration is wired in.
+        outcome_facts: list[str] = []
+        receipts: list[str] = []
 
-            # Extract recent events as receipts (last 3).
-            recent_events = state.events[-3:] if state.events else []
-            for event in recent_events:
-                if event.description:
-                    receipts.append(event.description)
+        # Extract recent events as receipts (last 3).
+        recent_events = state.events[-3:] if state.events else []
+        for event in recent_events:
+            if event.description:
+                receipts.append(event.description)
 
-            blocks = build_template_blocks(scaffold, outcome_facts, receipts)
+        blocks = build_template_blocks(scaffold, outcome_facts, receipts)
 
-            for block in blocks:
-                yield block.to_sse()
+        for block in blocks:
+            yield block.to_sse()
 
-            # Terminal done event.
-            yield build_done_block().to_sse()
-
-        except Exception as exc:
-            yield build_error_block(f"Stream error: {exc!s}").to_sse()
+        # Terminal done event.
+        yield build_done_block().to_sse()
 
     return StreamingResponse(
         event_stream(),
