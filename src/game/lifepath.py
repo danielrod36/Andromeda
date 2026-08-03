@@ -400,11 +400,14 @@ class LifepathController:
             # memory — the web shell reconstructs the controller per
             # request, so these can't be deferred to separate clicks.
             self._runner.run_advancement_step(career_id, result)
-            died = self._runner.run_aging_step(result)
-            if died:
+            aging_checked = self._runner.run_aging_step(result)
+            if aging_checked:
+                outcome = "passed" if result.aging_success else "reduction"
+                receipts.append(f"Aging roll: {result.aging_raw} ({outcome})")
+            if not char.alive:
                 return PhaseView(
                     phase="complete",
-                    prompt="The character died of old age.",
+                    prompt="The character died.",
                     receipts=receipts,
                 )
             self._set_term_phase("re_enlist")
@@ -424,6 +427,14 @@ class LifepathController:
         if phase == "mustering_out" or phase == "muster_out_allocate":
             self._runner.muster_out(career_id)
             self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            return self.get_phase_view()
+
+        if phase in TERM_PHASES:
+            # Legacy mid-term phases (TUI-originated saves or older
+            # versions).  _current_term_result can't be reconstructed
+            # without event-log scanning, so fast-forward to re_enlist
+            # rather than dead-ending in an infinite loop.
+            self._set_term_phase("re_enlist")
             return self.get_phase_view()
 
         # Default: just re-determine phase.
