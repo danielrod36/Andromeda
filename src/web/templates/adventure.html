@@ -21,6 +21,8 @@
   <!-- Main row: spine + drawer -->
   <main id="main-row">
     <section id="spine" aria-live="polite">
+      {% include "partials/recap.html" %}
+
       {% if defeat and phase == "game_over" %}
       <div class="defeat-interstitial">
         <p class="defeat-message">{{ prompt }}</p>

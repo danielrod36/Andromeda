@@ -21,6 +21,8 @@
   <!-- Main row: spine + drawer -->
   <main id="main-row">
     <section id="spine" aria-live="polite">
+      {% include "partials/recap.html" %}
+
       {% if receipts %}
       {% for receipt in receipts %}
       <div class="receipt">{{ receipt }}</div>
