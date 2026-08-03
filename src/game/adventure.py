@@ -42,6 +42,7 @@ from src.engine.scene import (
     SceneEngine,
     SceneOption,
     SceneResult,
+    SceneScaffold,
     SetPendingFreetextCommand,
 )
 from src.engine.skills import skill_display_name
@@ -133,15 +134,20 @@ class AdventureController:
     def _reconstruct_if_needed(self) -> None:
         """Rebuild transient state from GameState on construction/resume.
 
-        Restores ``_current_mission`` from ``state.active_mission`` and
-        ``_current_hook`` from ``state.pending_hook`` so resume doesn't
-        regenerate either (which would consume oracle rolls).
+        Restores ``_current_mission`` from ``state.active_mission``,
+        ``_current_hook`` from ``state.pending_hook``, and the pending
+        free-text scene from ``state.pending_freetext`` — all so resume
+        doesn't regenerate either (which would consume oracle rolls) and
+        so ``_do_accept_freetext`` can resolve on a freshly constructed
+        controller (U9 web request lifecycle).
         """
         state = self._engine.state
         if state.active_mission is not None:
             self._current_mission = Mission.from_dict(state.active_mission)
         if state.pending_hook is not None:
             self._current_hook = _hook_from_dict(state.pending_hook)
+        if state.pending_freetext is not None:
+            self._restore_pending_freetext(state.pending_freetext)
 
     # ------------------------------------------------------------------
     # Phase determination.
@@ -262,22 +268,16 @@ class AdventureController:
         )
 
     def _build_freetext_pending_view(self) -> AdventureView:
-        """Build the freetext-pending view (U3 restore)."""
-        payload = self._engine.state.pending_freetext
-        if payload is None:
-            return self._build_scene_view()
+        """Build the freetext-pending view (U3 restore).
 
-        check_data = payload["check"]
-        check = SceneOption(
-            label=check_data["label"],
-            skill=check_data["skill"],
-            characteristic=check_data["characteristic"],
-            difficulty=check_data["difficulty"],
-            description=check_data.get("description", ""),
-            life_threatening=check_data.get("life_threatening", False),
-        )
-        self._pending_freetext = check
-        self._freetext_draft = payload["text"]
+        ``_pending_freetext`` and ``_current_scene`` are already restored
+        from ``state.pending_freetext`` by ``_reconstruct_if_needed`` (or
+        set in-memory by ``classify_freetext``).  This method just builds
+        the view model.
+        """
+        check = self._pending_freetext
+        if check is None:
+            return self._build_scene_view()
 
         return AdventureView(
             phase="freetext_pending",
@@ -453,8 +453,7 @@ class AdventureController:
         SetPendingFreetextCommand (U3) and returns the interpretation view.
         On failure, returns the scene view with an error message.
         """
-        if self._current_scene is None:
-            return self.get_view()
+        self._ensure_current_scene()
 
         scaffold = self._current_scene.scaffold
         classification = self._scene_engine.classify_freetext(text, scaffold)
@@ -680,6 +679,46 @@ class AdventureController:
         if state.campaign.death_mode == "checkpoint":
             self._checkpoint_mgr.take_snapshot(state)
         self._current_scene = self._scene_engine.run_scene()
+
+    def _restore_pending_freetext(self, payload: dict) -> None:
+        """Reconstruct ``_current_scene`` and ``_pending_freetext`` from a
+        serialized ``state.pending_freetext`` payload.
+
+        Mirrors the TUI's ``_restore_pending_freetext`` (TUI-6).  Called
+        from ``_reconstruct_if_needed`` on construction/resume so that
+        ``_do_accept_freetext`` can resolve the check on a freshly loaded
+        controller (U9 web request lifecycle).
+        """
+        check_data = payload["check"]
+        self._pending_freetext = SceneOption(
+            label=check_data["label"],
+            skill=check_data["skill"],
+            characteristic=check_data["characteristic"],
+            difficulty=check_data["difficulty"],
+            description=check_data.get("description", ""),
+            life_threatening=check_data.get("life_threatening", False),
+        )
+        self._freetext_draft = payload["text"]
+
+        scaffold_data = payload["scaffold"]
+        scaffold = SceneScaffold(
+            focus=scaffold_data["focus"],
+            focus_description=scaffold_data["focus_description"],
+            situation=scaffold_data["situation"],
+            npc_hint=scaffold_data.get("npc_hint") or None,
+        )
+        options = [
+            SceneOption(
+                label=o["label"],
+                skill=o["skill"],
+                characteristic=o["characteristic"],
+                difficulty=o["difficulty"],
+                description=o.get("description", ""),
+                life_threatening=o.get("life_threatening", False),
+            )
+            for o in payload.get("options", [])
+        ]
+        self._current_scene = SceneResult(scaffold=scaffold, options=options)
 
     def _record_scene_progress(self) -> None:
         """Increment ``scenes_completed`` on the active mission (Task 19).

@@ -21,18 +21,22 @@
   <!-- Main row: spine + drawer -->
   <main id="main-row">
     <section id="spine" aria-live="polite">
-      {% if defeat %}
+      {% if defeat and phase == "game_over" %}
       <div class="defeat-interstitial">
         <p class="defeat-message">{{ prompt }}</p>
         {% if defeat == "ironman" %}
         <p class="defeat-cta">The character is dead (Ironman). Restart from the menu.</p>
         {% elif defeat == "checkpoint" %}
-        <p class="defeat-cta">rewound to scene start</p>
+        <p class="defeat-cta">The character has been defeated. State rewound to scene start.</p>
         {% else %}
-        <p class="defeat-cta">{{ prompt }}</p>
+        <p class="defeat-cta">The story ends here.</p>
         {% endif %}
       </div>
       {% else %}
+
+      {% if defeat %}
+      <div class="defeat-notice">{{ prompt }}</div>
+      {% endif %}
 
       {% if scaffold_text %}
       <div class="scene-header">
@@ -52,7 +56,7 @@
       <div class="mission-ending">Mission resolved: {{ mission_ending }}</div>
       {% endif %}
 
-      <p class="prompt">{{ prompt }}</p>
+      <p class="prompt">{{ prompt if not defeat else "Choose your action:" }}</p>
 
       <!-- Choice dock -->
       {% if choices %}
@@ -61,6 +65,7 @@
         <form method="post" action="/adventure/{{ save_name }}/action"
               hx-post="/adventure/{{ save_name }}/action"
               hx-target="#spine"
+              hx-select="#spine"
               hx-swap="innerHTML"
               style="display:inline">
           <input type="hidden" name="choice" value="{{ choice.option_id }}">
@@ -81,6 +86,7 @@
         <form method="post" action="/adventure/{{ save_name }}/freetext"
               hx-post="/adventure/{{ save_name }}/freetext"
               hx-target="#spine"
+              hx-select="#spine"
               hx-swap="innerHTML">
           <input type="text" name="freetext"
                  placeholder="Or type your own action and press Enter…"

@@ -1,8 +1,7 @@
 """Tests for the web adventure screens (U9).
 
 Verifies the adventure loop works over HTTP: hooks, scenes with odds,
-option resolution, free-text classify, defeat interstitials, and the
-concurrent-POST action gate (KTD-9).
+option resolution, free-text classify, and defeat interstitials.
 """
 
 from __future__ import annotations
@@ -101,6 +100,13 @@ class TestSceneOptions:
         assert "%" in response.text or "DM" in response.text
 
     def test_option_post_resolves_and_shows_receipt(self, tmp_path: Path):
+        """Resolving a scene option must show the outcome (U9 receipt-preservation).
+
+        The POST handler must render the view returned by ``apply_choice``,
+        not a fresh ``get_view()`` that discards receipts.  Evidence: either
+        a receipt div (normal resolution) or a defeat notice (defeat triggered).
+        A broken fresh-scene render would show ``scene-header`` with neither.
+        """
         saves_dir = tmp_path / "saves"
         _create_adventure_save(saves_dir)
         with _get_client(saves_dir) as client:
@@ -117,8 +123,15 @@ class TestSceneOptions:
                 headers=_ORIGIN,
             )
         assert response.status_code == 200
-        # Should contain a receipt — either dice notation or the CSS class.
-        assert "2D6" in response.text or "receipt" in response.text or "DM" in response.text
+        # The resolved view must carry the outcome — receipt or defeat.
+        # A fresh get_view() would have neither (empty receipts, no defeat).
+        has_receipt = 'class="receipt"' in response.text
+        has_defeat = "defeat" in response.text.lower()
+        assert has_receipt or has_defeat, (
+            "Expected either a receipt div or defeat notice from the "
+            "apply_choice return value, but got neither — the POST handler "
+            "may be calling get_view() instead of using the returned view"
+        )
 
 
 class TestFreeTextOverHTTP:
@@ -143,6 +156,7 @@ class TestFreeTextOverHTTP:
         assert response.status_code == 200
 
     def test_freetext_keyword_match_shows_interpretation(self, tmp_path: Path):
+        """Free-text that matches a keyword must show the interpretation prompt."""
         saves_dir = tmp_path / "saves"
         _create_adventure_save(saves_dir)
         with _get_client(saves_dir) as client:
@@ -156,9 +170,12 @@ class TestFreeTextOverHTTP:
                 data={"freetext": "I bribe the dock officer"},
                 headers=_ORIGIN,
             )
-        # If keyword matched, should show Accept/Reject choices.
-        if "Interpreted" in response.text or "Accept" in response.text:
-            assert "Accept" in response.text
+        # The keyword classifier should match "bribe" → interpretation view
+        # with Accept/Reject choices.  Assert directly — no silent pass.
+        assert "Interpreted" in response.text or "Accept" in response.text, (
+            "Expected the free-text classification to produce an "
+            "interpretation prompt with Accept/Reject choices"
+        )
 
 
 class TestActionPersistence:
@@ -179,7 +196,7 @@ class TestActionPersistence:
         assert state.active_mission is not None
 
     def test_pending_freetext_resume(self, tmp_path: Path):
-        """A v3 save with pending_freetext set resumes the interpretation prompt."""
+        """A save with pending_freetext set resumes the interpretation prompt."""
         from src.engine.persistence import save as save_state
 
         saves_dir = tmp_path / "saves"
@@ -220,3 +237,80 @@ class TestActionPersistence:
             response = client.get("/adventure/Hero")
         # Should show the accept/reject prompt, not a fresh scene.
         assert "Accept" in response.text or "Interpreted" in response.text
+
+    def test_freetext_accept_resolves_after_save_load(self, tmp_path: Path):
+        """Accepting a pending free-text check must resolve after save/load (U9).
+
+        Regression test for the controller not reconstructing _current_scene
+        and _pending_freetext on fresh load — the accept_freetext POST must
+        clear pending_freetext and show a receipt, not loop forever.
+        """
+        from src.engine.persistence import load as load_state
+        from src.engine.persistence import save as save_state
+
+        saves_dir = tmp_path / "saves"
+        _create_adventure_save(saves_dir)
+
+        # Build a save with an active mission and a pending freetext check.
+        state = load_state(saves_dir / "Hero.json")
+        state.active_mission = {
+            "id": "m1",
+            "hook": {"patron": "P", "objective": "O", "complication": "C", "reward": "R"},
+            "scenes_completed": 0,
+            "min_scenes": 3,
+            "success_text": "",
+            "failure_text": "",
+            "abandonment_text": "",
+        }
+        state.pending_freetext = {
+            "text": "I sneak past the guard",
+            "check": {
+                "label": "Sneak",
+                "skill": "stealth",
+                "characteristic": "DEX",
+                "difficulty": "average",
+                "description": "",
+                "life_threatening": False,
+            },
+            "scaffold": {
+                "focus": "Corridor",
+                "focus_description": "Dim corridor",
+                "situation": "Guarded",
+                "npc_hint": "Guard",
+            },
+            "options": [
+                {
+                    "label": "Fight",
+                    "skill": "gun_combat",
+                    "characteristic": "DEX",
+                    "difficulty": "average",
+                    "description": "",
+                    "life_threatening": False,
+                }
+            ],
+        }
+        save_state(state, saves_dir / "Hero.json")
+
+        # POST accept_freetext — the controller is freshly constructed.
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/adventure/Hero/action",
+                data={"choice": "accept_freetext"},
+                headers=_ORIGIN,
+            )
+
+        assert response.status_code == 200
+        # The check was resolved — either a receipt or a defeat notice
+        # appears (not the freetext_pending interpretation prompt).
+        assert "freetext_pending" not in response.text, (
+            "Expected the free-text check to be resolved, but the phase "
+            "is still freetext_pending — the accept handler did not resolve"
+        )
+        has_receipt = 'class="receipt"' in response.text
+        has_defeat = "defeat" in response.text.lower()
+        assert has_receipt or has_defeat, (
+            "Expected either a receipt or defeat notice from the resolved check"
+        )
+        # pending_freetext must be cleared from the save.
+        final_state = load_state(saves_dir / "Hero.json")
+        assert final_state.pending_freetext is None

@@ -3,9 +3,6 @@
 Drives the U8 AdventureController over HTTP. The spine renders typed-block
 stream (scene headers, receipts, consequences); the choice dock renders
 numbered cards with odds; free-text sits below.
-
-While an action POST is in flight, the choice dock and free-text bar
-render disabled (the web half of R5's input lock — KTD-9).
 """
 
 from __future__ import annotations
@@ -16,45 +13,38 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from src.engine.commands import Engine
-from src.engine.persistence import load, save
-from src.game.adventure import AdventureController
-from src.game.saves import resolve_save_path
-from src.themepacks.base import get_pack
-from src.themepacks.cepheus_scifi import load_scifi_pack
+from src.engine.persistence import save
+from src.game.adventure import AdventureController, AdventureView
+from src.web.routes._saves import DEFAULT_SAVES_DIR, load_engine_for_save
 
 router = APIRouter(prefix="/adventure")
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
-#: Default saves directory (shared with menu/lifepath routes).
-DEFAULT_SAVES_DIR = Path("saves")
-
 
 def _load_controller(save_name: str) -> tuple[AdventureController, Path]:
     """Load a save and construct an AdventureController."""
-    saves_dir = DEFAULT_SAVES_DIR
-    saves_dir.mkdir(parents=True, exist_ok=True)
-    save_path = resolve_save_path(saves_dir, save_name)
-    if not save_path.exists():
-        raise FileNotFoundError(f"Save not found: {save_name}")
-    state = load(save_path)
-    engine = Engine(state)
-    pack = (
-        load_scifi_pack()
-        if state.campaign.theme_pack == "scifi"
-        else get_pack(state.campaign.theme_pack)
-    )
+    engine, pack, save_path = load_engine_for_save(save_name, DEFAULT_SAVES_DIR)
     controller = AdventureController(engine, pack)
     return controller, save_path
 
 
 def _render_adventure(
-    request: Request, save_name: str, controller: AdventureController
+    request: Request,
+    save_name: str,
+    controller: AdventureController,
+    view: AdventureView | None = None,
 ) -> HTMLResponse:
-    """Render the adventure screen from the controller's current view."""
-    view = controller.get_view()
+    """Render the adventure screen from a view (or the controller's current view).
+
+    When *view* is provided (e.g. the return value of ``apply_choice``), it is
+    rendered directly — this preserves receipts, defeat interstitials, and
+    mission endings that would be lost if ``get_view()`` were called again
+    after a mutation (U9 receipt-preservation fix).
+    """
+    if view is None:
+        view = controller.get_view()
     char = controller.state.character
     return templates.TemplateResponse(
         request,
@@ -66,13 +56,11 @@ def _render_adventure(
             "choices": view.choices,
             "receipts": view.receipts,
             "scaffold_text": view.scaffold_text,
-            "odds_lines": view.odds_lines,
             "defeat": view.defeat,
             "mission_ending": view.mission_ending,
             "character_name": char.name,
             "character_career": char.career or "—",
             "character_terms": char.terms,
-            "character_alive": char.alive,
         },
     )
 
@@ -99,11 +87,12 @@ async def adventure_action(save_name: str, request: Request) -> HTMLResponse:
     form = await request.form()
     option_id = str(form.get("choice", ""))
 
+    view: AdventureView | None = None
     if option_id:
-        controller.apply_choice(option_id)
+        view = controller.apply_choice(option_id)
         save(controller.state, save_path)
 
-    return _render_adventure(request, save_name, controller)
+    return _render_adventure(request, save_name, controller, view=view)
 
 
 @router.post("/{save_name}/freetext", response_class=HTMLResponse, response_model=None)
@@ -122,8 +111,9 @@ async def adventure_freetext(save_name: str, request: Request) -> HTMLResponse:
     form = await request.form()
     text = str(form.get("freetext", "")).strip()
 
+    view: AdventureView | None = None
     if text:
-        controller.classify_freetext(text)
+        view = controller.classify_freetext(text)
         save(controller.state, save_path)
 
-    return _render_adventure(request, save_name, controller)
+    return _render_adventure(request, save_name, controller, view=view)
