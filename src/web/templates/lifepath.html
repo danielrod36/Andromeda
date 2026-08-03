@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Andromeda — Lifepath</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js"></script>
+</head>
+<body data-theme="scifi">
+
+  <!-- Status strip -->
+  <header id="status-strip" hx-swap-oob="true">
+    <span class="status-char-ref">{{ character_name }}</span>
+    <span class="status-mission">{{ character_career }}</span>
+    <span class="status-credits">Terms: {{ character_terms }}</span>
+    <span class="status-llm">{{ phase }}</span>
+  </header>
+
+  <!-- Main row: spine + drawer -->
+  <main id="main-row">
+    <section id="spine" aria-live="polite">
+      {% if receipts %}
+      {% for receipt in receipts %}
+      <div class="receipt">{{ receipt }}</div>
+      {% endfor %}
+      {% endif %}
+
+      <p class="prompt">{{ prompt }}</p>
+
+      <!-- Choice cards -->
+      {% if choices %}
+      <div id="choice-dock">
+        {% for choice in choices %}
+        <form method="post" action="/play/{{ save_name }}/action"
+              hx-post="/play/{{ save_name }}/action"
+              hx-target="#spine"
+              hx-swap="innerHTML"
+              style="display:inline">
+          <input type="hidden" name="choice" value="{{ choice.option_id }}">
+          <button type="submit" class="choice-card{% if choice.dimmed %} dimmed{% endif %}">
+            {{ choice.label }}
+            {% if choice.description %}
+            <small>{{ choice.description }}</small>
+            {% endif %}
+            {% if choice.requirement %}
+            <small class="requirement">{{ choice.requirement }}</small>
+            {% endif %}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- Drawer (pinned during assignment phases) -->
+    <aside id="drawer" hx-swap-oob="true"{% if not drawer_pinned %} hidden{% endif %}>
+      <nav class="drawer-tabs">
+        <button data-tab="sheet" class="active">Sheet</button>
+        <button data-tab="world">World</button>
+        <button data-tab="audit">Audit</button>
+      </nav>
+      <div class="drawer-content">
+        <p class="placeholder">Character sheet details arrive in a later unit.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

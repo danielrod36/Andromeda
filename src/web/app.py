@@ -124,6 +124,11 @@ def create_app() -> FastAPI:
 
     app.include_router(menu_router)
 
+    # U7: lifepath screen routes.
+    from src.web.routes.lifepath import router as lifepath_router
+
+    app.include_router(lifepath_router)
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
         """Serve the base layout shell — four regions, no gameplay yet (U4)."""
