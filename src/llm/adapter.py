@@ -46,6 +46,7 @@ from src.llm.prompts import (
     build_classification_prompt,
     build_full_lifepath_prompt,
     build_lifepath_prompt,
+    build_recap_prompt,
     build_scene_prompt,
     build_term_facts,
 )
@@ -876,6 +877,49 @@ class LLMAdapter:
             return prose or None
         except Exception as exc:
             logger.warning("LLM chapter summary failed, returning None: %s", exc)
+            return None
+
+    # ------------------------------------------------------------------
+    # Story recap (U11, R13).
+    # ------------------------------------------------------------------
+
+    def polish_recap(
+        self,
+        state: GameState,
+        template_lines: list[str],
+        view: CuratedView | None = None,
+    ) -> str | None:
+        """Generate an LLM-polished story-so-far recap (U11, R13).
+
+        Uses the scene narration agent (read-only) with the same injection
+        pattern as chapter summaries. Returns the polished prose or ``None``
+        on any failure — the caller (:func:`build_recap`) falls back to the
+        deterministic template. Never raises.
+
+        The returned prose is validated by the caller through
+        :class:`SummaryValidator` (mechanical-claim guard) before it ships;
+        a recap that leaks dice notation or stats is rejected and the
+        template is used.
+        """
+        if not self.llm_configured:
+            return None
+
+        if view is None:
+            view = build_curated_view(state)
+
+        prompt = build_recap_prompt(view, template_lines, state.open_threads)
+        deps = ToolDeps(engine=None, state=None)  # Read-only context.
+
+        try:
+            result = self._run_agent_sync_retry(
+                self._scene_agent,
+                prompt,
+                deps=deps,
+            )
+            prose = result.output.prose.strip()
+            return prose or None
+        except Exception as exc:
+            logger.warning("LLM recap polish failed, returning None: %s", exc)
             return None
 
     # ------------------------------------------------------------------

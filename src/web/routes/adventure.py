@@ -35,6 +35,7 @@ def _render_adventure(
     save_name: str,
     controller: AdventureController,
     view: AdventureView | None = None,
+    recap=None,
 ) -> HTMLResponse:
     """Render the adventure screen from a view (or the controller's current view).
 
@@ -61,6 +62,7 @@ def _render_adventure(
             "character_name": char.name,
             "character_career": char.career or "—",
             "character_terms": char.terms,
+            "recap": recap,
         },
     )
 
@@ -73,7 +75,14 @@ async def adventure_screen(save_name: str, request: Request) -> HTMLResponse:
     except FileNotFoundError:
         return RedirectResponse(url="/saves", status_code=303)
 
-    return _render_adventure(request, save_name, controller)
+    # Build story-so-far recap on resume (U11).
+    recap = None
+    if request.query_params.get("recap"):
+        from src.game.recap import build_recap
+
+        recap = build_recap(controller.state)
+
+    return _render_adventure(request, save_name, controller, recap=recap)
 
 
 @router.post("/{save_name}/action", response_class=HTMLResponse, response_model=None)

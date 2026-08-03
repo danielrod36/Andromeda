@@ -193,8 +193,8 @@ async def resume(request: Request) -> HTMLResponse | RedirectResponse:
     stem = save_path.stem
     route_urls = {
         "memorial": f"/memorial/{stem}",
-        "lifepath": f"/play/{stem}",
-        "freetext_prompt": f"/play/{stem}",
-        "adventure": f"/adventure/{stem}",
+        "lifepath": f"/play/{stem}?recap=1",
+        "freetext_prompt": f"/play/{stem}?recap=1",
+        "adventure": f"/adventure/{stem}?recap=1",
     }
     return RedirectResponse(url=route_urls.get(route, f"/play/{stem}"), status_code=303)

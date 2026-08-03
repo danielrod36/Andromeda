@@ -271,3 +271,40 @@ def build_chapter_summary_prompt(
         f"state above. Do NOT mention dice, rolls, modifiers, stats, target "
         f"numbers, or any game mechanics — write as if recounting a story."
     )
+
+
+def build_recap_prompt(
+    view: CuratedView,
+    template_lines: list[str],
+    open_threads: list[str],
+) -> str:
+    """Build the user-turn prompt for an LLM-polished story recap (U11, R13).
+
+    The recap is ≤5 lines of cause-and-effect prose that helps a returning
+    player remember where they are. The template lines are injected as the
+    deterministic floor — the LLM is told to polish, not replace, the facts.
+    The engine's :class:`SummaryValidator` guards against mechanical claims;
+    the caller enforces the 5-line cap in assembly.
+
+    Parameters:
+        view: The curated state view (R2) — safe subset only.
+        template_lines: The deterministic template recap (the validated floor).
+        open_threads: Unresolved narrative threads from state.
+    """
+    view_json = json.dumps(view.model_dump(), indent=2)
+    template_block = "\n".join(f"  - {line}" for line in template_lines)
+    threads_block = "\n".join(f"  - {t}" for t in open_threads) if open_threads else "  (none)"
+
+    return (
+        f"## Character & Campaign State\n"
+        f"{view_json}\n\n"
+        f"## Story Beats (deterministic floor)\n"
+        f"{template_block}\n\n"
+        f"## Open Threads\n"
+        f"{threads_block}\n\n"
+        f"Write a story-so-far recap for a returning player (≤5 lines, "
+        f"second person, cause-and-effect). The beats above are the "
+        f"deterministic facts — polish them into flowing prose, but do NOT "
+        f"contradict or omit any of them. Do NOT mention dice, rolls, "
+        f"modifiers, stats, target numbers, or any game mechanics."
+    )

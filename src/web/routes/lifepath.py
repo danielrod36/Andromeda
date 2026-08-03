@@ -39,6 +39,13 @@ async def lifepath_screen(save_name: str, request: Request) -> HTMLResponse:
     view = controller.get_phase_view()
     char = controller.engine.state.character
 
+    # Build story-so-far recap on resume (U11).
+    recap = None
+    if request.query_params.get("recap"):
+        from src.game.recap import build_recap
+
+        recap = build_recap(controller.engine.state)
+
     return templates.TemplateResponse(
         request,
         "lifepath.html",
@@ -52,6 +59,7 @@ async def lifepath_screen(save_name: str, request: Request) -> HTMLResponse:
             "character_name": char.name,
             "character_career": char.career or "—",
             "character_terms": char.terms,
+            "recap": recap,
         },
     )
 
