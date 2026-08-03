@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Andromeda — Adventure</title>
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js"></script>
+</head>
+<body data-theme="scifi">
+
+  <!-- Status strip -->
+  <header id="status-strip" hx-swap-oob="true">
+    <span class="status-char-ref">{{ character_name }}</span>
+    <span class="status-mission">{{ character_career }}</span>
+    <span class="status-credits">Terms: {{ character_terms }}</span>
+    <span class="status-llm">{{ phase }}</span>
+  </header>
+
+  <!-- Main row: spine + drawer -->
+  <main id="main-row">
+    <section id="spine" aria-live="polite">
+      {% if defeat %}
+      <div class="defeat-interstitial">
+        <p class="defeat-message">{{ prompt }}</p>
+        {% if defeat == "ironman" %}
+        <p class="defeat-cta">The character is dead (Ironman). Restart from the menu.</p>
+        {% elif defeat == "checkpoint" %}
+        <p class="defeat-cta">rewound to scene start</p>
+        {% else %}
+        <p class="defeat-cta">{{ prompt }}</p>
+        {% endif %}
+      </div>
+      {% else %}
+
+      {% if scaffold_text %}
+      <div class="scene-header">
+        {% for line in scaffold_text.split('\n') %}
+        <p>{{ line }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if receipts %}
+      {% for receipt in receipts %}
+      <div class="receipt">{{ receipt }}</div>
+      {% endfor %}
+      {% endif %}
+
+      {% if mission_ending %}
+      <div class="mission-ending">Mission resolved: {{ mission_ending }}</div>
+      {% endif %}
+
+      <p class="prompt">{{ prompt }}</p>
+
+      <!-- Choice dock -->
+      {% if choices %}
+      <div id="choice-dock">
+        {% for choice in choices %}
+        <form method="post" action="/adventure/{{ save_name }}/action"
+              hx-post="/adventure/{{ save_name }}/action"
+              hx-target="#spine"
+              hx-swap="innerHTML"
+              style="display:inline">
+          <input type="hidden" name="choice" value="{{ choice.option_id }}">
+          <button type="submit" class="choice-card">
+            {{ choice.label }}
+            {% if choice.description %}
+            <small>{{ choice.description }}</small>
+            {% endif %}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Free-text bar -->
+      {% if phase == "scene_active" %}
+      <div id="freetext-bar">
+        <form method="post" action="/adventure/{{ save_name }}/freetext"
+              hx-post="/adventure/{{ save_name }}/freetext"
+              hx-target="#spine"
+              hx-swap="innerHTML">
+          <input type="text" name="freetext"
+                 placeholder="Or type your own action and press Enter…"
+                 autocomplete="off">
+        </form>
+      </div>
+      {% endif %}
+
+      {% endif %}
+    </section>
+
+    <!-- Drawer -->
+    <aside id="drawer" hx-swap-oob="true" hidden>
+      <nav class="drawer-tabs">
+        <button data-tab="sheet" class="active">Sheet</button>
+        <button data-tab="world">World</button>
+        <button data-tab="audit">Audit</button>
+      </nav>
+      <div class="drawer-content">
+        <p class="placeholder">Character details arrive in a later unit.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
