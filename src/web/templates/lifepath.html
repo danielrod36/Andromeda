@@ -11,7 +11,7 @@
 <body data-theme="scifi">
 
   <!-- Status strip -->
-  <header id="status-strip">
+  <header id="status-strip" hx-swap-oob="true">
     <span class="status-char-ref">{{ character_name }}</span>
     <span class="status-mission">{{ character_career }}</span>
     <span class="status-credits">Terms: {{ character_terms }}</span>
@@ -55,7 +55,7 @@
     </section>
 
     <!-- Drawer (pinned during assignment phases) -->
-    <aside id="drawer"{% if not drawer_pinned %} hidden{% endif %}>
+    <aside id="drawer" hx-swap-oob="true"{% if not drawer_pinned %} hidden{% endif %}>
       <nav class="drawer-tabs">
         <button data-tab="sheet" class="active">Sheet</button>
         <button data-tab="world">World</button>

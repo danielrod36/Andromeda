@@ -88,10 +88,10 @@ async def lifepath_action(save_name: str, request: Request) -> HTMLResponse:
     option_id = str(form.get("choice", ""))
 
     if option_id:
-        controller.apply_choice(option_id)
+        view = controller.apply_choice(option_id)
         save(controller.engine.state, save_path)
-
-    view = controller.get_phase_view()
+    else:
+        view = controller.get_phase_view()
     char = controller.engine.state.character
 
     return templates.TemplateResponse(

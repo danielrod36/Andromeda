@@ -63,6 +63,7 @@ class LifepathController:
         self._engine = engine
         self._pack = pack
         self._runner = LifepathRunner(engine, pack)
+        self._current_term_result = None
 
     @property
     def engine(self) -> Engine:
@@ -96,6 +97,22 @@ class LifepathController:
     def _set_term_phase(self, phase: str) -> None:
         """Persist a ``term_phase`` flag via the command funnel (AE8-safe)."""
         self._engine.apply(SetFlagCommand(key="term_phase", value=phase))
+
+    @staticmethod
+    def _get_reenlist_outcome(state: GameState) -> str | None:
+        """Return ``reenlist_outcome`` set after the most recent ``re_enlist``.
+
+        Scans the narrative log backward: if a ``reenlist_outcome=`` entry
+        appears before (i.e. later in the log than) the most recent
+        ``term_phase=re_enlist``, the player has already chosen.
+        """
+        for i in range(len(state.narrative_log) - 1, -1, -1):
+            entry = state.narrative_log[i]
+            if entry == "term_phase=re_enlist":
+                return None
+            if entry.startswith("reenlist_outcome="):
+                return entry.split("=", 1)[1]
+        return None
 
     # ------------------------------------------------------------------
     # Phase determination — headless port of the TUI's _determine_phase.
@@ -163,6 +180,13 @@ class LifepathController:
                 # All pending aging slots consumed — advance to re_enlist.
                 if term_phase == "choose_aging_reduction" and not char.pending_aging:
                     return "re_enlist"
+                # Player already chose at the re_enlist prompt — advance.
+                if term_phase == "re_enlist":
+                    outcome = self._get_reenlist_outcome(state)
+                    if outcome == "continued":
+                        return "run_survival"
+                    if outcome == "mustered":
+                        return "mustering_out"
                 return term_phase
             # Unknown term_phase falls through to a fresh term start.
         return "run_survival"
@@ -247,25 +271,10 @@ class LifepathController:
             )
 
         if phase == "run_survival":
-            career_id = char.career
-            term_number = char.terms + 1
-            result = self._runner.start_term(career_id, term_number)
-            self._runner.run_survival_step(career_id, result)
-            receipts = [f"Survival: {'passed' if result.survival_success else 'failed'}"]
-            if not result.survival_success and result.died:
-                return PhaseView(
-                    phase="complete",
-                    prompt="The character did not survive.",
-                    receipts=receipts,
-                )
-            self._set_term_phase("choose_commission")
             return PhaseView(
-                phase="choose_commission",
-                prompt=f"Term {term_number} — Survival passed.",
-                receipts=receipts,
-                choices=[
-                    ChoiceOption(label="Continue term", option_id="auto_term"),
-                ],
+                phase=phase,
+                prompt=f"Term {char.terms + 1} — Ready to begin.",
+                choices=[ChoiceOption(label="Begin Term", option_id="auto_term")],
             )
 
         if phase == "complete":
@@ -275,6 +284,23 @@ class LifepathController:
                 choices=[ChoiceOption(label="Begin Adventure", option_id="begin_adventure")]
                 if char.alive and "mustered_out=true" in state.narrative_log
                 else [],
+            )
+
+        if phase == "re_enlist":
+            return PhaseView(
+                phase="re_enlist",
+                prompt="Re-enlist for another term or muster out?",
+                choices=[
+                    ChoiceOption(label="Re-enlist", option_id="reenlist_continue"),
+                    ChoiceOption(label="Muster Out", option_id="reenlist_muster"),
+                ],
+            )
+
+        if phase in ("mustering_out", "muster_out_allocate"):
+            return PhaseView(
+                phase=phase,
+                prompt="Mustering out...",
+                choices=[ChoiceOption(label="Continue", option_id="auto_advance")],
             )
 
         # Fallback: auto-advance term phases that don't need explicit UI.
@@ -301,9 +327,6 @@ class LifepathController:
         Sets term_phase flags via SetFlagCommand (KTD-3 byte-identical).
         After applying, returns the updated PhaseView.
         """
-        state = self._engine.state
-        char = state.character
-
         if option_id == "roll_pool":
             self._runner.roll_pool()
             return self.get_phase_view()
@@ -317,13 +340,8 @@ class LifepathController:
 
         if option_id.startswith("bg_skill:"):
             skill = option_id.split(":", 1)[1]
-            # Apply the background skill pick.
-            if char.background_picks_remaining <= 0:
-                char.background_picks_remaining = 3
-            char.skills[skill] = 0
-            char.background_picks_remaining -= 1
-            if char.background_picks_remaining <= 0:
-                char.background_picks_remaining = 0
+            self._runner.start_background_phase()
+            self._runner.pick_background_skill(skill)
             return self.get_phase_view()
 
         if option_id.startswith("career:"):
@@ -337,6 +355,16 @@ class LifepathController:
             return self._auto_advance_term()
 
         if option_id == "begin_adventure":
+            return self.get_phase_view()
+
+        if option_id == "reenlist_continue":
+            self._engine.apply(SetFlagCommand(key="reenlist_outcome", value="continued"))
+            self._current_term_result = None
+            return self.get_phase_view()
+
+        if option_id == "reenlist_muster":
+            self._engine.apply(SetFlagCommand(key="reenlist_outcome", value="mustered"))
+            self._set_term_phase("mustering_out")
             return self.get_phase_view()
 
         # Unknown choice — return current view unchanged.
@@ -354,19 +382,35 @@ class LifepathController:
         char = state.character
         career_id = char.career
 
+        if phase == "run_survival":
+            term_number = char.terms + 1
+            result = self._runner.start_term(career_id, term_number)
+            self._current_term_result = result
+            self._runner.run_survival_step(career_id, result)
+            receipts = [f"Survival: {'passed' if result.survival_success else 'failed'}"]
+            if not result.survival_success and result.died:
+                return PhaseView(
+                    phase="complete",
+                    prompt="The character did not survive.",
+                    receipts=receipts,
+                )
+            self._set_term_phase("choose_commission")
+            return PhaseView(
+                phase="choose_commission",
+                prompt=f"Term {term_number} — Survival passed.",
+                receipts=receipts,
+                choices=[ChoiceOption(label="Continue term", option_id="auto_term")],
+            )
+
         if phase == "choose_commission":
             # Skip commission (optional) and advancement.
             self._set_term_phase("choose_advancement")
             return self.get_phase_view()
 
         if phase == "choose_advancement":
-            # Auto-pick first skill table and run advancement.
-            result = getattr(self, "_current_term_result", None)
-            if result is None:
-                # Reconstruct or start fresh — for MVP, just advance.
-                self._set_term_phase("choose_skills")
-                return self.get_phase_view()
-            self._runner.run_advancement_step(career_id, result)
+            result = self._current_term_result
+            if result:
+                self._runner.run_advancement_step(career_id, result)
             self._set_term_phase("choose_skills")
             return self.get_phase_view()
 
@@ -376,28 +420,17 @@ class LifepathController:
             return self.get_phase_view()
 
         if phase == "run_aging":
-            result = getattr(self, "_current_term_result", None)
+            result = self._current_term_result
             if result:
                 self._runner.run_aging_step(result)
             self._set_term_phase("re_enlist")
             return self.get_phase_view()
 
         if phase == "re_enlist":
-            # Present the re-enlist / muster-out choice.
-            return PhaseView(
-                phase="re_enlist",
-                prompt="Re-enlist for another term or muster out?",
-                choices=[
-                    ChoiceOption(label="Re-enlist", option_id="reenlist_continue"),
-                    ChoiceOption(label="Muster Out", option_id="reenlist_muster"),
-                ],
-            )
+            return self.get_phase_view()
 
-        if phase == "muster_out" or phase == "muster_out_allocate":
-            # Complete mustering out.
+        if phase == "mustering_out" or phase == "muster_out_allocate":
             self._runner.muster_out(career_id)
-            from src.engine.commands import SetFlagCommand
-
             self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
             return self.get_phase_view()
 
