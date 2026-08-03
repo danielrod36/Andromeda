@@ -144,6 +144,11 @@ def create_app() -> FastAPI:
 
     app.include_router(memorial_router)
 
+    # U13: Audit viewer overlay.
+    from src.web.routes.audit import router as audit_router
+
+    app.include_router(audit_router)
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
         """Serve the base layout shell — four regions, no gameplay yet (U4)."""
