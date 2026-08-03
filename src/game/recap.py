@@ -19,6 +19,7 @@ pattern, just assembled across the whole story rather than one mission.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 
 from src.engine.state import GameState
@@ -88,8 +89,9 @@ def build_template_recap(state: GameState) -> list[str]:
     # Each summary is a self-contained mission recap — use the most recent
     # ones to fill lines 2-3.
     for summary in state.chapter_summaries[-2:]:
-        if summary.strip() and summary not in lines:
-            lines.append(summary.strip())
+        text = summary.strip()
+        if text and text not in lines:
+            lines.append(text)
             if len(lines) >= MAX_RECAP_LINES:
                 break
 
@@ -147,8 +149,6 @@ def _cap_lines(text: str, cap: int = MAX_RECAP_LINES) -> list[str]:
     # If the LLM wrote one big paragraph (no newlines), split on sentences
     # to respect the line budget.
     if len(raw_lines) <= 1:
-        import re
-
         sentences = re.split(r"(?<=[.!?])\s+", text.strip())
         raw_lines = [s.strip() for s in sentences if s.strip()]
     return raw_lines[:cap]

@@ -112,6 +112,42 @@ body {
   font-style: italic;
 }
 
+/* Story-so-far recap on resume (U11, R13) */
+.recap {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  border-radius: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.recap > details { padding: 0.75rem 1rem; }
+
+.recap > details > summary {
+  font-family: var(--font-chrome);
+  font-size: 0.9rem;
+  color: var(--brass);
+  cursor: pointer;
+  list-style: none;
+}
+
+.recap > details > summary::-webkit-details-marker { display: none; }
+
+.recap-body {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(201, 162, 39, 0.1);
+}
+
+.recap-line {
+  font-family: var(--font-prose);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--vellum);
+  margin-bottom: 0.35rem;
+}
+
+.recap-line:last-child { margin-bottom: 0; }
+
 /* Responsive: narrow viewport — overlay drawer */
 @media (max-width: 900px) {
   #drawer:not([hidden]) {
