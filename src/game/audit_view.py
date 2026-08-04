@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, field
+from typing import Any
 
 from src.engine.audit import Event, EventKind
 from src.engine.state import GameState
@@ -42,7 +43,7 @@ class AuditRow:
     stream: str = ""
     dice_str: str = ""
     total: int | None = None
-    changes: dict = field(default_factory=dict)
+    changes: dict[str, Any] = field(default_factory=dict)
     is_rewind_boundary: bool = False
     abandoned_count: int = 0
     rewound_to_seq: int | None = None
@@ -165,6 +166,8 @@ def build_audit_view(
         :class:`AuditView` with the filtered, paginated rows.
     """
     flt = audit_filter or AuditFilter()
+    if per_page < 1:
+        per_page = DEFAULT_PAGE_SIZE
     events = state.events
 
     # Apply filter.

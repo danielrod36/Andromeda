@@ -148,6 +148,131 @@ body {
 
 .recap-line:last-child { margin-bottom: 0; }
 
+/* Audit viewer overlay (U13, R15) */
+.audit-overlay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.audit-filters select,
+.audit-filters input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  color: var(--vellum);
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+}
+
+.audit-filters select:focus,
+.audit-filters input:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
+.audit-filters input[type="text"],
+.audit-filters input[type="number"] {
+  width: 5rem;
+}
+
+.audit-meta {
+  font-family: var(--font-chrome);
+  font-size: 0.8rem;
+  color: var(--haze);
+}
+
+.audit-table-wrap {
+  overflow-x: auto;
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-engine);
+  font-size: 0.8rem;
+}
+
+.audit-table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid rgba(201, 162, 39, 0.2);
+  color: var(--brass);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.audit-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: top;
+}
+
+.audit-table td.seq { color: var(--haze); white-space: nowrap; }
+.audit-table td.kind { color: var(--vellum); white-space: nowrap; }
+.audit-table td.stream { color: var(--haze); white-space: nowrap; }
+.audit-table td.dice { color: var(--vellum); white-space: nowrap; }
+.audit-table td.total { color: var(--vellum); white-space: nowrap; font-weight: 600; }
+.audit-table td.desc { color: var(--vellum); }
+
+/* Kind color-coding */
+.kind-roll { --kind-accent: var(--brass); }
+.kind-state { --kind-accent: var(--verdigris); }
+.kind-system { --kind-accent: var(--haze); }
+.kind-rewind { --kind-accent: var(--signal-red); }
+.kind-other { --kind-accent: var(--haze); }
+
+.audit-table tbody tr.kind-roll td.kind { color: var(--brass); }
+.audit-table tbody tr.kind-state td.kind { color: var(--verdigris); }
+.audit-table tbody tr.kind-system td.kind { color: var(--haze); }
+.audit-table tbody tr.kind-rewind td.kind { color: var(--signal-red); }
+
+/* Rewind boundary row */
+.rewind-boundary td {
+  background: rgba(196, 69, 60, 0.08);
+  border-bottom: 2px solid rgba(196, 69, 60, 0.3);
+  border-top: 2px solid rgba(196, 69, 60, 0.3);
+  color: var(--signal-red);
+  font-family: var(--font-chrome);
+}
+
+.audit-empty {
+  color: var(--haze);
+  font-style: italic;
+  padding: 1rem 0;
+}
+
+/* Pager */
+.audit-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.pager-btn {
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+  color: var(--brass);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.pager-btn:hover { color: var(--vellum); }
+
+.pager-info {
+  font-family: var(--font-chrome);
+  font-size: 0.8rem;
+  color: var(--haze);
+}
+
 /* Responsive: narrow viewport — overlay drawer */
 @media (max-width: 900px) {
   #drawer:not([hidden]) {

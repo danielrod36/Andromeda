@@ -185,6 +185,20 @@ class TestBuildAuditView:
         view = build_audit_view(state, per_page=5, page=99)
         assert view.page == 2  # Clamped to last page.
 
+    def test_per_page_zero_falls_back_to_default(self):
+        """per_page < 1 is guarded — falls back to DEFAULT_PAGE_SIZE."""
+        events = [_make_event(i) for i in range(10)]
+        state = _make_state_with_events(events)
+        view = build_audit_view(state, per_page=0)
+        assert view.per_page == 50
+        assert len(view.rows) == 10  # All fit on one default-size page.
+
+    def test_per_page_negative_falls_back_to_default(self):
+        events = [_make_event(i) for i in range(10)]
+        state = _make_state_with_events(events)
+        view = build_audit_view(state, per_page=-5)
+        assert view.per_page == 50
+
     def test_filtered_view(self):
         events = [
             _make_event(0, kind=EventKind.ROLL, roll=_make_roll("combat")),
