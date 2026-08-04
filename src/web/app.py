@@ -106,8 +106,21 @@ def create_app() -> FastAPI:
     - Jinja2 templates with autoescape enabled (security contract)
     - Same-origin guard middleware (security contract)
     - A root route ``GET /`` serving the base layout shell
+    - Session registry on ``app.state`` (U1): keyed by
+      ``(resolved_saves_dir, save_stem)`` → session bundle
     """
+    from src.llm.settings import load_settings
+
     app = FastAPI(title="Andromeda")
+
+    # U1: Session registry — holds GameSession + flow controllers per save.
+    # Keyed by (resolved_saves_dir, save_stem) so per-test directories
+    # never collide. The dev server runs a single uvicorn worker, so the
+    # in-memory gate is per-process by design.
+    app.state.session_registry: dict = {}
+
+    # U1: Load LLM settings once at startup; passed to new sessions.
+    app.state.llm_settings = load_settings()
 
     # Static files: CSS, JS, fonts, vendored htmx.
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")

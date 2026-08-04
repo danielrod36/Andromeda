@@ -22,6 +22,7 @@
             aria-label="Toggle character details drawer">
       Details
     </button>
+    <div id="action-notice" aria-live="polite" role="status"></div>
   </header>
 
   <!-- Main row: spine + drawer -->
@@ -45,6 +46,7 @@
               hx-post="/play/{{ save_name }}/action"
               hx-target="#spine"
               hx-swap="innerHTML"
+              hx-disabled-elt="button"
               style="display:inline">
           <input type="hidden" name="choice" value="{{ choice.option_id }}">
           <button type="submit" class="choice-card{% if choice.dimmed %} dimmed{% endif %}">

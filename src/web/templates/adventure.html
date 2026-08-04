@@ -22,6 +22,7 @@
             aria-label="Toggle character details drawer">
       Details
     </button>
+    <div id="action-notice" aria-live="polite" role="status"></div>
   </header>
 
   <!-- Main row: spine + drawer -->
@@ -85,6 +86,7 @@
               hx-target="#spine"
               hx-select="#spine"
               hx-swap="innerHTML"
+              hx-disabled-elt="button"
               style="display:inline">
           <input type="hidden" name="choice" value="{{ choice.option_id }}">
           <button type="submit" class="choice-card{% if choice.dimmed %} dimmed{% endif %}"
@@ -108,7 +110,8 @@
               hx-post="/adventure/{{ save_name }}/freetext"
               hx-target="#spine"
               hx-select="#spine"
-              hx-swap="innerHTML">
+              hx-swap="innerHTML"
+              hx-disabled-elt="input">
           <input type="text" name="freetext"
                  placeholder="Or type your own action and press Enter…"
                  autocomplete="off">

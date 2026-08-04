@@ -7,7 +7,8 @@ Four rules protect the engine invariants across the session lifecycle:
    the roller. A cached reference would point at the abandoned branch.
 
 2. **Checkpoint sidecar cadence.** In checkpoint death mode, a save is two
-   documents — main file plus ``{save}.checkpoint.json``. The session owns
+   documents — main file plus ``{save}.json.checkpoint.json`` (the TUI
+   convention via ``CheckpointManager.save_snapshot``). The session owns
    the main-then-sidecar write order around every autosave and resume.
 
 3. **Per-session action gate.** At most one in-flight beat per session
@@ -22,12 +23,11 @@ Four rules protect the engine invariants across the session lifecycle:
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from src.engine.checkpoint import CheckpointManager
 from src.engine.commands import Engine
 from src.engine.persistence import load, save
 from src.engine.state import GameState
@@ -77,6 +77,13 @@ class GameSession:
         self._engine = engine or self._load_engine(save_path)
         self._settings = settings
         self._adapter = create_llm_adapter(settings) if settings else None
+
+        # Checkpoint manager — shared with the flow controller so the
+        # scene-start snapshot survives across requests and persists to
+        # disk alongside the main save (rule 2).
+        self._checkpoint_mgr = CheckpointManager()
+        if self.state.campaign.death_mode == "checkpoint":
+            self._checkpoint_mgr.load_snapshot(save_path)
 
         # Stale-write detection: hash of the last document we wrote.
         self._last_write_hash: str | None = self._compute_disk_hash()
@@ -128,16 +135,27 @@ class GameSession:
     # ------------------------------------------------------------------
 
     @property
+    def checkpoint_mgr(self) -> CheckpointManager:
+        """The session's checkpoint manager (shared with the flow controller)."""
+        return self._checkpoint_mgr
+
+    @property
     def checkpoint_sidecar_path(self) -> Path:
-        """The checkpoint sidecar path: ``{save}.checkpoint.json``."""
-        return self._save_path.with_suffix(".checkpoint.json")
+        """The checkpoint sidecar path: ``{save}.json.checkpoint.json``.
+
+        Follows the TUI convention (``CheckpointManager.save_snapshot``):
+        the sidecar is appended to the full save path, not a suffix
+        replacement, so ``saves/Hero.json`` → ``saves/Hero.json.checkpoint.json``.
+        """
+        return Path(str(self._save_path) + ".checkpoint.json")
 
     def save(self) -> None:
         """Autosave the game state with stale-write detection (U5 rule 4).
 
-        Writes the main document first, then the checkpoint sidecar (if in
-        checkpoint mode). If the on-disk document has changed since the
-        last write (another shell saved), raises :class:`StaleWriteError`.
+        Writes the main document first, then persists the checkpoint
+        snapshot via ``CheckpointManager.save_snapshot`` (if in checkpoint
+        mode). If the on-disk document has changed since the last write
+        (another shell saved), raises :class:`StaleWriteError`.
         """
         # Rule 4: check for stale write.
         disk_hash = self._compute_disk_hash()
@@ -150,30 +168,21 @@ class GameSession:
         # Write main document (atomic: temp + os.replace via persistence.save).
         save(self.state, self._save_path)
 
-        # Rule 2: write checkpoint sidecar if in checkpoint death mode.
+        # Rule 2: persist checkpoint snapshot if in checkpoint death mode.
         if self.state.campaign.death_mode == "checkpoint":
-            self._write_sidecar()
+            self._checkpoint_mgr.save_snapshot(self._save_path)
 
         # Capture the hash AFTER all writes (main + sidecar) so the stored
         # hash matches the on-disk state the next save() compares against.
         self._last_write_hash = self._compute_disk_hash()
 
-    def _write_sidecar(self) -> None:
-        """Write the checkpoint sidecar document atomically."""
-        sidecar_path = self.checkpoint_sidecar_path
-        # The sidecar stores the checkpoint snapshot if one exists;
-        # otherwise it's a minimal document recording the death mode.
-        sidecar_data = {"death_mode": "checkpoint", "save_version": self.state.save_version}
-
-        tmp = sidecar_path.with_suffix(sidecar_path.suffix + ".tmp")
-        with tmp.open("w", encoding="utf-8") as f:
-            f.write(json.dumps(sidecar_data, indent=2))
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, sidecar_path)
-
     def _compute_disk_hash(self) -> str | None:
-        """Hash the on-disk document pair (main + sidecar) for stale-write detection."""
+        """Hash the on-disk document pair (main + checkpoint sidecar).
+
+        Covers the real snapshot file (``{save}.json.checkpoint.json``)
+        produced by ``CheckpointManager.save_snapshot``, so a concurrent
+        session that writes a new snapshot is detected as a stale write.
+        """
         if not self._save_path.exists():
             return None
         h = hashlib.sha256()
