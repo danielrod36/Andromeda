@@ -801,8 +801,10 @@ class LLMAdapter:
             )
         except Exception as exc:
             failure_kind = self._classify_failure(exc)
+            context = "steered" if steering_text else "regular"
             logger.warning(
-                "LLM scene narration failed (%s), falling back to template: %s",
+                "LLM %s scene narration failed (%s), falling back to template: %s",
+                context,
                 failure_kind,
                 exc,
             )
