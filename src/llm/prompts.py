@@ -198,6 +198,31 @@ def build_scene_prompt(
     )
 
 
+def build_steered_scene_prompt(
+    view: CuratedView,
+    scaffold,
+    outcome_facts: list[str],
+    steering_text: str,
+) -> str:
+    """Build a steered re-narration prompt for guided retry (U15, R17, AE5).
+
+    Identical to :func:`build_scene_prompt` but appends the player's steering
+    text — natural-language direction for the narration tone, focus, or
+    style. The mechanical outcomes are locked (they're the same facts from
+    the already-resolved check); only the prose changes. The adapter
+    validates output like any narration.
+    """
+    base_prompt = build_scene_prompt(view, scaffold, outcome_facts)
+    return (
+        f"{base_prompt}\n\n"
+        f"## Player Steering Direction\n"
+        f'"{steering_text}"\n\n'
+        f"Re-narrate the scene above, incorporating the player's direction "
+        f"for tone, focus, or style. The mechanical outcomes must not change "
+        f"— only the prose. Do not contradict any outcome fact."
+    )
+
+
 def build_classification_prompt(
     text: str,
     scaffold,

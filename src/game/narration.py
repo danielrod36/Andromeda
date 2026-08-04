@@ -12,7 +12,10 @@ import json
 from dataclasses import dataclass
 from typing import Literal
 
-BlockType = Literal["narration", "receipt", "change", "divider", "pill", "done", "error"]
+BlockType = Literal["narration", "receipt", "change", "divider", "pill", "badge", "done", "error"]
+
+#: Maximum guided retries per beat (U15, R17).
+MAX_RETRIES_PER_BEAT: int = 3
 
 
 @dataclass
@@ -65,3 +68,12 @@ def build_done_block() -> NarrationBlock:
 def build_error_block(message: str) -> NarrationBlock:
     """Build an error block for stream failures (U10)."""
     return NarrationBlock(type="error", content=message)
+
+
+def build_badge_block(text: str) -> NarrationBlock:
+    """Build a badge block for inline UI badges (U15).
+
+    Badges are non-content signals — they communicate metadata like
+    "outcome unchanged" without adding to the narration prose.
+    """
+    return NarrationBlock(type="badge", content=text)
