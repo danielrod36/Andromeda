@@ -48,6 +48,7 @@ from src.llm.prompts import (
     build_lifepath_prompt,
     build_recap_prompt,
     build_scene_prompt,
+    build_steered_scene_prompt,
     build_term_facts,
 )
 from src.llm.state_view import CuratedView, build_curated_view
@@ -720,9 +721,75 @@ class LLMAdapter:
                 prose=self._template_scene(scaffold, outcome_facts),
                 source="template",
             )
+        return await self._narrate_scene(
+            build_scene_prompt(view, scaffold, outcome_facts),
+            scaffold,
+            outcome_facts,
+            on_attempt=on_attempt,
+        )
 
-        prompt = build_scene_prompt(view, scaffold, outcome_facts)
-        deps = ToolDeps(engine=None, state=None)  # Read-only context.
+    async def narrate_scene_steered(
+        self,
+        scaffold,
+        outcome_facts: list[str],
+        view: CuratedView,
+        steering_text: str,
+        *,
+        on_attempt: AttemptCallback | None = None,
+    ) -> NarrationResult:
+        """Re-narrate a scene with player steering text (U15, R17, AE5).
+
+        The mechanical outcomes are locked — this method re-generates only
+        the prose, incorporating the player's natural-language direction.
+        The outcome facts and state are never touched (AE5 byte-identical
+        guarantee).
+
+        Falls back to template narration on LLM failure, same as
+        :meth:`narrate_scene`. When no LLM is configured, returns template
+        prose immediately (the retry affordance is hidden in template mode).
+
+        Args:
+            scaffold: :class:`SceneScaffold` with focus/situation/NPC hints.
+            outcome_facts: Mechanical outcome facts (locked, unchanged).
+            view: The curated state view for this scene.
+            steering_text: Player's natural-language narration direction.
+            on_attempt: Optional callback fired before each LLM attempt (U1).
+
+        Returns:
+            :class:`NarrationResult` with re-narrated prose.
+        """
+        if not self.llm_configured:
+            return NarrationResult(
+                prose=self._template_scene(scaffold, outcome_facts, steering_text=steering_text),
+                source="template",
+            )
+        prompt = build_steered_scene_prompt(view, scaffold, outcome_facts, steering_text)
+        return await self._narrate_scene(
+            prompt,
+            scaffold,
+            outcome_facts,
+            steering_text=steering_text,
+            on_attempt=on_attempt,
+        )
+
+    async def _narrate_scene(
+        self,
+        prompt: str,
+        scaffold,
+        outcome_facts: list[str],
+        *,
+        steering_text: str = "",
+        on_attempt: AttemptCallback | None = None,
+    ) -> NarrationResult:
+        """Shared LLM narration core for scene and steered-scene (U14, U15).
+
+        Callers must have already checked ``llm_configured`` and returned
+        template prose for the no-LLM path. This method runs the scene
+        agent and falls back to template narration on failure.
+        ``steering_text`` is forwarded to the template fallback so the
+        player's direction is acknowledged even when the LLM fails.
+        """
+        deps = ToolDeps(engine=None, state=None)
 
         try:
             result = await self._run_agent(
@@ -734,13 +801,15 @@ class LLMAdapter:
             )
         except Exception as exc:
             failure_kind = self._classify_failure(exc)
+            context = "steered" if steering_text else "regular"
             logger.warning(
-                "LLM scene narration failed (%s), falling back to template: %s",
+                "LLM %s scene narration failed (%s), falling back to template: %s",
+                context,
                 failure_kind,
                 exc,
             )
             return NarrationResult(
-                prose=self._template_scene(scaffold, outcome_facts),
+                prose=self._template_scene(scaffold, outcome_facts, steering_text=steering_text),
                 source="template",
                 llm_failed=True,
                 failure_kind=failure_kind,
@@ -970,13 +1039,15 @@ class LLMAdapter:
                 return future.result(timeout=30)
 
     @staticmethod
-    def _template_scene(scaffold, outcome_facts: list[str]) -> str:
+    def _template_scene(scaffold, outcome_facts: list[str], *, steering_text: str = "") -> str:
         """Build template (fallback) scene narration from scaffold + facts."""
         lines = [f"[{scaffold.focus}] {scaffold.situation}"]
         if getattr(scaffold, "npc_hint", None):
             lines.append(scaffold.npc_hint)
         for fact in outcome_facts:
             lines.append(fact)
+        if steering_text:
+            lines.append(f"(Direction: {steering_text})")
         return " ".join(lines)
 
     # ------------------------------------------------------------------
