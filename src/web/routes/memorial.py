@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from src.game.memorial import build_memorial, build_obituary
+from src.game.theming import resolve_theme_attr
 from src.web.routes._saves import DEFAULT_SAVES_DIR, load_state_for_save
 
 router = APIRouter(prefix="/memorial")
@@ -51,6 +52,7 @@ async def memorial_screen(save_name: str, request: Request) -> HTMLResponse:
         "memorial.html",
         {
             "save_name": save_name,
+            "theme": resolve_theme_attr(state.campaign.theme_pack),
             "character_name": data.character_name,
             "obituary_lines": obituary_lines,
             "interstitial_text": data.interstitial_text,

@@ -1,10 +1,23 @@
-/* Andromeda design token system (U4).
-   Directional values — final tuning in U17 (theme-pack theming).
+/* Andromeda design token system (U4, U17).
    Six palette variables + three font stacks per the HTD design token table.
+   Theme packs swap the token set via body[data-theme] (R19).
+   :root provides the shared type system and layout; each [data-theme]
+   block overrides the full palette + texture accent.
 */
 
 :root {
-  /* Palette */
+  /* Font stacks (vendored woff2, system fallback) — shared across packs */
+  --font-prose: "Literata", Georgia, "Times New Roman", serif;
+  --font-chrome: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-engine: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+
+  /* Layout — shared across packs */
+  --spine-width: 68ch;
+  --strip-height: 2rem;
+}
+
+/* ── Sci-fi theme pack (default) ────────────────────────────────────── */
+[data-theme="scifi"] {
   --ink: #10151F;           /* page background — deep blue-charcoal */
   --vellum: #E8E2D4;         /* prose text — warm parchment echo */
   --brass: #C9A227;          /* engine voice accent — stamped metal */
@@ -12,22 +25,21 @@
   --signal-red: #C4453C;     /* failure, injuries, defeat */
   --haze: #8A93A6;           /* dim captions, secondary metadata */
 
-  /* Font stacks (vendored woff2, system fallback) */
-  --font-prose: "Literata", Georgia, "Times New Roman", serif;
-  --font-chrome: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-engine: "IBM Plex Mono", "SF Mono", Consolas, monospace;
-
-  /* Layout */
-  --spine-width: 68ch;
-  --strip-height: 2rem;
+  /* Texture accent — subtle blue-violet tint for surfaces */
+  --surface-tint: rgba(180, 200, 230, 0.03);
+  --border-tint: rgba(201, 162, 39, 0.2);
 }
 
-/* Fantasy theme pack palette (U17 token swap). */
+/* ── Fantasy theme pack ─────────────────────────────────────────────── */
 [data-theme="fantasy"] {
-  --ink: #1A1510;
-  --vellum: #F0E8D8;
-  --brass: #B8860B;
-  --verdigris: #556B2F;
-  --signal-red: #8B2500;
-  --haze: #8B7D6B;
+  --ink: #1A1510;            /* page background — dark parchment leather */
+  --vellum: #F0E8D8;         /* prose text — aged ivory */
+  --brass: #B8860B;          /* engine voice accent — dark gold */
+  --verdigris: #556B2F;      /* success — mossy green */
+  --signal-red: #8B2500;     /* failure — dried blood */
+  --haze: #8B7D6B;           /* dim captions — weathered stone */
+
+  /* Texture accent — warm amber tint for surfaces */
+  --surface-tint: rgba(210, 180, 120, 0.04);
+  --border-tint: rgba(184, 134, 11, 0.2);
 }

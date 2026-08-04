@@ -16,6 +16,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from src.game.theming import resolve_theme_attr
 from src.llm.state_view import assert_no_prohibited_fields, build_curated_view
 from src.web.routes._saves import DEFAULT_SAVES_DIR, load_state_for_save
 
@@ -60,6 +61,7 @@ async def inspector(save_name: str, request: Request) -> HTMLResponse:
         "inspector.html",
         {
             "save_name": save_name,
+            "theme": resolve_theme_attr(state.campaign.theme_pack),
             "view_json": view_json,
             "guard_error": guard_error,
         },

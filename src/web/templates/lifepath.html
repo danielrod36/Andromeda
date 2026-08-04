@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/vendor/htmx.min.js"></script>
 </head>
-<body data-theme="scifi">
+<body data-theme="{{ theme }}">
 
   <!-- Status strip -->
   <header id="status-strip" hx-swap-oob="true">
@@ -16,6 +16,12 @@
     <span class="status-mission">{{ character_career }}</span>
     <span class="status-credits">Terms: {{ character_terms }}</span>
     <span class="status-llm">{{ phase }}</span>
+    <button id="drawer-toggle" class="status-link drawer-toggle"
+            aria-expanded="{{ 'true' if drawer_pinned else 'false' }}"
+            aria-controls="drawer"
+            aria-label="Toggle character details drawer">
+      Details
+    </button>
   </header>
 
   <!-- Main row: spine + drawer -->
@@ -57,8 +63,9 @@
     </section>
 
     <!-- Drawer (pinned during assignment phases) -->
-    <aside id="drawer" hx-swap-oob="true"{% if not drawer_pinned %} hidden{% endif %}>
-      <nav class="drawer-tabs">
+    <aside id="drawer" data-drawer-pinned hx-swap-oob="true"{% if not drawer_pinned %} hidden{% endif %}
+           role="region" aria-label="Character details">
+      <nav class="drawer-tabs" aria-label="Detail categories">
         <button data-tab="sheet" class="active">Sheet</button>
         <button data-tab="world">World</button>
         <button data-tab="audit">Audit</button>
@@ -66,6 +73,7 @@
       <div class="drawer-content">
         <p class="placeholder">Character sheet details arrive in a later unit.</p>
       </div>
+      <button class="drawer-close" aria-label="Close drawer">✕</button>
     </aside>
   </main>
 

@@ -50,6 +50,7 @@ def _render_adventure(
 
     # U16: Extract tool-call pills from recent events.
     from src.game.pills import extract_recent_pills
+    from src.game.theming import resolve_theme_attr
 
     pills = extract_recent_pills(
         controller.state.events,
@@ -61,6 +62,7 @@ def _render_adventure(
         "adventure.html",
         {
             "save_name": save_name,
+            "theme": resolve_theme_attr(controller.state.campaign.theme_pack),
             "phase": view.phase,
             "prompt": view.prompt,
             "choices": view.choices,
