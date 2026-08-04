@@ -77,3 +77,12 @@ def build_badge_block(text: str) -> NarrationBlock:
     "outcome unchanged" without adding to the narration prose.
     """
     return NarrationBlock(type="badge", content=text)
+
+
+def build_pill_block(content: str) -> NarrationBlock:
+    """Build a pill block for inline tool-call indicators (U16, R18).
+
+    Pills render as small inline chips linked to audit sequence numbers.
+    The content carries the pill label (tool name + summary).
+    """
+    return NarrationBlock(type="pill", content=content)

@@ -47,6 +47,15 @@ def _render_adventure(
     if view is None:
         view = controller.get_view()
     char = controller.state.character
+
+    # U16: Extract tool-call pills from recent events.
+    from src.game.pills import extract_recent_pills
+
+    pills = extract_recent_pills(
+        controller.state.events,
+        since_seq=controller._action_start_seq - 1,
+    )
+
     return templates.TemplateResponse(
         request,
         "adventure.html",
@@ -60,6 +69,7 @@ def _render_adventure(
             "defeat": view.defeat,
             "mission_ending": view.mission_ending,
             "change_lines": view.change_lines,
+            "pills": pills,
             "character_name": char.name,
             "character_career": char.career or "—",
             "character_terms": char.terms,
