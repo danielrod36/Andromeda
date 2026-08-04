@@ -116,9 +116,11 @@ class TestMissionGate:
         controller = AdventureController(engine, load_scifi_pack())
         controller.apply_choice("accept_mission")
         view = controller.get_view()
-        # Push for ending should NOT be available yet (0 scenes done).
-        choice_ids = [c.option_id for c in view.choices]
-        assert "push_for_ending" not in choice_ids
+        # U14: push for ending is dimmed-not-hidden — present but gated.
+        push_opts = [c for c in view.choices if c.option_id == "push_for_ending"]
+        assert len(push_opts) == 1
+        assert push_opts[0].dimmed is True
+        assert push_opts[0].requirement  # Non-empty requirement text.
 
 
 class TestFreeTextClassify:

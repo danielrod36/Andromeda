@@ -54,6 +54,14 @@
       {% endfor %}
       {% endif %}
 
+      {% if change_lines %}
+      <div class="change-lines">
+        {% for line in change_lines %}
+        <p class="change-line {{ line.css_class }}">{{ line.text }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% if mission_ending %}
       <div class="mission-ending">Mission resolved: {{ mission_ending }}</div>
       {% endif %}
@@ -71,9 +79,12 @@
               hx-swap="innerHTML"
               style="display:inline">
           <input type="hidden" name="choice" value="{{ choice.option_id }}">
-          <button type="submit" class="choice-card">
+          <button type="submit" class="choice-card{% if choice.dimmed %} dimmed{% endif %}"
+                  {% if choice.dimmed %}disabled{% endif %}>
             {{ choice.label }}
-            {% if choice.description %}
+            {% if choice.requirement %}
+            <small class="requirement">{{ choice.requirement }}</small>
+            {% elif choice.description %}
             <small>{{ choice.description }}</small>
             {% endif %}
           </button>
