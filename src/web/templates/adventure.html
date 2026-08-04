@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/vendor/htmx.min.js"></script>
 </head>
-<body data-theme="scifi">
+<body data-theme="{{ theme }}">
 
   <!-- Status strip -->
   <header id="status-strip" hx-swap-oob="true">
@@ -17,6 +17,11 @@
     <span class="status-credits">Terms: {{ character_terms }}</span>
     <span class="status-llm">{{ phase }}</span>
     <a href="/inspector/{{ save_name }}" class="status-link">Inspector</a>
+    <button id="drawer-toggle" class="status-link drawer-toggle"
+            aria-expanded="false" aria-controls="drawer"
+            aria-label="Toggle character details drawer">
+      Details
+    </button>
   </header>
 
   <!-- Main row: spine + drawer -->
@@ -115,8 +120,9 @@
     </section>
 
     <!-- Drawer -->
-    <aside id="drawer" hx-swap-oob="true" hidden>
-      <nav class="drawer-tabs">
+    <aside id="drawer" hx-swap-oob="true" hidden
+           role="region" aria-label="Character details">
+      <nav class="drawer-tabs" aria-label="Detail categories">
         <button data-tab="sheet" class="active">Sheet</button>
         <button data-tab="world">World</button>
         <button data-tab="audit"
@@ -127,6 +133,7 @@
       <div class="drawer-content">
         <p class="placeholder">Character details arrive in a later unit.</p>
       </div>
+      <button class="drawer-close" aria-label="Close drawer">✕</button>
     </aside>
   </main>
 

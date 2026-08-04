@@ -13,6 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from src.game.lifepath import LifepathController
+from src.game.theming import resolve_theme_attr
 from src.web.routes._saves import DEFAULT_SAVES_DIR, load_engine_for_save
 
 router = APIRouter(prefix="/play")
@@ -51,6 +52,7 @@ async def lifepath_screen(save_name: str, request: Request) -> HTMLResponse:
         "lifepath.html",
         {
             "save_name": save_name,
+            "theme": resolve_theme_attr(controller.engine.state.campaign.theme_pack),
             "phase": view.phase,
             "prompt": view.prompt,
             "choices": view.choices,
@@ -89,6 +91,7 @@ async def lifepath_action(save_name: str, request: Request) -> HTMLResponse:
         "lifepath.html",
         {
             "save_name": save_name,
+            "theme": resolve_theme_attr(controller.engine.state.campaign.theme_pack),
             "phase": view.phase,
             "prompt": view.prompt,
             "choices": view.choices,

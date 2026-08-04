@@ -1,5 +1,6 @@
 /* Andromeda app styles (U4) — layout shell + gameplay styling.
    Change-lines and dimmed options (U14).
+   Theme-pack token swap + quality-floor accessibility (U17).
 */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,8 +19,8 @@ body {
 /* Status strip — always visible */
 #status-strip {
   height: var(--strip-height);
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(201, 162, 39, 0.2);
+  background: var(--surface-tint, rgba(255, 255, 255, 0.03));
+  border-bottom: 1px solid var(--border-tint, rgba(201, 162, 39, 0.2));
   display: flex;
   align-items: center;
   gap: 1.5rem;
@@ -49,12 +50,38 @@ body {
 /* Drawer — hidden by default, pinned during lifepath */
 #drawer {
   width: 28rem;
-  border-left: 1px solid rgba(201, 162, 39, 0.15);
+  border-left: 1px solid var(--border-tint, rgba(201, 162, 39, 0.15));
   padding: 1rem;
   overflow-y: auto;
+  position: relative;
 }
 
 #drawer[hidden] { display: none; }
+
+/* Drawer toggle button in the status strip (U17) */
+.drawer-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+}
+
+/* Drawer close button (U17) */
+.drawer-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--haze);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+}
+
+.drawer-close:hover { color: var(--vellum); }
 
 .drawer-tabs {
   display: flex;
@@ -79,7 +106,7 @@ body {
 /* Choice dock */
 #choice-dock {
   padding: 0.75rem 1rem;
-  border-top: 1px solid rgba(201, 162, 39, 0.15);
+  border-top: 1px solid var(--border-tint);
   flex-shrink: 0;
 }
 
@@ -97,14 +124,14 @@ body {
 /* Free-text bar */
 #freetext-bar {
   padding: 0.5rem 1rem;
-  border-top: 1px solid rgba(201, 162, 39, 0.1);
+  border-top: 1px solid var(--border-tint);
   flex-shrink: 0;
 }
 
 #freetext-bar input {
   width: 100%;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(201, 162, 39, 0.2);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
   border-radius: 0.25rem;
   padding: 0.5rem 0.75rem;
   color: var(--vellum);
@@ -125,8 +152,8 @@ body {
 
 /* Story-so-far recap on resume (U11, R13) */
 .recap {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(201, 162, 39, 0.2);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
   border-radius: 0.25rem;
   margin-bottom: 1.5rem;
 }
@@ -146,7 +173,7 @@ body {
 .recap-body {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px solid rgba(201, 162, 39, 0.1);
+  border-top: 1px solid var(--border-tint);
 }
 
 .recap-line {
@@ -190,8 +217,8 @@ body {
 
 .audit-filters select,
 .audit-filters input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(201, 162, 39, 0.2);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
   border-radius: 0.25rem;
   padding: 0.25rem 0.5rem;
   color: var(--vellum);
@@ -230,7 +257,7 @@ body {
 .audit-table th {
   text-align: left;
   padding: 0.4rem 0.5rem;
-  border-bottom: 1px solid rgba(201, 162, 39, 0.2);
+  border-bottom: 1px solid var(--border-tint);
   color: var(--brass);
   font-weight: 600;
   white-space: nowrap;
@@ -366,8 +393,8 @@ body {
   font-size: 0.85rem;
   line-height: 1.5;
   color: var(--vellum);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(201, 162, 39, 0.15);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
   border-radius: 0.25rem;
   padding: 1rem;
   overflow-x: auto;
