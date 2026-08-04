@@ -147,6 +147,33 @@ class TestRetryEndpoint:
         lines = _data_lines(response.text)
         assert lines[-1]["type"] == "done"
 
+    def test_negative_attempt_clamped(self, tmp_path: Path):
+        """Negative or zero attempt is clamped to 1 (allowed)."""
+        saves_dir = tmp_path / "saves"
+        _create_save(saves_dir)
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/stream/Hero/retry",
+                data={"steering_text": "x", "attempt": "-5"},
+                headers=_ORIGIN,
+            )
+        lines = _data_lines(response.text)
+        assert lines[-1]["type"] == "done"
+
+    def test_steering_text_truncated(self, tmp_path: Path):
+        """Steering text beyond 500 chars is truncated."""
+        saves_dir = tmp_path / "saves"
+        _create_save(saves_dir)
+        long_text = "A" * 600
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/stream/Hero/retry",
+                data={"steering_text": long_text, "attempt": "1"},
+                headers=_ORIGIN,
+            )
+        assert "A" * 600 not in response.text
+        assert "A" * 500 in response.text
+
 
 class TestAE5StateIntegrity:
     """AE5: state and event log are byte-identical across regeneration (U15)."""
@@ -247,6 +274,29 @@ class TestNarrateSceneSteered:
             )
         )
         assert result.source == "template"
+
+    def test_template_mode_includes_steering_text(self):
+        """Template fallback incorporates steering text (U15, R17)."""
+        from src.llm.adapter import LLMAdapter
+
+        adapter = LLMAdapter()
+        scaffold = MagicMock()
+        scaffold.focus = "Test"
+        scaffold.focus_description = "desc"
+        scaffold.situation = "sit"
+        scaffold.npc_hint = None
+
+        import asyncio
+
+        result = asyncio.run(
+            adapter.narrate_scene_steered(
+                scaffold,
+                ["fact 1"],
+                MagicMock(),
+                "make it darker",
+            )
+        )
+        assert "make it darker" in result.prose
 
     def test_llm_mode_produces_prose(self):
         """With a test model, steered narration produces LLM prose."""

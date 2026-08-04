@@ -721,31 +721,12 @@ class LLMAdapter:
                 prose=self._template_scene(scaffold, outcome_facts),
                 source="template",
             )
-
-        prompt = build_scene_prompt(view, scaffold, outcome_facts)
-        deps = ToolDeps(engine=None, state=None)  # Read-only context.
-
-        try:
-            result = await self._run_agent(
-                self._scene_agent, prompt, deps=deps, on_attempt=on_attempt
-            )
-            return NarrationResult(
-                prose=result.output.prose,
-                source="llm",
-            )
-        except Exception as exc:
-            failure_kind = self._classify_failure(exc)
-            logger.warning(
-                "LLM scene narration failed (%s), falling back to template: %s",
-                failure_kind,
-                exc,
-            )
-            return NarrationResult(
-                prose=self._template_scene(scaffold, outcome_facts),
-                source="template",
-                llm_failed=True,
-                failure_kind=failure_kind,
-            )
+        return await self._narrate_scene(
+            build_scene_prompt(view, scaffold, outcome_facts),
+            scaffold,
+            outcome_facts,
+            on_attempt=on_attempt,
+        )
 
     async def narrate_scene_steered(
         self,
@@ -779,11 +760,35 @@ class LLMAdapter:
         """
         if not self.llm_configured:
             return NarrationResult(
-                prose=self._template_scene(scaffold, outcome_facts),
+                prose=self._template_scene(scaffold, outcome_facts, steering_text=steering_text),
                 source="template",
             )
-
         prompt = build_steered_scene_prompt(view, scaffold, outcome_facts, steering_text)
+        return await self._narrate_scene(
+            prompt,
+            scaffold,
+            outcome_facts,
+            steering_text=steering_text,
+            on_attempt=on_attempt,
+        )
+
+    async def _narrate_scene(
+        self,
+        prompt: str,
+        scaffold,
+        outcome_facts: list[str],
+        *,
+        steering_text: str = "",
+        on_attempt: AttemptCallback | None = None,
+    ) -> NarrationResult:
+        """Shared LLM narration core for scene and steered-scene (U14, U15).
+
+        Callers must have already checked ``llm_configured`` and returned
+        template prose for the no-LLM path. This method runs the scene
+        agent and falls back to template narration on failure.
+        ``steering_text`` is forwarded to the template fallback so the
+        player's direction is acknowledged even when the LLM fails.
+        """
         deps = ToolDeps(engine=None, state=None)
 
         try:
@@ -797,12 +802,12 @@ class LLMAdapter:
         except Exception as exc:
             failure_kind = self._classify_failure(exc)
             logger.warning(
-                "LLM steered narration failed (%s), falling back to template: %s",
+                "LLM scene narration failed (%s), falling back to template: %s",
                 failure_kind,
                 exc,
             )
             return NarrationResult(
-                prose=self._template_scene(scaffold, outcome_facts),
+                prose=self._template_scene(scaffold, outcome_facts, steering_text=steering_text),
                 source="template",
                 llm_failed=True,
                 failure_kind=failure_kind,
@@ -1032,13 +1037,15 @@ class LLMAdapter:
                 return future.result(timeout=30)
 
     @staticmethod
-    def _template_scene(scaffold, outcome_facts: list[str]) -> str:
+    def _template_scene(scaffold, outcome_facts: list[str], *, steering_text: str = "") -> str:
         """Build template (fallback) scene narration from scaffold + facts."""
         lines = [f"[{scaffold.focus}] {scaffold.situation}"]
         if getattr(scaffold, "npc_hint", None):
             lines.append(scaffold.npc_hint)
         for fact in outcome_facts:
             lines.append(fact)
+        if steering_text:
+            lines.append(f"(Direction: {steering_text})")
         return " ".join(lines)
 
     # ------------------------------------------------------------------

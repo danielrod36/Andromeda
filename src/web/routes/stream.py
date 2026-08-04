@@ -104,15 +104,18 @@ async def retry_narration(save_name: str, request: Request) -> StreamingResponse
     ``outcome unchanged`` badge before the narration blocks, then ``done``.
 
     Enforces the retry cap (``MAX_RETRIES_PER_BEAT``): attempts beyond the
-    cap receive an error event. Template-mode sessions (no LLM) receive an
-    error indicating retry is unavailable.
+    cap receive an error event. Currently emits template blocks in all
+    modes; LLM steered narration will be wired in when the narration
+    endpoint gains LLM support (matching the ``/narration`` endpoint's
+    staging pattern). The ``attempt`` counter is client-provided — a
+    best-effort guardrail for single-player localhost.
     """
     form = await request.form()
-    steering_text = str(form.get("steering_text", "")).strip()
-    attempt_str = str(form.get("attempt", "1"))
+    steering_text = (form.get("steering_text") or "").strip()[:500]
+    attempt_str = form.get("attempt") or "1"
     try:
-        attempt = int(attempt_str)
-    except ValueError:
+        attempt = max(1, int(attempt_str))
+    except (ValueError, TypeError):
         attempt = 1
 
     async def retry_stream():
