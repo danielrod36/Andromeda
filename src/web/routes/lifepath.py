@@ -18,29 +18,18 @@ from fastapi.templating import Jinja2Templates
 
 from src.game.session import StaleWriteError
 from src.game.theming import resolve_theme_attr
-from src.web.routes._saves import DEFAULT_SAVES_DIR, get_or_create_session
+from src.web.routes._saves import (
+    DEFAULT_SAVES_DIR,
+    busy_notice,
+    conflict_notice,
+    evict_session,
+    get_or_create_session,
+)
 
 router = APIRouter(prefix="/play")
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-
-
-def _busy_notice() -> HTMLResponse:
-    """Return a small notice for the action-gate-busy case (U1)."""
-    return HTMLResponse(
-        '<span role="status">An action is already in progress — please wait.</span>',
-        headers={"HX-Retarget": "#action-notice"},
-    )
-
-
-def _conflict_notice() -> HTMLResponse:
-    """Return a stale-write conflict notice (U1)."""
-    return HTMLResponse(
-        '<span role="alert">Save conflict: another session modified this '
-        "save. Reload from disk to continue.</span>",
-        headers={"HX-Retarget": "#action-notice"},
-    )
 
 
 @router.get("/{save_name}", response_class=HTMLResponse)
@@ -97,7 +86,7 @@ async def lifepath_action(save_name: str, request: Request) -> HTMLResponse:
 
     # U1: action gate.
     if not session.begin_action():
-        return _busy_notice()
+        return busy_notice()
 
     try:
         form = await request.form()
@@ -108,7 +97,8 @@ async def lifepath_action(save_name: str, request: Request) -> HTMLResponse:
             try:
                 session.save()
             except StaleWriteError:
-                return _conflict_notice()
+                evict_session(save_name, DEFAULT_SAVES_DIR, request)
+                return conflict_notice()
         else:
             view = controller.get_phase_view()
         char = controller.engine.state.character

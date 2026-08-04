@@ -19,7 +19,13 @@ from fastapi.templating import Jinja2Templates
 
 from src.game.adventure import AdventureController, AdventureView
 from src.game.session import StaleWriteError
-from src.web.routes._saves import DEFAULT_SAVES_DIR, get_or_create_session
+from src.web.routes._saves import (
+    DEFAULT_SAVES_DIR,
+    busy_notice,
+    conflict_notice,
+    evict_session,
+    get_or_create_session,
+)
 
 router = APIRouter(prefix="/adventure")
 
@@ -77,29 +83,6 @@ def _render_adventure(
     )
 
 
-def _busy_notice() -> HTMLResponse:
-    """Return a small notice for the action-gate-busy case (U1).
-
-    Targets ``#action-notice`` via ``HX-Retarget`` so the spine is never
-    wiped. The notice self-dismisses on the next successful action because
-    the full-page response renders an empty ``#action-notice`` in the OOB
-    status strip.
-    """
-    return HTMLResponse(
-        '<span role="status">An action is already in progress — please wait.</span>',
-        headers={"HX-Retarget": "#action-notice"},
-    )
-
-
-def _conflict_notice() -> HTMLResponse:
-    """Return a stale-write conflict notice (U1)."""
-    return HTMLResponse(
-        '<span role="alert">Save conflict: another session modified this '
-        "save. Reload from disk to continue.</span>",
-        headers={"HX-Retarget": "#action-notice"},
-    )
-
-
 @router.get("/{save_name}", response_class=HTMLResponse)
 async def adventure_screen(save_name: str, request: Request) -> HTMLResponse:
     """Render the adventure screen with current phase + choices."""
@@ -135,7 +118,7 @@ async def adventure_action(save_name: str, request: Request) -> HTMLResponse:
 
     # U1: action gate — reject concurrent beats with a graceful notice.
     if not session.begin_action():
-        return _busy_notice()
+        return busy_notice()
 
     try:
         form = await request.form()
@@ -147,7 +130,8 @@ async def adventure_action(save_name: str, request: Request) -> HTMLResponse:
             try:
                 session.save()
             except StaleWriteError:
-                return _conflict_notice()
+                evict_session(save_name, DEFAULT_SAVES_DIR, request)
+                return conflict_notice()
 
         return _render_adventure(request, save_name, controller, view=view)
     finally:
@@ -173,7 +157,7 @@ async def adventure_freetext(save_name: str, request: Request) -> HTMLResponse:
 
     # U1: action gate.
     if not session.begin_action():
-        return _busy_notice()
+        return busy_notice()
 
     try:
         form = await request.form()
@@ -185,7 +169,8 @@ async def adventure_freetext(save_name: str, request: Request) -> HTMLResponse:
             try:
                 session.save()
             except StaleWriteError:
-                return _conflict_notice()
+                evict_session(save_name, DEFAULT_SAVES_DIR, request)
+                return conflict_notice()
 
         return _render_adventure(request, save_name, controller, view=view)
     finally:

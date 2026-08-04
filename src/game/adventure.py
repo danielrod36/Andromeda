@@ -96,12 +96,22 @@ class AdventureController:
     main save (mirroring the TUI's app-level save).
     """
 
-    def __init__(self, engine: Engine, pack: LoadedThemePack) -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        pack: LoadedThemePack,
+        *,
+        checkpoint_mgr: CheckpointManager | None = None,
+    ) -> None:
         self._engine = engine
         self._pack = pack
         self._mission_engine = MissionEngine(engine, pack)
         self._scene_engine = SceneEngine(engine, pack)
-        self._checkpoint_mgr = CheckpointManager()
+        # When a checkpoint_mgr is injected (e.g. from a GameSession), the
+        # controller shares the session's manager so scene-start snapshots
+        # persist to disk through session.save(). Otherwise the controller
+        # owns its own (standalone / TUI usage).
+        self._checkpoint_mgr = checkpoint_mgr or CheckpointManager()
 
         # Transient state — rebuilt from GameState on resume.
         self._current_hook: MissionHook | None = None

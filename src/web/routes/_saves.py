@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from fastapi.responses import HTMLResponse
+
 from src.engine.commands import Engine
 from src.engine.persistence import load
 from src.engine.state import GameState
@@ -139,10 +141,7 @@ def get_or_create_session(
     session = GameSession(save_path, settings=settings)
     pack = _resolve_pack(session.state)
 
-    adv = AdventureController(session.engine, pack)
-    # Wire the controller's checkpoint manager to the session's so the
-    # scene-start snapshot survives across requests and persists to disk.
-    adv._checkpoint_mgr = session.checkpoint_mgr
+    adv = AdventureController(session.engine, pack, checkpoint_mgr=session.checkpoint_mgr)
 
     life = LifepathController(session.engine, pack)
 
@@ -155,10 +154,45 @@ def get_or_create_session(
     return bundle
 
 
-def get_session(save_name: str, request: Request) -> SessionBundle | None:
-    """Return the cached bundle if it exists, or ``None`` (no construction)."""
+def evict_session(save_name: str, saves_dir: Path, request: Request) -> None:
+    """Remove a session from the registry so the next GET rebuilds from disk.
+
+    Called when ``session.save()`` raises :class:`StaleWriteError`: the
+    in-memory state has diverged from disk and every subsequent save would
+    also fail. Evicting lets the next request reconstruct from the
+    newer on-disk state.
+    """
+    directory = Path(saves_dir)
+    save_path = resolve_save_path(directory, save_name)
+    key = (str(save_path.parent.resolve()), save_path.stem)
     registry: dict = request.app.state.session_registry
-    for (_dir, _stem), bundle in registry.items():
-        if _stem == save_name:
-            return bundle
-    return None
+    registry.pop(key, None)
+
+
+# ---------------------------------------------------------------------------
+# Shared htmx notice fragments (U1).
+# ---------------------------------------------------------------------------
+
+#: Both notices target ``#action-notice`` via ``HX-Retarget`` so the spine
+#: is never wiped. The outer ``<div id="action-notice" aria-live="polite"
+#: role="status">`` in the template already provides the ARIA live region,
+#: so the inner spans carry no redundant role attributes (avoids nested
+#: live regions that double-announce or conflict on assertive vs polite).
+_NOTICE_HEADERS = {"HX-Retarget": "#action-notice"}
+
+
+def busy_notice() -> HTMLResponse:
+    """Return a small notice for the action-gate-busy case (U1)."""
+    return HTMLResponse(
+        "<span>An action is already in progress — please wait.</span>",
+        headers=_NOTICE_HEADERS,
+    )
+
+
+def conflict_notice() -> HTMLResponse:
+    """Return a stale-write conflict notice (U1)."""
+    return HTMLResponse(
+        "<span>Save conflict: another session modified this "
+        "save. Reload from disk to continue.</span>",
+        headers=_NOTICE_HEADERS,
+    )
