@@ -12,7 +12,7 @@ import json
 from dataclasses import dataclass
 from typing import Literal
 
-BlockType = Literal["narration", "receipt", "change", "divider", "pill", "badge", "done", "error"]
+BlockType = Literal["narration", "receipt", "change", "divider", "badge", "done", "error"]
 
 #: Maximum guided retries per beat (U15, R17).
 MAX_RETRIES_PER_BEAT: int = 3

@@ -149,6 +149,11 @@ def create_app() -> FastAPI:
 
     app.include_router(audit_router)
 
+    # U16: Curated-view inspector.
+    from src.web.routes.inspector import router as inspector_router
+
+    app.include_router(inspector_router)
+
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request) -> HTMLResponse:
         """Serve the base layout shell — four regions, no gameplay yet (U4)."""

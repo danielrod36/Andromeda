@@ -1,0 +1,12 @@
+{# Tool-call pills rendered inline in the spine (U16, R18). #}
+{% if pills %}
+<div class="pills">
+  {% for pill in pills %}
+  <span class="pill">
+    <a href="/audit/{{ save_name }}?seq_min={{ pill.seq }}&seq_max={{ pill.seq }}">
+      {{ pill.label }}
+    </a>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
