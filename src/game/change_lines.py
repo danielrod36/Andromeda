@@ -15,6 +15,7 @@ beyond what the event carries in its ``changes`` dict.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from src.engine.audit import Event
@@ -46,7 +47,7 @@ class ChangeLine:
 # (or None if the event shouldn't produce a change-line — e.g. noisy internal
 # events).
 
-_Formatter = object  # callable[[dict], ChangeLine | None]
+_Formatter = Callable[[dict], ChangeLine | None]
 
 
 def _fmt_skill_gained(changes: dict) -> ChangeLine | None:
@@ -76,14 +77,16 @@ def _fmt_characteristic(changes: dict) -> ChangeLine | None:
     )
 
 
-def _fmt_characteristic_improved(changes: dict) -> ChangeLine | None:
-    stat = changes.get("stat", "")
-    outcome = changes.get("outcome", "")
+def _fmt_aging_apply(changes: dict) -> ChangeLine | None:
+    """Format ``lifepath_aging_apply`` — stat reduction from aging."""
+    stat = changes.get("characteristic", "")
+    points = changes.get("points", 0)
+    new_value = changes.get("new_value", 0)
     if not stat:
         return None
     return ChangeLine(
-        text=f"Aging check ({stat}): {outcome}",
-        css_class=CHANGE_NEGATIVE if "reduced" in str(outcome).lower() else CHANGE_NEUTRAL,
+        text=f"Aging: {stat} reduced by {points} (now {new_value})",
+        css_class=CHANGE_NEGATIVE,
     )
 
 
@@ -136,7 +139,8 @@ def _fmt_character_dead(changes: dict) -> ChangeLine | None:
     return ChangeLine(text=text, css_class=CHANGE_NEGATIVE)
 
 
-def _fmt_mission_state(changes: dict) -> ChangeLine | None:
+def _fmt_mission_resolved(changes: dict) -> ChangeLine | None:
+    """Format ``resolve_mission`` — the user-visible resolution event."""
     ending = changes.get("ending", "")
     mission_id = changes.get("mission_id", "")
     if not ending:
@@ -149,36 +153,47 @@ def _fmt_mission_state(changes: dict) -> ChangeLine | None:
     )
 
 
-def _fmt_credits(changes: dict) -> ChangeLine | None:
-    amount = changes.get("amount", 0)
-    if amount == 0:
+def _fmt_benefit(changes: dict) -> ChangeLine | None:
+    """Format ``lifepath_benefit`` — cash mustering-out benefits only."""
+    if changes.get("benefit_type") != "cash":
         return None
-    sign = "+" if amount > 0 else ""
-    css = CHANGE_POSITIVE if amount > 0 else CHANGE_NEGATIVE
+    result_text = changes.get("result_text", "")
+    if not result_text:
+        return None
     return ChangeLine(
-        text=f"Credits: {sign}{amount}",
-        css_class=css,
+        text=f"Mustering-out benefit: {result_text}",
+        css_class=CHANGE_POSITIVE,
     )
 
 
-def _fmt_promotion(changes: dict) -> ChangeLine | None:
-    rank_title = changes.get("rank_title", "")
-    rank = changes.get("rank", 0)
-    if rank_title:
-        return ChangeLine(
-            text=f"Promoted: {rank_title}",
-            css_class=CHANGE_POSITIVE,
-        )
-    if rank:
-        return ChangeLine(
-            text=f"Promoted to rank {rank}",
-            css_class=CHANGE_POSITIVE,
-        )
-    return None
+def _fmt_commission(changes: dict) -> ChangeLine | None:
+    """Format ``lifepath_commission`` — officer commission (success only)."""
+    if not changes.get("success"):
+        return None
+    return ChangeLine(
+        text="Commissioned as officer",
+        css_class=CHANGE_POSITIVE,
+    )
 
 
-def _fmt_set_flag(changes: dict) -> ChangeLine | None:
-    """Flags are internal — suppress from change-lines."""
+def _fmt_advancement(changes: dict) -> ChangeLine | None:
+    """Format ``lifepath_advancement`` — rank promotion (success only)."""
+    if not changes.get("success"):
+        return None
+    new_rank = changes.get("new_rank", 0)
+    if new_rank > 0:
+        return ChangeLine(
+            text=f"Promoted to rank {new_rank}",
+            css_class=CHANGE_POSITIVE,
+        )
+    return ChangeLine(
+        text="Advancement check succeeded",
+        css_class=CHANGE_POSITIVE,
+    )
+
+
+def _fmt_suppress(changes: dict) -> ChangeLine | None:
+    """Suppress this event type from change-lines."""
     return None
 
 
@@ -188,32 +203,41 @@ def _fmt_default(changes: dict) -> ChangeLine | None:
 
 
 # Command-type → formatter dispatch.
+#
+# Keys MUST match the ``command_type`` ClassVar on the engine's Command
+# subclasses (e.g. ``"lifepath_gain_skill"``, not ``"gain_skill"``).
+# Each formatter reads field names from the Event's ``changes`` dict that
+# match what the command's ``mutate()`` method actually produces.
 _FORMATTERS: dict[str, _Formatter] = {
     # Lifepath.
-    "gain_skill": _fmt_skill_gained,
+    "lifepath_gain_skill": _fmt_skill_gained,
     "roll_characteristic": _fmt_characteristic,
-    "set_characteristic": _fmt_characteristic,
-    "aging_check": _fmt_characteristic_improved,
-    "promote": _fmt_promotion,
+    "lifepath_assign_characteristic": _fmt_characteristic,
+    "lifepath_aging_apply": _fmt_aging_apply,
+    "lifepath_commission": _fmt_commission,
+    "lifepath_advancement": _fmt_advancement,
+    "lifepath_benefit": _fmt_benefit,
     # Adventure / scene.
     "register_fact": _fmt_register_fact,
     "add_injury": _fmt_add_injury,
     "add_open_thread": _fmt_add_thread,
     "remove_open_thread": _fmt_remove_thread,
     "set_character_dead": _fmt_character_dead,
-    "set_mission_state": _fmt_mission_state,
-    "adjust_credits": _fmt_credits,
+    "resolve_mission": _fmt_mission_resolved,
     # Suppressed (internal/noise).
-    "set_flag": _fmt_set_flag,
-    "set_rng_snapshot": _fmt_set_flag,
-    "add_chapter_summary": _fmt_set_flag,
-    "set_pending_freetext": _fmt_set_flag,
-    "set_pending_hook": _fmt_set_flag,
-    "flag_degradation": _fmt_set_flag,
-    "oracle_roll": _fmt_set_flag,
-    "complication_roll": _fmt_set_flag,
-    "scene_check": _fmt_set_flag,
-    "ratify_fact": _fmt_set_flag,
+    "set_flag": _fmt_suppress,
+    "set_mission_state": _fmt_suppress,
+    "next_mission_id": _fmt_suppress,
+    "set_pending_hook": _fmt_suppress,
+    "log_mission": _fmt_suppress,
+    "add_chapter_summary": _fmt_suppress,
+    "set_pending_freetext": _fmt_suppress,
+    "flag_degradation": _fmt_suppress,
+    "oracle_roll": _fmt_suppress,
+    "complication_roll": _fmt_suppress,
+    "scene_check": _fmt_suppress,
+    "ratify_fact": _fmt_suppress,
+    "set_rng_snapshot": _fmt_suppress,
 }
 
 

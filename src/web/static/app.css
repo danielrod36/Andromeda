@@ -1,5 +1,5 @@
-/* Andromeda app styles (U4) — layout shell only.
-   Gameplay styling (receipts, dockets, pills, change-lines) arrives in later units.
+/* Andromeda app styles (U4) — layout shell + gameplay styling.
+   Change-lines and dimmed options (U14).
 */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -83,6 +83,17 @@ body {
   flex-shrink: 0;
 }
 
+/* Dimmed / gated choice (U14) */
+.choice-card.dimmed {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.choice-card .requirement {
+  color: var(--haze);
+  font-size: 0.8rem;
+}
+
 /* Free-text bar */
 #freetext-bar {
   padding: 0.5rem 1rem;
@@ -147,6 +158,22 @@ body {
 }
 
 .recap-line:last-child { margin-bottom: 0; }
+
+/* Change-lines (U14, R16) */
+.change-lines {
+  margin: 0.5rem 0;
+}
+
+.change-line {
+  font-family: var(--font-chrome);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin-bottom: 0.25rem;
+}
+
+.change-positive { color: var(--verdigris); }
+.change-negative { color: var(--signal-red); }
+.change-neutral { color: var(--haze); }
 
 /* Audit viewer overlay (U13, R15) */
 .audit-overlay {

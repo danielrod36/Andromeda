@@ -47,6 +47,7 @@ from src.engine.scene import (
 )
 from src.engine.skills import skill_display_name
 from src.engine.state import GameState, Injury
+from src.game.change_lines import ChangeLine
 from src.game.views import ChoiceOption
 from src.rulesets.base import OutcomeQuality
 from src.themepacks.base import LoadedThemePack
@@ -73,7 +74,7 @@ class AdventureView:
     odds_lines: list[str] = field(default_factory=list)
     defeat: str | None = None
     mission_ending: str | None = None
-    change_lines: list[str] = field(default_factory=list)
+    change_lines: list[ChangeLine] = field(default_factory=list)
 
 
 class AdventureController:
@@ -135,7 +136,7 @@ class AdventureController:
     # Change-lines helper (U14).
     # ------------------------------------------------------------------
 
-    def _collect_change_lines(self) -> list[str]:
+    def _collect_change_lines(self) -> list[ChangeLine]:
         """Derive change-lines from events produced during the current action.
 
         Called after an action's mutations to populate the view's
@@ -144,11 +145,10 @@ class AdventureController:
         """
         from src.game.change_lines import derive_recent_change_lines
 
-        lines = derive_recent_change_lines(
+        return derive_recent_change_lines(
             self._engine.state.events,
             since_seq=self._action_start_seq - 1,
         )
-        return [cl.text for cl in lines]
 
     # ------------------------------------------------------------------
     # Reconstruction (AE8-safe resume).
@@ -455,6 +455,7 @@ class AdventureController:
             prompt="Mission resolved. A new opportunity awaits.",
             receipts=receipts,
             mission_ending=ending.value,
+            change_lines=self._collect_change_lines(),
         )
 
     def _do_abandon_mission(self) -> AdventureView:
@@ -477,6 +478,7 @@ class AdventureController:
             prompt="Mission abandoned. Looking for the next opportunity...",
             receipts=[f"→ {c}" for c in consequences],
             mission_ending=MissionEnding.ABANDONMENT.value,
+            change_lines=self._collect_change_lines(),
         )
 
     # ------------------------------------------------------------------
