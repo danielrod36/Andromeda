@@ -1,8 +1,12 @@
-"""Adventure web routes — the full adventure loop playable via htmx (U9).
+"""Adventure web routes — the full adventure loop playable via htmx (U9, U1).
 
 Drives the U8 AdventureController over HTTP. The spine renders typed-block
 stream (scene headers, receipts, consequences); the choice dock renders
 numbered cards with odds; free-text sits below.
+
+U1: routes now drive a cached :class:`GameSession` held on the app instance.
+The action gate (``begin_action``/``end_action``) rejects concurrent beats;
+autosave goes through ``session.save()`` (stale-write guard + sidecar cadence).
 """
 
 from __future__ import annotations
@@ -13,21 +17,20 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from src.engine.persistence import save
 from src.game.adventure import AdventureController, AdventureView
-from src.web.routes._saves import DEFAULT_SAVES_DIR, load_engine_for_save
+from src.game.session import StaleWriteError
+from src.web.routes._saves import (
+    DEFAULT_SAVES_DIR,
+    busy_notice,
+    conflict_notice,
+    evict_session,
+    get_or_create_session,
+)
 
 router = APIRouter(prefix="/adventure")
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-
-
-def _load_controller(save_name: str) -> tuple[AdventureController, Path]:
-    """Load a save and construct an AdventureController."""
-    engine, pack, save_path = load_engine_for_save(save_name, DEFAULT_SAVES_DIR)
-    controller = AdventureController(engine, pack)
-    return controller, save_path
 
 
 def _render_adventure(
@@ -84,9 +87,12 @@ def _render_adventure(
 async def adventure_screen(save_name: str, request: Request) -> HTMLResponse:
     """Render the adventure screen with current phase + choices."""
     try:
-        controller, _ = _load_controller(save_name)
+        bundle = get_or_create_session(save_name, DEFAULT_SAVES_DIR, request)
     except FileNotFoundError:
         return RedirectResponse(url="/saves", status_code=303)
+
+    controller = bundle.adventure_controller
+    assert controller is not None
 
     # Build story-so-far recap on resume (U11).
     recap = None
@@ -102,19 +108,34 @@ async def adventure_screen(save_name: str, request: Request) -> HTMLResponse:
 async def adventure_action(save_name: str, request: Request) -> HTMLResponse:
     """Apply a structured choice (option, mission action) and re-render."""
     try:
-        controller, save_path = _load_controller(save_name)
+        bundle = get_or_create_session(save_name, DEFAULT_SAVES_DIR, request)
     except FileNotFoundError:
         return RedirectResponse(url="/saves", status_code=303)
 
-    form = await request.form()
-    option_id = str(form.get("choice", ""))
+    session = bundle.session
+    controller = bundle.adventure_controller
+    assert controller is not None
 
-    view: AdventureView | None = None
-    if option_id:
-        view = controller.apply_choice(option_id)
-        save(controller.state, save_path)
+    # U1: action gate — reject concurrent beats with a graceful notice.
+    if not session.begin_action():
+        return busy_notice()
 
-    return _render_adventure(request, save_name, controller, view=view)
+    try:
+        form = await request.form()
+        option_id = str(form.get("choice", ""))
+
+        view: AdventureView | None = None
+        if option_id:
+            view = controller.apply_choice(option_id)
+            try:
+                session.save()
+            except StaleWriteError:
+                evict_session(save_name, DEFAULT_SAVES_DIR, request)
+                return conflict_notice()
+
+        return _render_adventure(request, save_name, controller, view=view)
+    finally:
+        session.end_action()
 
 
 @router.post("/{save_name}/freetext", response_class=HTMLResponse, response_model=None)
@@ -126,16 +147,31 @@ async def adventure_freetext(save_name: str, request: Request) -> HTMLResponse:
     (KTD-9). Without an LLM, the keyword classifier is instant.
     """
     try:
-        controller, save_path = _load_controller(save_name)
+        bundle = get_or_create_session(save_name, DEFAULT_SAVES_DIR, request)
     except FileNotFoundError:
         return RedirectResponse(url="/saves", status_code=303)
 
-    form = await request.form()
-    text = str(form.get("freetext", "")).strip()
+    session = bundle.session
+    controller = bundle.adventure_controller
+    assert controller is not None
 
-    view: AdventureView | None = None
-    if text:
-        view = controller.classify_freetext(text)
-        save(controller.state, save_path)
+    # U1: action gate.
+    if not session.begin_action():
+        return busy_notice()
 
-    return _render_adventure(request, save_name, controller, view=view)
+    try:
+        form = await request.form()
+        text = str(form.get("freetext", "")).strip()
+
+        view: AdventureView | None = None
+        if text:
+            view = controller.classify_freetext(text)
+            try:
+                session.save()
+            except StaleWriteError:
+                evict_session(save_name, DEFAULT_SAVES_DIR, request)
+                return conflict_notice()
+
+        return _render_adventure(request, save_name, controller, view=view)
+    finally:
+        session.end_action()

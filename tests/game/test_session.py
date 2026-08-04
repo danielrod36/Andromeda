@@ -117,24 +117,39 @@ class TestSaveAndStaleWrite:
             session_a.save()
 
     def test_checkpoint_sidecar_path(self, tmp_path: Path):
-        """Sidecar path is derived from the main save path."""
+        """Sidecar path follows the TUI convention: {save}.json.checkpoint.json."""
         state = _make_state()
         engine = Engine(state)
         save_path = tmp_path / "campaign.json"
         session = GameSession(save_path, engine=engine)
 
-        assert session.checkpoint_sidecar_path == tmp_path / "campaign.checkpoint.json"
+        # The TUI convention (CheckpointManager.save_snapshot) appends
+        # .checkpoint.json to the full save path, not a suffix replacement.
+        assert session.checkpoint_sidecar_path == Path(
+            str(tmp_path / "campaign.json") + ".checkpoint.json"
+        )
 
     def test_checkpoint_mode_writes_sidecar(self, tmp_path: Path):
-        """Checkpoint death mode writes a sidecar alongside the main save."""
+        """Checkpoint death mode writes a sidecar when a snapshot exists.
+
+        The sidecar is written via ``CheckpointManager.save_snapshot`` — it
+        only appears when the manager has a scene-start snapshot. A fresh
+        session with no snapshot produces no sidecar.
+        """
         state = _make_state()
         state.campaign = CampaignConfig(death_mode="checkpoint")
         engine = Engine(state)
         save_path = tmp_path / "save.json"
         session = GameSession(save_path, engine=engine)
 
+        # No snapshot yet — save writes only the main document.
         session.save()
         assert save_path.exists()
+        assert not session.checkpoint_sidecar_path.exists()
+
+        # Take a snapshot, then save — the sidecar appears.
+        session.checkpoint_mgr.take_snapshot(session.state)
+        session.save()
         assert session.checkpoint_sidecar_path.exists()
 
     def test_checkpoint_mode_double_save_no_false_positive(self, tmp_path: Path):
