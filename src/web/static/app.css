@@ -314,6 +314,78 @@ body {
   }
 }
 
+/* Tool-call pills (U16, R18) */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.pill {
+  display: inline-block;
+}
+
+.pill a {
+  display: inline-block;
+  font-family: var(--font-chrome);
+  font-size: 0.8rem;
+  color: var(--verdigris);
+  background: rgba(78, 141, 124, 0.1);
+  border: 1px solid rgba(78, 141, 124, 0.25);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  text-decoration: none;
+}
+
+.pill a:hover {
+  background: rgba(78, 141, 124, 0.2);
+  color: var(--vellum);
+}
+
+/* Inspector (U16, R18, AE13) */
+.inspector-intro {
+  font-family: var(--font-chrome);
+  font-size: 0.9rem;
+  color: var(--haze);
+  margin-bottom: 1rem;
+}
+
+.inspector-error {
+  background: rgba(196, 69, 60, 0.1);
+  border: 1px solid rgba(196, 69, 60, 0.3);
+  border-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+  color: var(--signal-red);
+  font-family: var(--font-chrome);
+  margin-bottom: 1rem;
+}
+
+.inspector-json {
+  font-family: var(--font-engine);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--vellum);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(201, 162, 39, 0.15);
+  border-radius: 0.25rem;
+  padding: 1rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Status-strip utility links */
+.status-link {
+  margin-left: auto;
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+  color: var(--brass);
+  text-decoration: none;
+}
+
+.status-link:hover { color: var(--vellum); }
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

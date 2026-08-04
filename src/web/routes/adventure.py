@@ -53,7 +53,7 @@ def _render_adventure(
 
     pills = extract_recent_pills(
         controller.state.events,
-        since_seq=controller._action_start_seq - 1,
+        since_seq=controller.action_start_seq - 1,
     )
 
     return templates.TemplateResponse(

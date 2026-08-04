@@ -19,9 +19,9 @@
     <div class="inspector-error">
       <strong>AE13 Violation:</strong> {{ guard_error }}
     </div>
-    {% endif %}
-
+    {% else %}
     <pre class="inspector-json">{{ view_json }}</pre>
+    {% endif %}
 
     <p><a href="/adventure/{{ save_name }}">Back to adventure</a></p>
     <p><a href="/menu">Main menu</a></p>

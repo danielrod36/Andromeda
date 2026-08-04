@@ -1,9 +1,15 @@
 """Tool-call pill extraction from the event log (U16, R18).
 
 Derives pill data from events representing LLM tool calls — register_fact,
-ratify_npc, add_narrative_log_entry, set_narrative_flag. Each pill carries
-the tool name, a human-readable summary, and the audit sequence number for
-linking into the audit viewer overlay.
+ratify_fact, set_flag. Each pill carries the tool name, a human-readable
+summary, and the audit sequence number for linking into the audit viewer
+overlay.
+
+The ``add_narrative_log_entry`` LLM tool (src/llm/tools.py) delegates to
+``SetFlagCommand(key="narration")``, so its events carry
+``command_type="set_flag"`` with ``key="narration"`` — the pill extractor
+detects this pattern and labels those events as "Added log entry" rather
+than "Set narrative flag".
 
 Pills render inline in the narration stream, making the engine/LLM boundary
 visible in real time. They are read-only derived data — pure functions over
@@ -21,18 +27,13 @@ _TOOL_COMMAND_TYPES: frozenset[str] = frozenset(
     {
         "register_fact",
         "ratify_fact",
-        "add_narrative_log_entry",
-        "set_flag",  # set_narrative_flag
+        "set_flag",
     }
 )
 
-#: Human-readable labels for each tool type.
-_TOOL_LABELS: dict[str, str] = {
-    "register_fact": "Registered fact",
-    "ratify_fact": "Ratified NPC",
-    "add_narrative_log_entry": "Added log entry",
-    "set_flag": "Set narrative flag",
-}
+#: Sentinel key used by the add_narrative_log_entry LLM tool, which
+#: delegates to SetFlagCommand(key="narration") — see src/llm/tools.py.
+_NARRATION_KEY: str = "narration"
 
 
 @dataclass
@@ -52,25 +53,32 @@ class ToolPill:
     @property
     def label(self) -> str:
         """Short label for the pill chip."""
-        return f"{self.tool_name}: {self.summary}"
+        summary = self.summary if self.summary else "(no detail)"
+        return f"{self.tool_name}: {summary}"
 
 
-def _extract_summary(event: Event) -> str:
-    """Extract a human-readable summary from a tool-call event."""
+def _extract_label_and_summary(event: Event) -> tuple[str, str]:
+    """Return ``(label, summary)`` for a tool-call event.
+
+    Handles the special case where the ``add_narrative_log_entry`` LLM tool
+    delegates to ``SetFlagCommand(key="narration")`` — its events carry
+    ``command_type="set_flag"`` but should be labeled as log entries.
+    """
     ct = event.command_type
     changes = event.changes
 
     if ct == "register_fact":
-        return changes.get("name", "unknown")
+        return "Registered fact", changes.get("name", "unknown")
     if ct == "ratify_fact":
-        return changes.get("name", "unknown")
-    if ct == "add_narrative_log_entry":
-        return changes.get("text", "")[:50]
+        return "Ratified fact", changes.get("fact_name", "unknown")
     if ct == "set_flag":
         key = changes.get("key", "")
         value = changes.get("value", "")
-        return f"{key}={value}" if key else ""
-    return event.description[:50]
+        if key == _NARRATION_KEY:
+            return "Added log entry", value[:50]
+        return "Set narrative flag", f"{key}={value}" if key else "(unnamed flag)"
+    # Fallback for any future tool types added to _TOOL_COMMAND_TYPES.
+    return ct, event.description[:50]
 
 
 def extract_pills(events: list[Event]) -> list[ToolPill]:
@@ -83,8 +91,7 @@ def extract_pills(events: list[Event]) -> list[ToolPill]:
     for event in events:
         if event.command_type not in _TOOL_COMMAND_TYPES:
             continue
-        label = _TOOL_LABELS.get(event.command_type, event.command_type)
-        summary = _extract_summary(event)
+        label, summary = _extract_label_and_summary(event)
         pills.append(ToolPill(tool_name=label, summary=summary, seq=event.seq))
     return pills
 

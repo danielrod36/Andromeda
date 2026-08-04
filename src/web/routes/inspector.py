@@ -51,7 +51,9 @@ async def inspector(save_name: str, request: Request) -> HTMLResponse:
         guard_error = str(exc)
         logger.error("Curated view AE13 violation: %s", exc)
 
-    view_json = json.dumps(view.model_dump(), indent=2)
+    # Only serialize the view when the guard passed — never leak prohibited
+    # fields to the rendered page (AE13).
+    view_json = "" if guard_error else json.dumps(view.model_dump(), indent=2)
 
     return templates.TemplateResponse(
         request,

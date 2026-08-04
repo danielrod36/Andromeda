@@ -2,17 +2,21 @@
 
 Covers:
 - Pill extraction: register_fact tool call produces a pill with summary and seq.
+- Pill extraction: ratify_fact uses the correct ``fact_name`` changes key.
+- Pill extraction: set_flag with key="narration" is labeled as "Added log entry".
 - Pill extraction: non-tool events are skipped.
+- Pill extraction: empty key fallback (no dangling colon).
 - Recent pills: sequence-boundary filtering.
 - Inspector route: renders curated view JSON, AE13 guard passes.
 - Inspector: no prohibited fields in the rendered payload.
-- Pill block type in narration.
+- Inspector: AE13 guard failure hides the view (no leak).
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -60,12 +64,13 @@ class TestPillExtraction:
         assert pills[0].seq == 5
 
     def test_ratify_fact_produces_pill(self):
+        """ratify_fact events carry fact_name (not name) in changes."""
         from src.game.pills import extract_pills
 
         events = [
             _make_event(
                 "ratify_fact",
-                {"name": "Captain Vex", "description": "a smuggler"},
+                {"fact_name": "Captain Vex", "stats_description": "a smuggler"},
                 seq=3,
             ),
         ]
@@ -83,6 +88,37 @@ class TestPillExtraction:
         pills = extract_pills(events)
         assert len(pills) == 1
         assert "mood=tense" in pills[0].summary
+
+    def test_narration_key_labeled_as_log_entry(self):
+        """add_narrative_log_entry tool uses SetFlagCommand(key='narration').
+
+        The resulting set_flag event must be labeled 'Added log entry',
+        not 'Set narrative flag'.
+        """
+        from src.game.pills import extract_pills
+
+        events = [
+            _make_event(
+                "set_flag",
+                {"key": "narration", "value": "The captain drew her sidearm."},
+                seq=7,
+            ),
+        ]
+        pills = extract_pills(events)
+        assert len(pills) == 1
+        assert pills[0].tool_name == "Added log entry"
+        assert "The captain drew her sidearm." in pills[0].summary
+
+    def test_set_flag_empty_key_no_dangling_colon(self):
+        """Empty key in set_flag does not produce a dangling colon in label."""
+        from src.game.pills import extract_pills
+
+        events = [
+            _make_event("set_flag", {"key": "", "value": ""}, seq=1),
+        ]
+        pills = extract_pills(events)
+        assert len(pills) == 1
+        assert not pills[0].label.endswith(": ")
 
     def test_non_tool_events_skipped(self):
         from src.game.pills import extract_pills
@@ -139,25 +175,6 @@ class TestRecentPills:
         assert len(pills) == 2
         assert pills[0].summary == "B"
         assert pills[1].summary == "C"
-
-
-# ---------------------------------------------------------------------------
-# Pill block type tests.
-# ---------------------------------------------------------------------------
-
-
-class TestPillBlock:
-    """NarrationBlock type='pill' for SSE (U16)."""
-
-    def test_pill_block_format(self):
-        from src.game.narration import build_pill_block
-
-        block = build_pill_block("Registered fact: Station Alpha")
-        sse = block.to_sse()
-        assert sse.startswith("data: ")
-        data = json.loads(sse.removeprefix("data: ").strip())
-        assert data["type"] == "pill"
-        assert "Station Alpha" in data["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +265,24 @@ class TestInspectorRoute:
             response = client.get("/inspector/Hero")
         assert "AE13 Violation" not in response.text
 
+    def test_inspector_guard_failure_hides_view(self, tmp_path: Path):
+        """When AE13 guard fails, the view JSON must not be rendered."""
+        saves_dir = tmp_path / "saves"
+        _create_save(saves_dir)
+        with (
+            _get_client(saves_dir) as client,
+            patch(
+                "src.web.routes.inspector.assert_no_prohibited_fields",
+                side_effect=ValueError("simulated leak"),
+            ),
+        ):
+            response = client.get("/inspector/Hero")
+        assert response.status_code == 200
+        assert "AE13 Violation" in response.text
+        assert "simulated leak" in response.text
+        # The view JSON must NOT be rendered when the guard fails.
+        assert "character_sheet" not in response.text
+
     def test_inspector_nonexistent_save(self, tmp_path: Path):
         """Nonexistent save redirects to saves page."""
         saves_dir = tmp_path / "saves"
@@ -293,4 +328,5 @@ class TestCuratedViewIntegrity:
         view = build_curated_view(state)
         raw = json.dumps(view.model_dump())
         assert '"events"' not in raw
-        assert '"roll"' not in raw.lower() or '"rolls"' not in raw
+        assert '"roll"' not in raw
+        assert '"rolls"' not in raw

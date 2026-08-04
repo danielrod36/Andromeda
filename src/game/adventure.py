@@ -132,6 +132,11 @@ class AdventureController:
         """The controller's long-lived checkpoint manager (for shells)."""
         return self._checkpoint_mgr
 
+    @property
+    def action_start_seq(self) -> int:
+        """Event-log index before the current action (U16, for pill scoping)."""
+        return self._action_start_seq
+
     # ------------------------------------------------------------------
     # Change-lines helper (U14).
     # ------------------------------------------------------------------
