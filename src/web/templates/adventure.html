@@ -54,6 +54,14 @@
       {% endfor %}
       {% endif %}
 
+      {% if change_lines %}
+      <div class="change-lines">
+        {% for line in change_lines %}
+        <p class="change-line">{{ line }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% if mission_ending %}
       <div class="mission-ending">Mission resolved: {{ mission_ending }}</div>
       {% endif %}

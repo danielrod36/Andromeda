@@ -73,6 +73,7 @@ class AdventureView:
     odds_lines: list[str] = field(default_factory=list)
     defeat: str | None = None
     mission_ending: str | None = None
+    change_lines: list[str] = field(default_factory=list)
 
 
 class AdventureController:
@@ -107,6 +108,9 @@ class AdventureController:
         self._current_mission: Mission | None = None
         self._pending_freetext: SceneOption | None = None
         self._freetext_draft: str | None = None
+        #: Event-log index before the current action — used to derive
+        #: change-lines for just the events that this action produced (U14).
+        self._action_start_seq: int = 0
 
         self._reconstruct_if_needed()
 
@@ -126,6 +130,25 @@ class AdventureController:
     def checkpoint_mgr(self) -> CheckpointManager:
         """The controller's long-lived checkpoint manager (for shells)."""
         return self._checkpoint_mgr
+
+    # ------------------------------------------------------------------
+    # Change-lines helper (U14).
+    # ------------------------------------------------------------------
+
+    def _collect_change_lines(self) -> list[str]:
+        """Derive change-lines from events produced during the current action.
+
+        Called after an action's mutations to populate the view's
+        ``change_lines`` field. Reads events with ``seq >=
+        _action_start_seq`` — the events this action appended.
+        """
+        from src.game.change_lines import derive_recent_change_lines
+
+        lines = derive_recent_change_lines(
+            self._engine.state.events,
+            since_seq=self._action_start_seq - 1,
+        )
+        return [cl.text for cl in lines]
 
     # ------------------------------------------------------------------
     # Reconstruction (AE8-safe resume).
@@ -247,11 +270,23 @@ class AdventureController:
             )
 
         # Mission gate: ending push only after min_scenes.
+        # U14: dimmed-not-hidden — the option always shows, but is greyed
+        # out with the requirement until the gate is met.
         mission = state.active_mission or {}
         scenes_done = int(mission.get("scenes_completed", 0))
         min_scenes = int(mission.get("min_scenes", 3))
         if scenes_done >= min_scenes:
             choices.append(ChoiceOption(label="Push for the ending", option_id="push_for_ending"))
+        else:
+            remaining = min_scenes - scenes_done
+            choices.append(
+                ChoiceOption(
+                    label="Push for the ending",
+                    option_id="push_for_ending",
+                    dimmed=True,
+                    requirement=f"Requires {remaining} more scene{'s' if remaining != 1 else ''}",
+                )
+            )
         choices.append(ChoiceOption(label="Abandon the mission", option_id="abandon_mission"))
 
         scaffold_text = f"Focus: {scaffold.focus} — {scaffold.focus_description}\nSituation: {scaffold.situation}"
@@ -296,6 +331,8 @@ class AdventureController:
 
     def apply_choice(self, option_id: str) -> AdventureView:
         """Apply a player's choice and return the updated view."""
+        # U14: snapshot event count to derive change-lines from this action.
+        self._action_start_seq = len(self._engine.state.events)
         if option_id == "accept_mission":
             return self._do_accept_mission()
         if option_id == "refuse_mission":
@@ -367,6 +404,7 @@ class AdventureController:
             phase="scene_active",
             prompt="Choose your action:",
             receipts=receipts,
+            change_lines=self._collect_change_lines(),
         )
 
     def _do_push_for_ending(self) -> AdventureView:
@@ -545,6 +583,7 @@ class AdventureController:
             phase="scene_active",
             prompt="Choose your action:",
             receipts=receipts,
+            change_lines=self._collect_change_lines(),
         )
 
     def _do_reject_freetext(self) -> AdventureView:

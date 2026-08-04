@@ -59,6 +59,7 @@ def _render_adventure(
             "scaffold_text": view.scaffold_text,
             "defeat": view.defeat,
             "mission_ending": view.mission_ending,
+            "change_lines": view.change_lines,
             "character_name": char.name,
             "character_career": char.career or "—",
             "character_terms": char.terms,
