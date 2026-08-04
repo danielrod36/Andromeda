@@ -105,7 +105,10 @@
       <nav class="drawer-tabs">
         <button data-tab="sheet" class="active">Sheet</button>
         <button data-tab="world">World</button>
-        <button data-tab="audit">Audit</button>
+        <button data-tab="audit"
+                hx-get="/audit/{{ save_name }}"
+                hx-target=".drawer-content"
+                hx-swap="innerHTML">Audit</button>
       </nav>
       <div class="drawer-content">
         <p class="placeholder">Character details arrive in a later unit.</p>
