@@ -39,12 +39,13 @@
 
   wireDrawerTabs();
 
-  // Re-wire after htmx swaps (adventure/lifepath replace the whole page).
-  document.body.addEventListener("htmx:afterSwap", wireDrawerTabs);
-
   // -----------------------------------------------------------------
   // Drawer disclosure: toggle, Esc close, focus return (U17 quality floor).
+  // State is tracked in ``drawerOpen`` so it survives htmx OOB swaps.
   // -----------------------------------------------------------------
+  var initDrawer = document.getElementById("drawer");
+  var drawerOpen = initDrawer ? !initDrawer.hasAttribute("hidden") : false;
+
   function toggleDrawer(forceState) {
     var drawer = document.getElementById("drawer");
     var trigger = document.getElementById("drawer-toggle");
@@ -57,20 +58,52 @@
     if (willOpen) {
       drawer.removeAttribute("hidden");
       trigger.setAttribute("aria-expanded", "true");
+      drawerOpen = true;
       // Focus the drawer's first focusable element (first tab or close btn).
       var firstFocusable = drawer.querySelector("button, a, input, select");
       if (firstFocusable) firstFocusable.focus();
     } else {
       drawer.setAttribute("hidden", "");
       trigger.setAttribute("aria-expanded", "false");
+      drawerOpen = false;
       trigger.focus();
     }
   }
 
-  var trigger = document.getElementById("drawer-toggle");
-  if (trigger) {
-    trigger.addEventListener("click", function () { toggleDrawer(); });
+  // Re-apply drawer state after htmx OOB swaps replace #drawer and #drawer-toggle.
+  // Server-managed drawers (lifepath drawer_pinned, marked with
+  // data-drawer-pinned) read from the swapped DOM so the server's phase-driven
+  // open/close wins.  Client-managed drawers (adventure) re-apply the tracked
+  // client state so a user-initiated toggle is not reset by the swap.
+  function syncDrawerState() {
+    var drawer = document.getElementById("drawer");
+    var trigger = document.getElementById("drawer-toggle");
+    if (!drawer || !trigger) return;
+    if (drawer.hasAttribute("data-drawer-pinned")) {
+      drawerOpen = !drawer.hasAttribute("hidden");
+      return;
+    }
+    if (drawerOpen) {
+      drawer.removeAttribute("hidden");
+      trigger.setAttribute("aria-expanded", "true");
+    } else {
+      drawer.setAttribute("hidden", "");
+      trigger.setAttribute("aria-expanded", "false");
+    }
   }
+
+  // Re-wire tabs and sync drawer state after htmx OOB swaps.
+  document.body.addEventListener("htmx:afterSwap", function () {
+    wireDrawerTabs();
+    syncDrawerState();
+  });
+
+  // Drawer toggle — delegated on document so it survives OOB swaps.
+  document.addEventListener("click", function (e) {
+    if (e.target && e.target.id === "drawer-toggle") {
+      toggleDrawer();
+    }
+  });
 
   // Close button inside the drawer.
   document.addEventListener("click", function (e) {

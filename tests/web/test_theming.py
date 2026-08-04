@@ -285,6 +285,21 @@ class TestQualityFloorJS:
         assert '"true"' in js
         assert '"false"' in js
 
+    def test_toggle_uses_document_delegation(self):
+        """Toggle click is delegated on document so it survives OOB swaps."""
+        js = self._app_js
+        assert 'e.target.id === "drawer-toggle"' in js
+
+    def test_sync_drawer_state_exists(self):
+        """syncDrawerState re-applies drawer state after htmx swaps."""
+        js = self._app_js
+        assert "syncDrawerState" in js
+        assert "htmx:afterSwap" in js
+
+    def test_drawer_state_tracked(self):
+        """drawerOpen variable persists toggle state across swaps."""
+        assert "drawerOpen" in self._app_js
+
 
 # ---------------------------------------------------------------------------
 # Template accessibility attributes.

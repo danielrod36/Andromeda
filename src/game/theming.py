@@ -2,7 +2,7 @@
 
 Maps a campaign's ``theme_pack`` identifier to a CSS ``data-theme`` attribute
 value.  Unknown or missing packs fall back to ``"scifi"`` (the default
-palette defined in ``:root``).
+palette defined under ``[data-theme="scifi"]``).
 
 Keeping this logic in ``src/game/`` (not in the web layer) follows KTD-7:
 UX-feature logic lives in neutral modules that both shells can consume.
