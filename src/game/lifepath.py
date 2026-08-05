@@ -29,6 +29,7 @@ from src.engine.lifepath import (
     InjuryRollCommand,
     LifepathRunner,
     MishapRollCommand,
+    MusteringOutResult,
     ResolveInjuryCrisisCommand,
     SkillGain,
     TermResult,
@@ -84,12 +85,20 @@ class LifepathController:
         #: Tracks whether a crisis resolution should return to the aging loop
         #: (True) rather than completing the term (False).
         self._aging_active: bool = False
+        #: U3: mustering-out plan (computed once when mustering_out begins).
+        self._muster_plan: MusteringOutResult | None = None
+        #: U3: benefit rolls remaining in muster_out_allocate.
+        self._benefit_rolls_remaining: int = 0
 
         # U2: reconstruct term-level instance state on construction when
         # the persisted term_phase sits inside the term sub-machine.
         phase = self.get_latest_term_phase(engine.state)
         if phase in TERM_PHASES:
             self._reconstruct_term_state()
+        # U3: reconstruct muster-out allocation state on construction when
+        # the persisted term_phase is inside the muster-out sub-machine.
+        if phase in ("mustering_out", "muster_out_allocate"):
+            self._reconstruct_muster_state()
 
     @property
     def engine(self) -> Engine:
@@ -255,6 +264,34 @@ class LifepathController:
         self._aging_active = saw_aging
 
     # ------------------------------------------------------------------
+    # Muster-out state reconstruction (U3 — resume from mid-allocation).
+    # ------------------------------------------------------------------
+
+    def _reconstruct_muster_state(self) -> None:
+        """Rebuild ``_muster_plan`` and ``_benefit_rolls_remaining`` on resume.
+
+        Counts ``lifepath_benefit`` events in the audit log to determine how
+        many rolls have already been claimed, then recomputes the plan's
+        ``total_rolls`` from state (terms + rank) so remaining = total - claimed.
+        """
+        career_id = self._get_muster_career_id()
+        if not career_id:
+            return
+        plan = self._runner.muster_out(career_id)
+        self._muster_plan = plan
+
+        # Sync the runner's cash counter so the cap is enforced on resume.
+        self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
+
+        material_taken = sum(
+            1
+            for e in self._engine.state.events
+            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
+        )
+        claimed = self._runner._cash_rolls_taken + material_taken
+        self._benefit_rolls_remaining = plan.total_rolls - claimed
+
+    # ------------------------------------------------------------------
     # Phase determination — headless port of the TUI's _determine_phase.
     # ------------------------------------------------------------------
 
@@ -272,6 +309,9 @@ class LifepathController:
 
         # No career chosen yet.
         if not char.career:
+            # Mustering out completed (career cleared by EndCareerCommand).
+            if "mustered_out=true" in state.narrative_log:
+                return "complete"
             term_phase = self.get_latest_term_phase(state)
             if term_phase == "mustering_out":
                 return "mustering_out"
@@ -590,12 +630,34 @@ class LifepathController:
                 receipts=receipts,
             )
 
-        if phase in ("mustering_out", "muster_out_allocate"):
+        if phase == "mustering_out":
+            # U3: compute the plan and advance to allocation immediately.
+            career_id = self._get_muster_career_id()
+            if career_id:
+                self._muster_plan = self._runner.muster_out(career_id)
+                self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
+                material_taken = sum(
+                    1
+                    for e in state.events
+                    if e.command_type == "lifepath_benefit"
+                    and e.changes.get("benefit_type") == "material"
+                )
+                claimed = self._runner._cash_rolls_taken + material_taken
+                self._benefit_rolls_remaining = self._muster_plan.total_rolls - claimed
+                if self._benefit_rolls_remaining <= 0:
+                    # No benefit rolls — go straight to complete.
+                    self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+                    return self.get_phase_view()
+                self._set_term_phase("muster_out_allocate")
+                return self._view_muster_out_allocate([])
             return PhaseView(
-                phase=phase,
+                phase="mustering_out",
                 prompt="Mustering out...",
-                choices=[ChoiceOption(label="Continue", option_id="auto_advance")],
+                choices=[],
             )
+
+        if phase == "muster_out_allocate":
+            return self._view_muster_out_allocate([])
 
         if phase == "complete":
             return PhaseView(
@@ -604,9 +666,9 @@ class LifepathController:
                     f"Lifepath complete. Character: {char.name}, "
                     f"Career: {char.career}, Terms: {char.terms}."
                 ),
-                choices=[ChoiceOption(label="Begin Adventure", option_id="begin_adventure")]
-                if char.alive and "mustered_out=true" in state.narrative_log
-                else [],
+                # The template renders a GET link to /adventure/{save_name}
+                # rather than a POST choice. No choices needed here.
+                choices=[],
             )
 
         # Fallback for any unrecognized term phase.
@@ -707,6 +769,94 @@ class LifepathController:
             choices=choices,
         )
 
+    def _view_muster_out_allocate(self, receipts: list[str]) -> PhaseView:
+        """Build the per-roll muster-out allocation PhaseView (U3).
+
+        Offers Cash table and Material table choices. Cash is dimmed when
+        the 3-roll cap is reached. Tracks remaining rolls via
+        ``plan.total_rolls - (cash_taken + material_taken)``.
+        """
+        plan = self._muster_plan
+        if plan is None:
+            career_id = self._get_muster_career_id()
+            if not career_id:
+                return PhaseView(
+                    phase="muster_out_allocate",
+                    prompt="Mustering out...",
+                    choices=[],
+                )
+            plan = self._runner.muster_out(career_id)
+            self._muster_plan = plan
+
+        career_id = self._get_muster_career_id()
+        career = self._pack.careers.get(career_id)
+
+        # Rebuild remaining from events (resume-safe, consistent with TUI).
+        self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
+        material_taken = sum(
+            1
+            for e in self._engine.state.events
+            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
+        )
+        claimed = self._runner._cash_rolls_taken + material_taken
+        self._benefit_rolls_remaining = plan.total_rolls - claimed
+
+        remaining = self._benefit_rolls_remaining
+        if remaining <= 0:
+            # All rolls exhausted — mark muster out and go to complete.
+            self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            char = self._engine.state.character
+            return PhaseView(
+                phase="complete",
+                prompt=(
+                    f"Lifepath complete. Character: {char.name}, "
+                    f"Career: {char.career}, Terms: {char.terms}."
+                ),
+                choices=[],
+            )
+
+        cash_taken = self._runner._cash_rolls_taken
+        choices: list[ChoiceOption] = []
+
+        if career and career.mustering_out_cash:
+            if cash_taken < 3:
+                choices.append(
+                    ChoiceOption(
+                        label=f"Cash table ({cash_taken}/3 taken)",
+                        option_id="claim_cash",
+                        description=f"Roll on the cash benefits table. {3 - cash_taken} cash roll(s) remaining.",
+                    )
+                )
+            else:
+                choices.append(
+                    ChoiceOption(
+                        label="Cash table (3/3 — full)",
+                        option_id="claim_cash",
+                        description="Cash rolls exhausted (3/3 taken).",
+                        dimmed=True,
+                        requirement="Cash rolls exhausted",
+                    )
+                )
+
+        if career and career.mustering_out_material:
+            mat_desc = "Roll on the material benefits table for gear, passages, or perks."
+            if plan.material_dm:
+                mat_desc += f" Material DM +{plan.material_dm} (rank {plan.final_rank})."
+            choices.append(
+                ChoiceOption(
+                    label="Material table",
+                    option_id="claim_material",
+                    description=mat_desc,
+                )
+            )
+
+        return PhaseView(
+            phase="muster_out_allocate",
+            prompt=(f"Allocate benefit roll ({remaining} remaining of {plan.total_rolls}):"),
+            choices=choices,
+            receipts=receipts,
+        )
+
     # ------------------------------------------------------------------
     # Choice application — routes a choice to the appropriate step handler.
     # ------------------------------------------------------------------
@@ -805,17 +955,19 @@ class LifepathController:
         if option_id == "reenlist_muster":
             return self._do_re_enlist_muster_out()
 
+        if option_id == "claim_cash":
+            return self._do_claim_benefit("cash")
+
+        if option_id == "claim_material":
+            return self._do_claim_benefit("material")
+
         if option_id == "begin_adventure":
             return self.get_phase_view()
 
         if option_id == "auto_advance":
-            # Muster-out auto-advance (U3 will replace this).
-            phase = self.determine_phase()
-            if phase == "mustering_out" or phase == "muster_out_allocate":
-                career_id = self._get_muster_career_id()
-                if career_id:
-                    self._runner.muster_out(career_id)
-                self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            # Muster-out auto-advance (legacy path — no longer used by U3,
+            # which routes through claim_cash/claim_material). Keep as a
+            # harmless no-op for any old save that might hit it.
             return self.get_phase_view()
 
         # Unknown choice — return current view unchanged.
@@ -1392,6 +1544,62 @@ class LifepathController:
             self._engine.apply(EndCareerCommand(ended_by="muster_out"))
         self._set_term_phase("mustering_out")
         return self.get_phase_view()
+
+    # ------------------------------------------------------------------
+    # Muster-out benefit allocation handlers (U3 — per-roll choice).
+    # ------------------------------------------------------------------
+
+    def _do_claim_benefit(self, table: str) -> PhaseView:
+        """Roll one benefit on the chosen table and show the receipt.
+
+        Cash is capped at 3 rolls total (enforced by ``runner.claim_benefit``).
+        After all rolls are exhausted, sets ``mustered_out=true`` and advances
+        to ``complete``.
+        """
+        career_id = self._get_muster_career_id()
+        if not career_id:
+            return self.get_phase_view()
+
+        plan = self._muster_plan
+        if plan is None:
+            plan = self._runner.muster_out(career_id)
+            self._muster_plan = plan
+
+        dm = 0 if table == "cash" else plan.material_dm
+        try:
+            result_text = self._runner.claim_benefit(career_id, table=table, dm=dm)
+        except ValueError:
+            # Cash cap reached — refresh the view so the option shows dimmed.
+            return self._view_muster_out_allocate([])
+
+        label = "Cash" if table == "cash" else "Material"
+        receipt = f"{label} Benefit: {result_text}"
+        if table == "cash":
+            receipt += f" (Credits: {self._engine.state.character.credits:,})"
+
+        self._benefit_rolls_remaining -= 1
+
+        # Rebuild remaining from events (authoritative, same as TUI).
+        self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
+        material_taken = sum(
+            1
+            for e in self._engine.state.events
+            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
+        )
+        claimed = self._runner._cash_rolls_taken + material_taken
+        self._benefit_rolls_remaining = plan.total_rolls - claimed
+
+        if self._benefit_rolls_remaining <= 0:
+            self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            view = self.get_phase_view()
+            return PhaseView(
+                phase=view.phase,
+                prompt=view.prompt,
+                choices=view.choices,
+                receipts=[receipt],
+            )
+
+        return self._view_muster_out_allocate([receipt])
 
     def _get_muster_career_id(self) -> str:
         """Return the career id for mustering out (current or last in history)."""
