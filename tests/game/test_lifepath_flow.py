@@ -30,16 +30,13 @@ class TestPhaseDetermination:
         assert controller.determine_phase() == "roll_characteristics"
 
     def test_term_phase_flag_read_from_narrative_log(self):
-        """The term_phase= flag is read byte-identically to the TUI (KTD-3)."""
-        engine = _make_engine()
-        pack = load_scifi_pack()
-        controller = LifepathController(engine, pack)
+        """The term_phase= flag is read byte-identically to the TUI (KTD-3).
 
-        # Simulate a mid-lifepath save with a term_phase flag.
-        engine.apply(SetFlagCommand(key="term_phase", value="choose_skills"))
-        phase = controller.determine_phase()
-        # With a career set and term_phase=choose_skills, phase should be choose_skills.
-        # (Need to set career first for the flag to take precedence.)
+        The controller must be constructed AFTER the flag is in place so the
+        U2 reconstruction runs against the persisted state (same lifecycle as
+        a web session resume).
+        """
+        engine = _make_engine()
         engine.state.character.career = "navy"
         engine.state.character.characteristics = {
             "STR": 7,
@@ -50,8 +47,10 @@ class TestPhaseDetermination:
             "SOC": 5,
         }
         engine.state.character.alive = True
+        engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
+        controller = LifepathController(engine, load_scifi_pack())
         phase = controller.determine_phase()
-        assert phase == "choose_skills"
+        assert phase == "re_enlist"
 
     def test_mustered_out_flag_leads_to_complete(self):
         """mustered_out=true in narrative_log → phase is 'complete'."""
@@ -198,23 +197,24 @@ class TestTermLoop:
         # No term_phase flag should have been set just by viewing.
         assert controller.get_latest_term_phase(engine.state) is None
 
-    def test_auto_advance_run_survival_runs_full_term(self):
-        """_auto_advance_term for run_survival resolves the full term in one pass.
+    def test_begin_term_runs_survival_then_advances(self):
+        """U2: begin_term starts the interactive term flow (not _auto_advance).
 
-        Survival, advancement, and aging all execute while
-        _current_term_result is in memory — the web shell reconstructs
-        the controller per request so these can't be deferred.
+        Survival runs immediately; commission/advancement/skills are now
+        separate interactive clicks. The view should show survival receipt
+        and land on the next sub-phase (choose_commission for navy).
         """
         engine = _make_mid_lifepath_engine()
         controller = LifepathController(engine, load_scifi_pack())
-        view = controller.apply_choice("auto_term")
-        # Full term resolved → re_enlist (not an intermediate sub-phase).
-        assert view.phase == "re_enlist"
-        assert controller._current_term_result is not None
+        view = controller.apply_choice("begin_term")
+        # Survival ran — receipt present.
         assert any("Survival" in r for r in view.receipts)
-        # Advancement ran (aging produces no events at age ~22 — starts at 34+).
+        assert controller._current_term_result is not None
+        # Navy is a hierarchy career with commission → lands on choose_commission.
+        assert view.phase == "choose_commission"
+        # No advancement yet — that's a separate click now.
         event_types = [e.command_type for e in engine.state.events]
-        assert "lifepath_advancement" in event_types
+        assert "lifepath_advancement" not in event_types
 
     def test_re_enlist_view_not_overridden_by_term_phases_fallback(self):
         """get_phase_view() for re_enlist returns choices, not a generic prompt."""
