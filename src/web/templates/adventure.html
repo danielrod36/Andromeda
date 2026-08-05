@@ -11,7 +11,7 @@
 <body data-theme="{{ theme }}">
 
   <!-- Status strip -->
-  <header id="status-strip" hx-swap-oob="true">
+  <header id="status-strip">
     <span class="status-char-ref">{{ character_name }}</span>
     <span class="status-mission">{{ character_career }}</span>
     <span class="status-credits">Terms: {{ character_terms }}</span>
@@ -28,102 +28,12 @@
   <!-- Main row: spine + drawer -->
   <main id="main-row">
     <section id="spine" aria-live="polite">
-      {% include "partials/recap.html" %}
-
-      {% if defeat and phase == "game_over" %}
-      <div class="defeat-interstitial">
-        <p class="defeat-message">{{ prompt }}</p>
-        {% if defeat == "ironman" %}
-        <p class="defeat-cta">The character is dead (Ironman). Restart from the menu.</p>
-        {% elif defeat == "checkpoint" %}
-        <p class="defeat-cta">The character has been defeated. State rewound to scene start.</p>
-        {% else %}
-        <p class="defeat-cta">The story ends here.</p>
-        {% endif %}
-      </div>
-      {% else %}
-
-      {% if defeat %}
-      <div class="defeat-notice">{{ prompt }}</div>
-      {% endif %}
-
-      {% if scaffold_text %}
-      <div class="scene-header">
-        {% for line in scaffold_text.split('\n') %}
-        <p>{{ line }}</p>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% if receipts %}
-      {% for receipt in receipts %}
-      <div class="receipt">{{ receipt }}</div>
-      {% endfor %}
-      {% endif %}
-
-      {% if change_lines %}
-      <div class="change-lines">
-        {% for line in change_lines %}
-        <p class="change-line {{ line.css_class }}">{{ line.text }}</p>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% include "partials/pills.html" %}
-
-      {% if mission_ending %}
-      <div class="mission-ending">Mission resolved: {{ mission_ending }}</div>
-      {% endif %}
-
-      <p class="prompt">{{ prompt if not defeat else "Choose your action:" }}</p>
-
-      <!-- Choice dock -->
-      {% if choices %}
-      <div id="choice-dock">
-        {% for choice in choices %}
-        <form method="post" action="/adventure/{{ save_name }}/action"
-              hx-post="/adventure/{{ save_name }}/action"
-              hx-target="#spine"
-              hx-select="#spine"
-              hx-swap="innerHTML"
-              hx-disabled-elt="button"
-              style="display:inline">
-          <input type="hidden" name="choice" value="{{ choice.option_id }}">
-          <button type="submit" class="choice-card{% if choice.dimmed %} dimmed{% endif %}"
-                  {% if choice.dimmed %}disabled{% endif %}>
-            {{ choice.label }}
-            {% if choice.requirement %}
-            <small class="requirement">{{ choice.requirement }}</small>
-            {% elif choice.description %}
-            <small>{{ choice.description }}</small>
-            {% endif %}
-          </button>
-        </form>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <!-- Free-text bar -->
-      {% if phase == "scene_active" %}
-      <div id="freetext-bar">
-        <form method="post" action="/adventure/{{ save_name }}/freetext"
-              hx-post="/adventure/{{ save_name }}/freetext"
-              hx-target="#spine"
-              hx-select="#spine"
-              hx-swap="innerHTML"
-              hx-disabled-elt="input">
-          <input type="text" name="freetext"
-                 placeholder="Or type your own action and press Enter…"
-                 autocomplete="off">
-        </form>
-      </div>
-      {% endif %}
-
-      {% endif %}
+      {% include "partials/adventure_spine.html" %}
     </section>
 
-    <!-- Drawer -->
-    <aside id="drawer" hx-swap-oob="true" hidden
+    <!-- Drawer: client-managed (U5).  Never OOB-swapped — open state and
+         loaded tab content survive every action. -->
+    <aside id="drawer" hidden
            role="region" aria-label="Character details">
       <nav class="drawer-tabs" aria-label="Detail categories">
         <button data-tab="sheet" class="active">Sheet</button>

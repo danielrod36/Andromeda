@@ -41,7 +41,7 @@
 
   // -----------------------------------------------------------------
   // Drawer disclosure: toggle, Esc close, focus return (U17 quality floor).
-  // State is tracked in ``drawerOpen`` so it survives htmx OOB swaps.
+  // State is tracked in ``drawerOpen`` so it survives htmx swaps.
   // -----------------------------------------------------------------
   var initDrawer = document.getElementById("drawer");
   var drawerOpen = initDrawer ? !initDrawer.hasAttribute("hidden") : false;
@@ -70,29 +70,36 @@
     }
   }
 
-  // Re-apply drawer state after htmx OOB swaps replace #drawer and #drawer-toggle.
-  // Server-managed drawers (lifepath drawer_pinned, marked with
-  // data-drawer-pinned) read from the swapped DOM so the server's phase-driven
-  // open/close wins.  Client-managed drawers (adventure) re-apply the tracked
-  // client state so a user-initiated toggle is not reset by the swap.
+  // U5: the drawer is client-managed — never OOB-swapped.  The lifepath
+  // pin state travels as a ``data-drawer-pinned`` attribute on the OOB
+  // status strip.  On each ``htmx:afterSwap`` we read that attribute and
+  // open/close the drawer to match the server's phase-driven pin, without
+  // touching the drawer's loaded tab content.  Adventure has no pin
+  // attribute → the drawer's client state is left untouched.
   function syncDrawerState() {
+    var strip = document.getElementById("status-strip");
     var drawer = document.getElementById("drawer");
     var trigger = document.getElementById("drawer-toggle");
-    if (!drawer || !trigger) return;
-    if (drawer.hasAttribute("data-drawer-pinned")) {
-      drawerOpen = !drawer.hasAttribute("hidden");
+    if (!strip || !drawer || !trigger) return;
+
+    if (!strip.hasAttribute("data-drawer-pinned")) {
+      // Adventure: fully client-managed — no server-driven pin.
       return;
     }
-    if (drawerOpen) {
+
+    var pinned = strip.getAttribute("data-drawer-pinned") === "true";
+    if (pinned) {
       drawer.removeAttribute("hidden");
       trigger.setAttribute("aria-expanded", "true");
+      drawerOpen = true;
     } else {
       drawer.setAttribute("hidden", "");
       trigger.setAttribute("aria-expanded", "false");
+      drawerOpen = false;
     }
   }
 
-  // Re-wire tabs and sync drawer state after htmx OOB swaps.
+  // Re-wire tabs and sync drawer state after htmx swaps.
   document.body.addEventListener("htmx:afterSwap", function () {
     wireDrawerTabs();
     syncDrawerState();
