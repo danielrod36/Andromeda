@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from src.engine.state import NarrativeFact
+from src.engine.state import GameState, NarrativeFact
 from src.web.routes._saves import DEFAULT_SAVES_DIR, load_state_for_save
 
 router = APIRouter(prefix="/world")
@@ -23,7 +23,7 @@ _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
-def _build_world_context(save_name: str, state: object) -> dict:
+def _build_world_context(save_name: str, state: GameState) -> dict:
     """Build the Jinja context for the World fragment from *state*.
 
     Derives display data read-only from the canonical ``GameState``: active

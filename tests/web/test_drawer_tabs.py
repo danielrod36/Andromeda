@@ -181,18 +181,28 @@ class TestSheetRoute:
         assert "moderate" in response.text
 
     def test_sheet_escapes_player_controlled_strings(self, tmp_path: Path):
-        """Autoescape: a name with HTML is escaped in the fragment."""
+        """Autoescape: player-controlled character name is HTML-escaped."""
+        from src.engine.persistence import save as save_state
+        from src.engine.state import CampaignConfig, GameState
+
         saves_dir = tmp_path / "saves"
-        _create_adventure_save(saves_dir, name="<script>x</script>")
+        # Decouple save filename from character name so the XSS string
+        # only appears inside the rendered fragment, not the URL.
+        state = GameState.new(seed=1)
+        state.campaign = CampaignConfig(theme_pack="scifi", death_mode="narrative")
+        state.character.name = '<b>Bold</b><script>alert("xss")</script>'
+        state.character.characteristics = {"STR": 7}
+        save_state(state, saves_dir / "XssTest.json")
+
         with _get_client(saves_dir) as client:
-            response = client.get("/sheet/<script>x</script>")
-        # The redirect case — save name with slashes is tricky.
-        # Use a simpler XSS string instead.
-        _create_adventure_save(saves_dir, name='Hero"&onload=alert(1)')
-        with _get_client(saves_dir) as client:
-            response = client.get("/sheet/Hero")
+            response = client.get("/sheet/XssTest")
+        assert response.status_code == 200
+        # Raw tags must not appear — Jinja autoescape must have escaped them.
+        assert "<b>Bold</b>" not in response.text
         assert "<script>" not in response.text
-        assert "&" in response.text or "&amp;" in response.text
+        # Escaped entities should be present in the rendered output.
+        assert "&lt;b&gt;" in response.text
+        assert "&lt;script&gt;" in response.text
 
     def test_sheet_dead_character_no_crash(self, tmp_path: Path):
         """Sheet route still works for a dead character (no crash)."""
@@ -255,9 +265,6 @@ class TestWorldRoute:
         """No active mission → empty-state text, not an error."""
         saves_dir = tmp_path / "saves"
         _create_adventure_save(saves_dir)
-        with _get_client(saves_dir) as client:
-            response = client.get("/sheet/Hero")
-        # Use the Hero save which has no mission.
         with _get_client(saves_dir) as client:
             response = client.get("/world/Hero")
         assert response.status_code == 200
@@ -403,7 +410,7 @@ class TestTabWiring:
 
     def test_no_placeholder_string_in_templates(self):
         """Static check: no template file contains the placeholder string."""
-        template_dir = Path("src/web/templates")
+        template_dir = Path(__file__).resolve().parent.parent.parent / "src" / "web" / "templates"
         for tpl in template_dir.rglob("*.html"):
             content = tpl.read_text()
             assert "arrives in a later unit" not in content, f"Placeholder found in {tpl}"

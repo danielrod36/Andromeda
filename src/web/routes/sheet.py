@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from src.engine.skills import skill_display_name
-from src.engine.state import Injury
+from src.engine.state import GameState, Injury
 from src.rulesets.cepheus import CepheusRuleSet
 from src.web.routes._saves import DEFAULT_SAVES_DIR, _resolve_pack, load_state_for_save
 
@@ -30,7 +30,7 @@ _CHAR_ORDER = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 _RULESET = CepheusRuleSet()
 
 
-def _build_sheet_context(save_name: str, state: object) -> dict:
+def _build_sheet_context(save_name: str, state: GameState) -> dict:
     """Build the Jinja context for the Sheet fragment from *state*.
 
     Derives all display data read-only from the canonical ``GameState``:
