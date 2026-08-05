@@ -53,7 +53,7 @@ class TestPillExtraction:
         events = [
             _make_event(
                 "register_fact",
-                {"name": "Station Alpha", "description": "a hub"},
+                {"name": "Station Alpha", "description": "a hub", "origin": "llm"},
                 seq=5,
             ),
         ]
@@ -70,7 +70,7 @@ class TestPillExtraction:
         events = [
             _make_event(
                 "ratify_fact",
-                {"fact_name": "Captain Vex", "stats_description": "a smuggler"},
+                {"fact_name": "Captain Vex", "stats_description": "a smuggler", "origin": "llm"},
                 seq=3,
             ),
         ]
@@ -83,7 +83,7 @@ class TestPillExtraction:
         from src.game.pills import extract_pills
 
         events = [
-            _make_event("set_flag", {"key": "mood", "value": "tense"}, seq=1),
+            _make_event("set_flag", {"key": "mood", "value": "tense", "origin": "llm"}, seq=1),
         ]
         pills = extract_pills(events)
         assert len(pills) == 1
@@ -100,7 +100,7 @@ class TestPillExtraction:
         events = [
             _make_event(
                 "set_flag",
-                {"key": "narration", "value": "The captain drew her sidearm."},
+                {"key": "narration", "value": "The captain drew her sidearm.", "origin": "llm"},
                 seq=7,
             ),
         ]
@@ -114,7 +114,7 @@ class TestPillExtraction:
         from src.game.pills import extract_pills
 
         events = [
-            _make_event("set_flag", {"key": "", "value": ""}, seq=1),
+            _make_event("set_flag", {"key": "", "value": "", "origin": "llm"}, seq=1),
         ]
         pills = extract_pills(events)
         assert len(pills) == 1
@@ -136,9 +136,9 @@ class TestPillExtraction:
 
         events = [
             _make_event("scene_check", {}, seq=0),
-            _make_event("register_fact", {"name": "Fact A"}, seq=1),
+            _make_event("register_fact", {"name": "Fact A", "origin": "llm"}, seq=1),
             _make_event("oracle_roll", {}, seq=2),
-            _make_event("register_fact", {"name": "Fact B"}, seq=3),
+            _make_event("register_fact", {"name": "Fact B", "origin": "llm"}, seq=3),
         ]
         pills = extract_pills(events)
         assert len(pills) == 2
@@ -167,9 +167,9 @@ class TestRecentPills:
         from src.game.pills import extract_recent_pills
 
         events = [
-            _make_event("register_fact", {"name": "A"}, seq=1),
-            _make_event("register_fact", {"name": "B"}, seq=2),
-            _make_event("register_fact", {"name": "C"}, seq=3),
+            _make_event("register_fact", {"name": "A", "origin": "llm"}, seq=1),
+            _make_event("register_fact", {"name": "B", "origin": "llm"}, seq=2),
+            _make_event("register_fact", {"name": "C", "origin": "llm"}, seq=3),
         ]
         pills = extract_recent_pills(events, since_seq=1)
         assert len(pills) == 2

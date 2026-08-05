@@ -38,6 +38,8 @@ def _adventure_context(
     controller: AdventureController,
     view: AdventureView | None = None,
     recap=None,
+    *,
+    render_pills: bool = True,
 ) -> dict:
     """Build the Jinja context for the adventure screen.
 
@@ -45,18 +47,24 @@ def _adventure_context(
     rendered directly — this preserves receipts, defeat interstitials, and
     mission endings that would be lost if ``get_view()`` were called again
     after a mutation (U9 receipt-preservation fix).
+
+    When *render_pills* is False (fresh GET), no pills are computed —
+    pills are action-scoped, matching change-lines behavior (U7, R13).
     """
     if view is None:
         view = controller.get_view()
     char = controller.state.character
 
-    # U16: Extract tool-call pills from recent events.
-    from src.game.pills import extract_recent_pills
+    # U7: Pills are action-scoped — only computed for POST responses, not
+    # fresh GET renders (matching change-lines scoping).
+    pills = []
+    if render_pills:
+        from src.game.pills import extract_recent_pills
 
-    pills = extract_recent_pills(
-        controller.state.events,
-        since_seq=controller.action_start_seq - 1,
-    )
+        pills = extract_recent_pills(
+            controller.state.events,
+            since_seq=controller.action_start_seq - 1,
+        )
 
     return {
         "save_name": save_name,
@@ -91,7 +99,7 @@ def _render_adventure(
     """
     from src.game.theming import resolve_theme_attr
 
-    context = _adventure_context(save_name, controller, view, recap)
+    context = _adventure_context(save_name, controller, view, recap, render_pills=False)
     context["theme"] = resolve_theme_attr(controller.state.campaign.theme_pack)
 
     # U6: Sheet context for the inline drawer default content.

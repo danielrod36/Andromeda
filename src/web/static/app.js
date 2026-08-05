@@ -122,6 +122,16 @@
     }
   });
 
+  // U7: Pill links open the drawer before the htmx request fires, so the
+  // audit fragment lands in a visible panel.  Delegated on document so it
+  // survives spine swaps.
+  document.addEventListener("click", function (e) {
+    var target = e.target.closest ? e.target.closest("a.pill-link") : null;
+    if (target) {
+      toggleDrawer(true);
+    }
+  });
+
   // Esc closes the drawer and returns focus to the trigger.
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {

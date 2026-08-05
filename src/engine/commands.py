@@ -194,6 +194,10 @@ class SetFlagCommand(Command):
 
     key: str
     value: str
+    #: Provenance stamp — set to ``"llm"`` by LLM tool wrappers so pill
+    #: extraction can distinguish LLM-originated events from engine-originated
+    #: ones (KTD-R4, R13).  Engine code never sets this field.
+    origin: str | None = None
 
     def validate(self, state: GameState) -> None:
         if not self.key:
@@ -201,11 +205,14 @@ class SetFlagCommand(Command):
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         state.narrative_log.append(f"{self.key}={self.value}")
+        changes: dict = {"key": self.key, "value": self.value}
+        if self.origin is not None:
+            changes["origin"] = self.origin
         return Event(
             kind=EventKind.STATE_CHANGE,
             command_type=self.command_type,
             description=f"Set flag {self.key}={self.value}",
-            changes={"key": self.key, "value": self.value},
+            changes=changes,
         )
 
 
