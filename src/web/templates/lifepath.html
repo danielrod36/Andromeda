@@ -37,12 +37,21 @@
     <aside id="drawer"{% if not drawer_pinned %} hidden{% endif %}
            role="region" aria-label="Character details">
       <nav class="drawer-tabs" aria-label="Detail categories">
-        <button data-tab="sheet" class="active">Sheet</button>
-        <button data-tab="world">World</button>
-        <button data-tab="audit">Audit</button>
+        <button data-tab="sheet" class="active"
+                hx-get="/sheet/{{ save_name }}"
+                hx-target=".drawer-content"
+                hx-swap="innerHTML">Sheet</button>
+        <button data-tab="world"
+                hx-get="/world/{{ save_name }}"
+                hx-target=".drawer-content"
+                hx-swap="innerHTML">World</button>
+        <button data-tab="audit"
+                hx-get="/audit/{{ save_name }}"
+                hx-target=".drawer-content"
+                hx-swap="innerHTML">Audit</button>
       </nav>
       <div class="drawer-content">
-        <p class="placeholder">Character sheet details arrive in a later unit.</p>
+        {% include "partials/sheet.html" %}
       </div>
       <button class="drawer-close" aria-label="Close drawer">✕</button>
     </aside>

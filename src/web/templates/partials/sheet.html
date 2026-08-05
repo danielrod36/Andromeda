@@ -1,0 +1,95 @@
+{# Character sheet fragment — drawer Sheet tab (U6, R12).
+   Read-only; derived from canonical GameState.  Renders as both an hx-get
+   fragment and the default drawer content via {% include %}. #}
+<div class="sheet-panel">
+  {# Header: name + status #}
+  <h3 class="sheet-name">{{ character_name or "Unnamed" }}</h3>
+  {% if not alive %}
+  <p class="sheet-dead">Deceased</p>
+  {% endif %}
+
+  {# Career summary #}
+  <dl class="sheet-summary">
+    <dt>Career</dt>
+    <dd>{{ career_name or "—" }}</dd>
+    {% if rank > 0 %}
+    <dt>Rank</dt>
+    <dd>{{ rank }}{% if rank_title %} — {{ rank_title }}{% endif %}</dd>
+    {% endif %}
+    <dt>Terms</dt>
+    <dd>{{ terms }}</dd>
+    <dt>Age</dt>
+    <dd>{{ age }}</dd>
+    <dt>Credits</dt>
+    <dd>{{ credits | default(0) }}</dd>
+  </dl>
+
+  {# Characteristics with DMs #}
+  {% if char_rows %}
+  <table class="sheet-table sheet-chars">
+    <thead>
+      <tr><th>Char</th><th>Val</th><th>DM</th></tr>
+    </thead>
+    <tbody>
+      {% for row in char_rows %}
+      <tr>
+        <td class="char-stat">{{ row.stat }}</td>
+        <td class="char-val">{{ row.value }}</td>
+        <td class="char-dm">{% if row.dm >= 0 %}+{% endif %}{{ row.dm }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {# Unassigned pool values (mid-lifepath characteristic assignment) #}
+  {% if unassigned_rolls %}
+  <div class="sheet-pool">
+    <p class="sheet-section-label">Unassigned Pool</p>
+    <ul class="pool-values">
+      {% for val in unassigned_rolls %}
+      <li class="pool-value">{{ val }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {# Lifepath midstate: background picks / pending aging #}
+  {% if background_picks_remaining is not none %}
+  <p class="sheet-picks">Background picks remaining: {{ background_picks_remaining }}</p>
+  {% endif %}
+  {% if pending_aging %}
+  <p class="sheet-aging">Pending aging reductions: {{ pending_aging | length }}</p>
+  {% endif %}
+
+  {# Skills #}
+  {% if skill_rows %}
+  <p class="sheet-section-label">Skills</p>
+  <table class="sheet-table sheet-skills">
+    <thead>
+      <tr><th>Skill</th><th>Lvl</th></tr>
+    </thead>
+    <tbody>
+      {% for row in skill_rows %}
+      <tr>
+        <td class="skill-name">{{ row.name }}</td>
+        <td class="skill-level">{{ row.level }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {# Injuries #}
+  {% if injuries %}
+  <p class="sheet-section-label">Injuries</p>
+  <ul class="sheet-injuries">
+    {% for injury in injuries %}
+    <li class="injury-entry">
+      <span class="injury-name">{{ injury.name }}</span>
+      <span class="injury-severity">({{ injury.severity }})</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

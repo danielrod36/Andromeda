@@ -80,6 +80,12 @@ async def lifepath_screen(save_name: str, request: Request) -> HTMLResponse:
 
     context = _lifepath_context(save_name, controller, view, recap=recap)
     context["theme"] = resolve_theme_attr(controller.engine.state.campaign.theme_pack)
+
+    # U6: Sheet context for the inline drawer default content.
+    from src.web.routes.sheet import _build_sheet_context
+
+    context.update(_build_sheet_context(save_name, controller.engine.state))
+
     return templates.TemplateResponse(request, "lifepath.html", context)
 
 
