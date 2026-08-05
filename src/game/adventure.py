@@ -60,7 +60,7 @@ class AdventureView:
     """View model for the adventure screen (U8).
 
     Encapsulates the current adventure state: hook, scene options with
-    odds, receipts, and defeat interstitials. Shells render this without
+    odds, receipts, and defeat notices. Shells render this without
     inspecting GameState directly.
     """
 
@@ -637,8 +637,11 @@ class AdventureController:
     ) -> AdventureView | None:
         """Check for catastrophic outcomes and invoke the death strategy.
 
-        Returns an AdventureView with the defeat interstitial if defeat
-        was triggered; None if the adventure continues.
+        Returns an AdventureView with the defeat view if defeat was
+        triggered — a game-over interstitial for terminal defeats (ironman),
+        or a fresh scene with choices and a defeat banner for non-terminal
+        defeats (narrative / checkpoint). Returns None if the adventure
+        continues.
         """
         is_defeat = False
         reason = ""

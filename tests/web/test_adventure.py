@@ -371,7 +371,10 @@ class TestDefeatPaths:
         # The defeat notice must be visible.
         assert "defeat" in response.text.lower()
         # Fresh scene choices must be present — not a choiceless screen.
-        assert "choice-dock" in response.text or "choice" in response.text.lower()
+        assert "choice-dock" in response.text, (
+            "Expected the defeat view to include a choice-dock with fresh "
+            "scene options, but none was found — the screen may be choiceless"
+        )
         # The strategy message owns the sentence — the controller must not
         # append its own "Play continues." on top of the strategy's.
         # Narrative strategy's message already says "Play continues." so
@@ -502,8 +505,8 @@ class TestDefeatPaths:
             # The controller is freshly constructed — simulate the restart
             # edge by clearing the snapshot so the defensive belt fires.
             controller = _get_cached_controller(client)
-            controller._checkpoint_mgr.clear()
-            assert not controller._checkpoint_mgr.has_snapshot
+            controller.checkpoint_mgr.clear()
+            assert not controller.checkpoint_mgr.has_snapshot
 
             # Force defeat so the life-threatening check triggers it.
             _force_defeat(controller)
