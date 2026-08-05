@@ -102,6 +102,12 @@ def _render_adventure(
     context = _adventure_context(save_name, controller, view, recap, render_pills=False)
     context["theme"] = resolve_theme_attr(controller.state.campaign.theme_pack)
 
+    # U8: Expose LLM configuration status so the retry affordance renders
+    # only when the session has a configured adapter.  Template mode streams
+    # narration blocks identically but hides the retry control.
+    settings = getattr(request.app.state, "llm_settings", None)
+    context["llm_configured"] = "true" if (settings and settings.is_configured) else "false"
+
     # U6: Sheet context for the inline drawer default content.
     from src.web.routes.sheet import _build_sheet_context
 
