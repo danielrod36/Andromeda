@@ -62,6 +62,12 @@
         {% endfor %}
       </div>
       {% endif %}
+
+      {% if phase == "complete" %}
+      <div id="choice-dock">
+        <a href="/adventure/{{ save_name }}" class="action-button">Begin Adventure</a>
+      </div>
+      {% endif %}
     </section>
 
     <!-- Drawer (pinned during assignment phases) -->

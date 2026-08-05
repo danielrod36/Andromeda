@@ -237,12 +237,18 @@ class TestTermLoop:
         assert controller.determine_phase() == "run_survival"
 
     def test_reenlist_muster_transitions_to_mustering_out(self):
-        """Choosing muster out transitions to mustering_out."""
+        """Choosing muster out transitions to muster_out_allocate (U3 interactive).
+
+        With terms > 0 the character has benefit rolls; the mustering_out
+        phase computes the plan and advances to muster_out_allocate.
+        """
         engine = _make_mid_lifepath_engine()
         controller = LifepathController(engine, load_scifi_pack())
+        # Give the character a term so benefit_rolls_for > 0.
+        engine.state.character.terms = 1
         engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
         controller.apply_choice("reenlist_muster")
-        assert controller.determine_phase() == "mustering_out"
+        assert controller.determine_phase() == "muster_out_allocate"
 
 
 class TestBackgroundSkillMutation:

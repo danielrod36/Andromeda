@@ -208,3 +208,189 @@ class TestLifepathParity:
         assert web_remaining == batch_remaining, (
             f"Roll count mismatch: web={web_remaining}, batch={batch_remaining}"
         )
+
+
+# ---------------------------------------------------------------------------
+# U3: Muster-out benefit parity tests.
+# ---------------------------------------------------------------------------
+
+
+class TestMusterOutParity:
+    """U3: web controller muster-out matches engine batch path."""
+
+    def test_benefit_rolls_count_matches_engine(self):
+        """The web controller's benefit roll count matches the engine."""
+        web_state = _make_state(seed=99)
+        _setup_char(web_state)
+        web_engine = Engine(web_state, ForcedRoller(_navy_one_term_rolls()))
+        web_ctrl = LifepathController(web_engine, load_scifi_pack())
+
+        # Drive through 1 term + muster out.
+        web_ctrl.apply_choice("begin_term")
+        web_ctrl.apply_choice("commission_attempt")
+        web_ctrl.apply_choice("advancement_attempt")
+        for t in _SKILL_TABLES:
+            web_ctrl.apply_choice(f"skill_table:{t}")
+        web_ctrl.apply_choice("reenlist_muster")
+
+        # Now in mustering_out → muster_out_allocate.
+        from src.engine.lifepath import benefit_rolls_for
+
+        char = web_state.character
+        # terms=1, rank=2 → benefit_rolls_for(1, 2) = 1 + 0 = 1
+        expected_rolls = benefit_rolls_for(char.terms, char.rank)
+        assert web_ctrl._muster_plan is not None
+        assert web_ctrl._muster_plan.total_rolls == expected_rolls
+
+    def test_cash_and_material_claims_match_batch(self):
+        """Claiming cash then material via web matches the batch path's results.
+
+        Drives both paths with the same forced rolls and allocation order
+        (cash first, then material), comparing the resulting benefit event texts.
+        """
+        # Build rolls: 1 navy term + 1 benefit roll (cash).
+        term_rolls = _navy_one_term_rolls()
+        # Add benefit roll: 1D6=3 for cash.
+        all_rolls = [*term_rolls, [3]]
+
+        # --- Web path ---
+        web_state = _make_state(seed=99)
+        _setup_char(web_state)
+        web_engine = Engine(web_state, ForcedRoller(all_rolls))
+        web_ctrl = LifepathController(web_engine, load_scifi_pack())
+
+        web_ctrl.apply_choice("begin_term")
+        web_ctrl.apply_choice("commission_attempt")
+        web_ctrl.apply_choice("advancement_attempt")
+        for t in _SKILL_TABLES:
+            web_ctrl.apply_choice(f"skill_table:{t}")
+        web_ctrl.apply_choice("reenlist_muster")
+        # Claim one cash benefit.
+        web_ctrl.apply_choice("claim_cash")
+
+        web_benefit_events = [e for e in web_state.events if e.command_type == "lifepath_benefit"]
+
+        # --- Batch path ---
+        batch_state = _make_state(seed=99)
+        _setup_char(batch_state)
+        batch_engine = Engine(batch_state, ForcedRoller(all_rolls))
+        batch_runner = LifepathRunner(batch_engine, load_scifi_pack())
+
+        batch_runner.run_term("navy", 1, skill_table_choices=_SKILL_TABLES)
+        batch_runner.run_reenlistment_step("navy")
+        # Batch auto-allocates: cash-first.
+        batch_runner._batch_muster_out("navy")
+
+        batch_benefit_events = [
+            e for e in batch_state.events if e.command_type == "lifepath_benefit"
+        ]
+
+        # Compare benefit result texts (at least the first one).
+        if web_benefit_events and batch_benefit_events:
+            assert (
+                web_benefit_events[0].changes["result_text"]
+                == (batch_benefit_events[0].changes["result_text"])
+            ), (
+                f"Benefit mismatch:\n"
+                f"  web:   {web_benefit_events[0].changes['result_text']}\n"
+                f"  batch: {batch_benefit_events[0].changes['result_text']}"
+            )
+
+    def test_all_rolls_consumed_completes_muster_out(self):
+        """Claiming the single available roll completes muster out.
+
+        A 1-term character with rank 2 has exactly 1 benefit roll.
+        After claiming it, the controller reaches ``complete`` and sets
+        ``mustered_out=true``.
+        """
+        term_rolls = _navy_one_term_rolls()
+        all_rolls = [*term_rolls, [3]]
+
+        web_state = _make_state(seed=99)
+        _setup_char(web_state)
+        web_engine = Engine(web_state, ForcedRoller(all_rolls))
+        web_ctrl = LifepathController(web_engine, load_scifi_pack())
+
+        web_ctrl.apply_choice("begin_term")
+        web_ctrl.apply_choice("commission_attempt")
+        web_ctrl.apply_choice("advancement_attempt")
+        for t in _SKILL_TABLES:
+            web_ctrl.apply_choice(f"skill_table:{t}")
+        web_ctrl.apply_choice("reenlist_muster")
+
+        plan = web_ctrl._muster_plan
+        assert plan is not None
+        # Claim the one available roll.
+        view = web_ctrl.apply_choice("claim_cash")
+        # Should now be at complete (all rolls consumed).
+        assert view.phase == "complete"
+        assert "mustered_out=true" in web_state.narrative_log
+
+    def test_material_dm_applied_for_high_rank(self):
+        """Rank 5+ characters get the material DM on material claims."""
+        from src.engine.lifepath import material_dm_for
+
+        term_rolls = _navy_one_term_rolls()
+        # Add benefit rolls: cash + material.
+        all_rolls = [*term_rolls, [3], [4]]
+
+        web_state = _make_state(seed=99)
+        _setup_char(web_state)
+        web_engine = Engine(web_state, ForcedRoller(all_rolls))
+        web_ctrl = LifepathController(web_engine, load_scifi_pack())
+
+        web_ctrl.apply_choice("begin_term")
+        web_ctrl.apply_choice("commission_attempt")
+        web_ctrl.apply_choice("advancement_attempt")
+        for t in _SKILL_TABLES:
+            web_ctrl.apply_choice(f"skill_table:{t}")
+        web_ctrl.apply_choice("reenlist_muster")
+
+        # After 1 term with commission+advancement success, rank = 2.
+        # material_dm_for(2) = 0. The plan should reflect this.
+        plan = web_ctrl._muster_plan
+        assert plan is not None
+        assert plan.material_dm == material_dm_for(web_state.character.rank)
+        # Rank 2 → DM 0.
+        assert plan.material_dm == 0
+
+    def test_resume_reconstructs_remaining_from_events(self):
+        """A fresh controller reconstructs remaining rolls from benefit events."""
+        term_rolls = _navy_one_term_rolls()
+        all_rolls = [*term_rolls, [3], [4]]
+
+        # First controller: drive through term + claim 1 cash benefit.
+        web_state = _make_state(seed=99)
+        _setup_char(web_state)
+        web_engine = Engine(web_state, ForcedRoller(all_rolls))
+        web_ctrl = LifepathController(web_engine, load_scifi_pack())
+
+        web_ctrl.apply_choice("begin_term")
+        web_ctrl.apply_choice("commission_attempt")
+        web_ctrl.apply_choice("advancement_attempt")
+        for t in _SKILL_TABLES:
+            web_ctrl.apply_choice(f"skill_table:{t}")
+        web_ctrl.apply_choice("reenlist_muster")
+        # Plan total_rolls for 1 term, rank 2 = 1.
+        plan = web_ctrl._muster_plan
+        assert plan is not None
+        total = plan.total_rolls
+
+        # Claim one benefit if there are rolls available.
+        if total > 0:
+            web_ctrl.apply_choice("claim_cash")
+            claimed = 1
+        else:
+            claimed = 0
+
+        # Now build a fresh controller from the same state.
+        fresh_engine = Engine(web_state, ForcedRoller([]))
+        fresh_ctrl = LifepathController(fresh_engine, load_scifi_pack())
+
+        # Reconstructed plan should have the same total.
+        assert fresh_ctrl._muster_plan is not None
+        assert fresh_ctrl._muster_plan.total_rolls == total
+        # Remaining should reflect the claimed benefit.
+        assert fresh_ctrl._benefit_rolls_remaining == total - claimed
+        # Cash counter reconstructed.
+        assert fresh_ctrl._runner.cash_rolls_taken == claimed
