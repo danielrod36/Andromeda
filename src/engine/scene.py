@@ -302,9 +302,11 @@ class RatifyFactCommand(Command):
 
     fact_name: str
     stats_description: str
-    #: Provenance stamp — set to ``"llm"`` by LLM tool wrappers so pill
-    #: extraction can distinguish LLM-originated events from engine-originated
-    #: ones (KTD-R4, R13).  Engine code never sets this field.
+    #: Provenance stamp — reserved for a future LLM ratification tool that
+    #: would pass ``origin="llm"`` so pill extraction can distinguish
+    #: LLM-originated events from engine-originated ones (KTD-R4, R13).
+    #: No LLM tool wraps RatifyFactCommand yet; the only call site
+    #: (retrieval.py:ratify_fact_as_npc) is engine-side and never sets it.
     origin: str | None = None
 
     def validate(self, state: GameState) -> None:

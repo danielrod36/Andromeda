@@ -76,7 +76,7 @@ def _extract_label_and_summary(event: Event) -> tuple[str, str]:
         if key == _NARRATION_KEY:
             return "Added log entry", value[:50]
         return "Set narrative flag", f"{key}={value}" if key else "(unnamed flag)"
-    # Fallback for any future tool types added to _TOOL_COMMAND_TYPES.
+    # Fallback for future origin-stamped command types not handled above.
     return ct, event.description[:50]
 
 
