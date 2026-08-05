@@ -146,6 +146,15 @@ class LifepathController:
                 return stat
         return None
 
+    def _injury_stat_choices(self) -> list[ChoiceOption]:
+        """Build the three physical-characteristic injury-stat choices."""
+        chars = self._engine.state.character.characteristics
+        return [
+            ChoiceOption(label=f"STR ({chars.get('STR', 0)})", option_id="injury_stat:STR"),
+            ChoiceOption(label=f"DEX ({chars.get('DEX', 0)})", option_id="injury_stat:DEX"),
+            ChoiceOption(label=f"END ({chars.get('END', 0)})", option_id="injury_stat:END"),
+        ]
+
     # ------------------------------------------------------------------
     # Term-state reconstruction (U2 — ported from TUI _reconstruct_term_state).
     # ------------------------------------------------------------------
@@ -508,24 +517,10 @@ class LifepathController:
             )
 
         if phase == "choose_injury_stat":
-            chars = char.characteristics
             return PhaseView(
                 phase=phase,
                 prompt="Choose which physical characteristic takes the injury:",
-                choices=[
-                    ChoiceOption(
-                        label=f"STR ({chars.get('STR', 0)})",
-                        option_id="injury_stat:STR",
-                    ),
-                    ChoiceOption(
-                        label=f"DEX ({chars.get('DEX', 0)})",
-                        option_id="injury_stat:DEX",
-                    ),
-                    ChoiceOption(
-                        label=f"END ({chars.get('END', 0)})",
-                        option_id="injury_stat:END",
-                    ),
-                ],
+                choices=self._injury_stat_choices(),
             )
 
         if phase == "choose_crisis_resolution":
@@ -567,6 +562,23 @@ class LifepathController:
             career_name = career.name if career else char.career
             age_after = char.age + 4
             aging_note = " Aging check will apply." if age_after >= 34 else ""
+            # Reconstruct the re-enlistment roll receipt from the event log
+            # so it survives a page refresh / controller rebuild (U2).
+            receipts: list[str] = []
+            outcome = self._get_reenlist_outcome(state)
+            for e in reversed(state.events):
+                if e.command_type == "lifepath_reenlistment":
+                    if e.roll is not None:
+                        raw = sum(e.roll.rolls)
+                        target_val = (
+                            career.re_enlistment if career and career.re_enlistment else "—"
+                        )
+                        receipts.append(f"Re-enlistment: 2D6={raw} vs {target_val} -> {outcome}")
+                    elif outcome == "must_retire":
+                        receipts.append("Re-enlistment: mandatory retirement (7+ terms)")
+                    else:
+                        receipts.append(f"Re-enlistment: {outcome}")
+                    break
             return PhaseView(
                 phase=phase,
                 prompt=(
@@ -585,6 +597,7 @@ class LifepathController:
                         description="Leave service and collect mustering-out benefits.",
                     ),
                 ],
+                receipts=receipts,
             )
 
         if phase in ("mustering_out", "muster_out_allocate"):
@@ -835,20 +848,22 @@ class LifepathController:
         )
         if not qual.success:
             self._set_term_phase("choose_qualification_fallback")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_qualification_fallback",
-                prompt="Qualification failed. Choose your path:",
-                choices=self._view_qualification_fallback().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=[receipt],
             )
 
         # Basic training (B11): first career grants all Service Skills at level 0.
         self._run_basic_training_for_career(career_id)
+        view = self.get_phase_view()
         return PhaseView(
-            phase=self.determine_phase(),
-            prompt=self.get_phase_view().prompt,
+            phase=view.phase,
+            prompt=view.prompt,
             receipts=[receipt],
-            choices=self.get_phase_view().choices,
+            choices=view.choices,
         )
 
     def _run_basic_training_for_career(self, career_id: str) -> None:
@@ -867,6 +882,7 @@ class LifepathController:
         try:
             career_id = self._runner.run_draft()
         except ValueError:
+            logger.warning("draft rejected for character %s", self._engine.state.character.name)
             return self.get_phase_view()
         self._run_basic_training_for_career(career_id)
         return self.get_phase_view()
@@ -926,19 +942,21 @@ class LifepathController:
         """Route to commission/advancement/skills after successful survival."""
         if self._runner.commission_available(career_id):
             self._set_term_phase("choose_commission")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_commission",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
         career = self._pack.careers.get(career_id)
         if career and career.advancement is not None:
             self._set_term_phase("choose_advancement")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_advancement",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
         return self._enter_choose_skills(receipts)
@@ -972,10 +990,11 @@ class LifepathController:
         career = self._pack.careers.get(career_id)
         if career and career.advancement is not None:
             self._set_term_phase("choose_advancement")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_advancement",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
         return self._enter_choose_skills(receipts)
@@ -1047,10 +1066,11 @@ class LifepathController:
         char = self._engine.state.character
         if char.age >= 34:
             self._set_term_phase("run_aging")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="run_aging",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
         # No aging needed — finalize and go to re_enlist.
@@ -1065,9 +1085,11 @@ class LifepathController:
     def _do_mishap_roll(self) -> PhaseView:
         """Roll the career mishap table (step 1 of the interactive mishap flow).
 
-        Calls ``runner.run_mishap(career_id)`` without a chosen_stat. The
-        engine will not roll the injury table yet if a stat is needed —
-        we apply MishapRollCommand directly first, then check the result.
+        Applies ``MishapRollCommand`` directly rather than calling
+        ``runner.run_mishap``: the runner auto-picks ``_highest_physical_stat()``
+        for the injury, but the web shell wants the *player* to choose, so we
+        stop after the mishap roll and route to ``choose_injury_stat`` when the
+        entry chains to the injury table.
         """
         result = self._current_term_result
         if result is None:
@@ -1091,20 +1113,7 @@ class LifepathController:
             return PhaseView(
                 phase="choose_injury_stat",
                 prompt="Choose which physical characteristic takes the injury:",
-                choices=[
-                    ChoiceOption(
-                        label=f"STR ({state.character.characteristics.get('STR', 0)})",
-                        option_id="injury_stat:STR",
-                    ),
-                    ChoiceOption(
-                        label=f"DEX ({state.character.characteristics.get('DEX', 0)})",
-                        option_id="injury_stat:DEX",
-                    ),
-                    ChoiceOption(
-                        label=f"END ({state.character.characteristics.get('END', 0)})",
-                        option_id="injury_stat:END",
-                    ),
-                ],
+                choices=self._injury_stat_choices(),
                 receipts=receipts,
             )
         # No injury — go to re_enlist (or mustering out).
@@ -1137,10 +1146,11 @@ class LifepathController:
                 result.died = True
                 return self._complete_term(result, [*receipts, "Ironman crisis: character died."])
             self._set_term_phase("choose_crisis_resolution")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_crisis_resolution",
                 prompt=f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
-                choices=self.get_phase_view().choices,
+                choices=view.choices,
                 receipts=receipts,
             )
         # No crisis — complete the term.
@@ -1178,10 +1188,11 @@ class LifepathController:
         if self._aging_active:
             if self._engine.state.character.pending_aging:
                 self._set_term_phase("choose_aging_reduction")
+                view = self.get_phase_view()
                 return PhaseView(
                     phase="choose_aging_reduction",
-                    prompt=self.get_phase_view().prompt,
-                    choices=self.get_phase_view().choices,
+                    prompt=view.prompt,
+                    choices=view.choices,
                     receipts=receipts,
                 )
             self._aging_active = False
@@ -1210,10 +1221,9 @@ class LifepathController:
             "Aging",
             result.aging_raw,
             -terms,
-            result.aging_raw,
+            adjusted,
             1,
             result.aging_success,
-            tier=f"adjusted {adjusted}",
         )
         receipts = [receipt]
 
@@ -1224,10 +1234,11 @@ class LifepathController:
         # Aging effects pending — enter choose_aging_reduction.
         self._aging_active = True
         self._set_term_phase("choose_aging_reduction")
+        view = self.get_phase_view()
         return PhaseView(
             phase="choose_aging_reduction",
-            prompt=self.get_phase_view().prompt,
-            choices=self.get_phase_view().choices,
+            prompt=view.prompt,
+            choices=view.choices,
             receipts=receipts,
         )
 
@@ -1254,20 +1265,22 @@ class LifepathController:
                 self._aging_active = False
                 return self._complete_term(result, [*receipts, "Ironman crisis: character died."])
             self._set_term_phase("choose_crisis_resolution")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_crisis_resolution",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
 
         # No crisis — check for remaining slots.
         if state.character.pending_aging:
             self._set_term_phase("choose_aging_reduction")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="choose_aging_reduction",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
         # All slots consumed — finalize the term.
@@ -1294,17 +1307,19 @@ class LifepathController:
                 self._engine.apply(EndCareerCommand(ended_by="mishap"))
             if state.character.terms < 7:
                 self._set_term_phase("choose_career_change")
+                view = self.get_phase_view()
                 return PhaseView(
                     phase="choose_career_change",
-                    prompt=self.get_phase_view().prompt,
-                    choices=self.get_phase_view().choices,
+                    prompt=view.prompt,
+                    choices=view.choices,
                     receipts=receipts,
                 )
             self._set_term_phase("mustering_out")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="mustering_out",
                 prompt="Mustering out...",
-                choices=self.get_phase_view().choices,
+                choices=view.choices,
                 receipts=receipts,
             )
 
@@ -1337,8 +1352,8 @@ class LifepathController:
                 break
         if reenlist_event and reenlist_event.roll is not None:
             raw = sum(reenlist_event.roll.rolls)
-            target = career_id and self._pack.careers.get(career_id)
-            target_val = target.re_enlistment if target and target.re_enlistment else "—"
+            career = self._pack.careers.get(career_id or "")
+            target_val = career.re_enlistment if career and career.re_enlistment else "—"
             receipts.append(f"Re-enlistment: 2D6={raw} vs {target_val} -> {outcome}")
         elif outcome == "must_retire":
             receipts.append("Re-enlistment: mandatory retirement (7+ terms)")
@@ -1351,10 +1366,11 @@ class LifepathController:
             self._current_term_result = None
             self._skill_rolls_remaining = 0
             self._set_term_phase("run_survival")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="run_survival",
-                prompt=self.get_phase_view().prompt,
-                choices=self.get_phase_view().choices,
+                prompt=view.prompt,
+                choices=view.choices,
                 receipts=receipts,
             )
         if outcome in ("must_leave", "must_retire"):
@@ -1362,17 +1378,19 @@ class LifepathController:
                 ended_by = "muster_out"
                 self._engine.apply(EndCareerCommand(ended_by=ended_by))
             self._set_term_phase("mustering_out")
+            view = self.get_phase_view()
             return PhaseView(
                 phase="mustering_out",
                 prompt="Mustering out...",
-                choices=self.get_phase_view().choices,
+                choices=view.choices,
                 receipts=receipts,
             )
         # may_continue — offer Continue vs Muster Out.
+        view = self.get_phase_view()
         return PhaseView(
             phase="re_enlist",
-            prompt=self.get_phase_view().prompt,
-            choices=self.get_phase_view().choices,
+            prompt=view.prompt,
+            choices=view.choices,
             receipts=receipts,
         )
 
