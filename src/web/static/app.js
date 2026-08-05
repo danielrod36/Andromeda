@@ -83,7 +83,10 @@
     if (!strip || !drawer || !trigger) return;
 
     if (!strip.hasAttribute("data-drawer-pinned")) {
-      // Adventure: fully client-managed — no server-driven pin.
+      // Adventure: fully client-managed — no server-driven pin.  The OOB
+      // swap replaced #drawer-toggle (hardcoded aria-expanded="false"), so
+      // resync its aria-expanded from the live drawer state before leaving.
+      trigger.setAttribute("aria-expanded", drawerOpen ? "true" : "false");
       return;
     }
 

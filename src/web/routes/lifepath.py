@@ -18,8 +18,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from src.game.lifepath import LifepathController
 from src.game.session import StaleWriteError
 from src.game.theming import resolve_theme_attr
+from src.game.views import PhaseView
 from src.web.routes._saves import (
     DEFAULT_SAVES_DIR,
     busy_notice,
@@ -36,8 +38,8 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 def _lifepath_context(
     save_name: str,
-    controller,
-    view,
+    controller: LifepathController,
+    view: PhaseView,
     recap=None,
 ) -> dict:
     """Build the Jinja context for the lifepath screen."""

@@ -7,7 +7,7 @@
    elements: htmx swaps this fragment into the existing #spine via
    hx-target="#spine" + hx-swap="innerHTML". #}
 {% include "partials/adventure_spine.html" %}
-<header id="status-strip" hx-swap-oob="true" data-drawer-pinned="false">
+<header id="status-strip" hx-swap-oob="true">
   <span class="status-char-ref">{{ character_name }}</span>
   <span class="status-mission">{{ character_career }}</span>
   <span class="status-credits">Terms: {{ character_terms }}</span>

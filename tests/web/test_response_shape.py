@@ -170,8 +170,15 @@ class TestAdventureActionShape:
         )
         assert 'hx-swap-oob="true"' in body, 'Status strip must carry hx-swap-oob="true"'
 
-    def test_action_response_status_strip_carries_drawer_pin(self, tmp_path: Path):
-        """Adventure status strip carries data-drawer-pinned (always false)."""
+    def test_action_response_status_strip_has_no_drawer_pin(self, tmp_path: Path):
+        """Adventure status strip must NOT carry data-drawer-pinned.
+
+        The adventure drawer is fully client-managed: app.js uses the
+        attribute's *absence* on #status-strip as the signal to leave the
+        drawer untouched.  If the attribute were present (even "false"),
+        syncDrawerState would force-close the drawer on every action,
+        contradicting R11.
+        """
         saves_dir = tmp_path / "saves"
         _create_adventure_save(saves_dir)
         with _get_client(saves_dir) as client:
@@ -180,8 +187,10 @@ class TestAdventureActionShape:
                 data={"choice": "accept_mission"},
                 headers=_ORIGIN,
             )
-        # The status strip header should carry the data-drawer-pinned attribute.
-        assert "data-drawer-pinned" in response.text
+        assert "data-drawer-pinned" not in response.text, (
+            "Adventure POST must not carry data-drawer-pinned — its absence "
+            "is the signal that the drawer is fully client-managed (R11)."
+        )
 
     def test_freetext_response_has_no_document_tags(self, tmp_path: Path):
         """AE5: free-text POST body is also a clean fragment."""

@@ -34,7 +34,7 @@
     <!-- Drawer (pinned during assignment phases).  Client-managed (U5):
          never OOB-swapped — open state and loaded tab content survive
          every action.  The pin state travels on the OOB status strip. -->
-    <aside id="drawer" data-drawer-pinned{% if not drawer_pinned %} hidden{% endif %}
+    <aside id="drawer"{% if not drawer_pinned %} hidden{% endif %}
            role="region" aria-label="Character details">
       <nav class="drawer-tabs" aria-label="Detail categories">
         <button data-tab="sheet" class="active">Sheet</button>
