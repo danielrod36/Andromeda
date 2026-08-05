@@ -162,6 +162,13 @@ def create_app() -> FastAPI:
 
     app.include_router(audit_router)
 
+    # U6: Sheet and World drawer tab fragments.
+    from src.web.routes.sheet import router as sheet_router
+    from src.web.routes.world import router as world_router
+
+    app.include_router(sheet_router)
+    app.include_router(world_router)
+
     # U16: Curated-view inspector.
     from src.web.routes.inspector import router as inspector_router
 

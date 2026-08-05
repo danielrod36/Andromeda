@@ -85,13 +85,20 @@ def _render_adventure(
 ) -> HTMLResponse:
     """Render the full adventure page (GET).
 
-    The page wraps the shared spine partial inside `<section id="spine">` and
-    includes the client-managed drawer.
+    The page wraps the shared spine partial inside ``<section id="spine">`` and
+    includes the client-managed drawer.  The drawer's default Sheet content is
+    server-rendered inline so the drawer never opens empty (U6, R12).
     """
     from src.game.theming import resolve_theme_attr
 
     context = _adventure_context(save_name, controller, view, recap)
     context["theme"] = resolve_theme_attr(controller.state.campaign.theme_pack)
+
+    # U6: Sheet context for the inline drawer default content.
+    from src.web.routes.sheet import _build_sheet_context
+
+    context.update(_build_sheet_context(save_name, controller.state))
+
     return templates.TemplateResponse(request, "adventure.html", context)
 
 

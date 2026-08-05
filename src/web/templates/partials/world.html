@@ -1,0 +1,59 @@
+{# World state fragment — drawer World tab (U6, R12).
+   Read-only; derived from canonical GameState.  Shows active mission,
+   open threads, and established narrative facts. #}
+<div class="world-panel">
+  {# Active mission #}
+  {% if mission %}
+  <div class="world-section world-mission">
+    <p class="sheet-section-label">Active Mission</p>
+    <dl class="mission-summary">
+      <dt>Patron</dt>
+      <dd>{{ mission.patron or "—" }}</dd>
+      <dt>Objective</dt>
+      <dd>{{ mission.objective or "—" }}</dd>
+      {% if mission.complication %}
+      <dt>Complication</dt>
+      <dd>{{ mission.complication }}</dd>
+      {% endif %}
+      {% if mission.reward %}
+      <dt>Reward</dt>
+      <dd>{{ mission.reward }}</dd>
+      {% endif %}
+      <dt>Progress</dt>
+      <dd>{{ mission.scenes_completed }} / {{ mission.min_scenes }} scenes</dd>
+    </dl>
+  </div>
+  {% else %}
+  <p class="sheet-section-label">Active Mission</p>
+  <p class="world-empty">No active mission.</p>
+  {% endif %}
+
+  {# Open threads #}
+  <p class="sheet-section-label">Open Threads</p>
+  {% if open_threads %}
+  <ul class="world-threads">
+    {% for thread in open_threads %}
+    <li class="thread-entry">{{ thread }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="world-empty">No open threads.</p>
+  {% endif %}
+
+  {# Established facts #}
+  <p class="sheet-section-label">Established Facts</p>
+  {% if facts %}
+  <ul class="world-facts">
+    {% for fact in facts %}
+    <li class="fact-entry">
+      <span class="fact-name">{{ fact.name }}</span>
+      {% if fact.description %}
+      <span class="fact-desc">{{ fact.description }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="world-empty">No established facts.</p>
+  {% endif %}
+</div>
