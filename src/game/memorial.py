@@ -165,7 +165,7 @@ def build_memorial(state: GameState) -> MemorialData:
         rewind_events = [e for e in state.events if e.kind == EventKind.REWIND_APPLIED]
         if rewind_events:
             last_rewind = rewind_events[-1]
-            abandoned = last_rewind.changes.get("abandoned_events", 0)
+            abandoned = last_rewind.changes.get("abandoned_branch_events", 0)
             data.interstitial_text = (
                 f"State rewound to scene start. "
                 f"{abandoned} event(s) in the abandoned branch remain in the audit log."

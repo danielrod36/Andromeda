@@ -24,14 +24,16 @@ def _get_client(saves_dir: Path) -> TestClient:
     return TestClient(create_app(), base_url="http://127.0.0.1")
 
 
-def _create_adventure_save(saves_dir: Path, name: str = "Hero") -> Path:
+def _create_adventure_save(
+    saves_dir: Path, name: str = "Hero", death_mode: str = "narrative"
+) -> Path:
     """Create a mustered-out character save ready for adventure."""
     from src.engine.persistence import save
     from src.engine.state import CampaignConfig, GameState
 
     state = GameState.new(seed=42)
     state.campaign = CampaignConfig(
-        theme_pack="scifi", resolution_profile="narrative", death_mode="narrative"
+        theme_pack="scifi", resolution_profile="narrative", death_mode=death_mode
     )
     state.character.name = name
     state.character.characteristics = {
@@ -50,6 +52,29 @@ def _create_adventure_save(saves_dir: Path, name: str = "Hero") -> Path:
     path = saves_dir / f"{name}.json"
     save(state, path)
     return path
+
+
+def _get_cached_controller(client: TestClient, save_name: str = "Hero"):
+    """Return the AdventureController cached on the session registry."""
+    registry = client.app.state.session_registry
+    for (_dir, stem), bundle in registry.items():
+        if stem == save_name:
+            return bundle.adventure_controller
+    raise KeyError(f"No session registered for save '{save_name}'")
+
+
+def _force_defeat(controller) -> None:
+    """Monkey-patch the controller so the next option resolve triggers defeat.
+
+    Tests call this before resolving an option they want to drive through the
+    defeat path, so the test is deterministic rather than dependent on a
+    life-threatening MISS happening to come up.
+    """
+
+    def always_defeat(self, check_result, option, consequences):
+        return self._handle_defeat("forced test defeat")
+
+    controller._check_defeat = always_defeat.__get__(controller)
 
 
 _ORIGIN = {"Origin": "http://127.0.0.1"}
@@ -314,3 +339,214 @@ class TestActionPersistence:
         # pending_freetext must be cleared from the save.
         final_state = load_state(saves_dir / "Hero.json")
         assert final_state.pending_freetext is None
+
+
+class TestDefeatPaths:
+    """U4 (R2/R8/R9, AE6): defeat paths return playable or terminally-correct
+    screens, with accurate text."""
+
+    def test_narrative_defeat_shows_fresh_scene_with_choices(self, tmp_path: Path):
+        """R8: narrative defeat → 200 with injury applied and fresh scene
+        choices in the same response (not a choiceless screen)."""
+        saves_dir = tmp_path / "saves"
+        _create_adventure_save(saves_dir, death_mode="narrative")
+        with _get_client(saves_dir) as client:
+            client.get("/adventure/Hero")
+            # Accept mission → enters a scene.
+            client.post(
+                "/adventure/Hero/action",
+                data={"choice": "accept_mission"},
+                headers=_ORIGIN,
+            )
+            # Force defeat on the next option resolve.
+            controller = _get_cached_controller(client)
+            _force_defeat(controller)
+
+            response = client.post(
+                "/adventure/Hero/action",
+                data={"choice": "option:0"},
+                headers=_ORIGIN,
+            )
+        assert response.status_code == 200
+        # The defeat notice must be visible.
+        assert "defeat" in response.text.lower()
+        # Fresh scene choices must be present — not a choiceless screen.
+        assert "choice-dock" in response.text, (
+            "Expected the defeat view to include a choice-dock with fresh "
+            "scene options, but none was found — the screen may be choiceless"
+        )
+        # The strategy message owns the sentence — the controller must not
+        # append its own "Play continues." on top of the strategy's.
+        # Narrative strategy's message already says "Play continues." so
+        # at most one occurrence is correct; two would mean duplication.
+        count = response.text.count("Play continues.")
+        assert count <= 1, f"Expected at most 1 'Play continues.' (from strategy), got {count}"
+
+    def test_ironman_defeat_shows_game_over(self, tmp_path: Path):
+        """R8: ironman defeat → game-over interstitial with no choices."""
+        saves_dir = tmp_path / "saves"
+        _create_adventure_save(saves_dir, death_mode="ironman")
+        with _get_client(saves_dir) as client:
+            client.get("/adventure/Hero")
+            client.post(
+                "/adventure/Hero/action",
+                data={"choice": "accept_mission"},
+                headers=_ORIGIN,
+            )
+            controller = _get_cached_controller(client)
+            _force_defeat(controller)
+
+            response = client.post(
+                "/adventure/Hero/action",
+                data={"choice": "option:0"},
+                headers=_ORIGIN,
+            )
+        assert response.status_code == 200
+        # Game-over interstitial.
+        assert "game_over" in response.text
+        # No choice dock on terminal defeat.
+        assert "choice-dock" not in response.text
+
+    def test_checkpoint_defeat_rewinds_with_choices(self, tmp_path: Path):
+        """R2/AE6: checkpoint defeat → 200, state rewound, scene choices
+        present (not a 500, not a choiceless screen)."""
+        from src.engine.audit import EventKind
+        from src.engine.persistence import load
+
+        saves_dir = tmp_path / "saves"
+        save_path = _create_adventure_save(saves_dir, death_mode="checkpoint")
+        with _get_client(saves_dir) as client:
+            client.get("/adventure/Hero")
+            # Accept mission → enters a scene → takes checkpoint snapshot.
+            client.post(
+                "/adventure/Hero/action",
+                data={"choice": "accept_mission"},
+                headers=_ORIGIN,
+            )
+            controller = _get_cached_controller(client)
+            _force_defeat(controller)
+
+            response = client.post(
+                "/adventure/Hero/action",
+                data={"choice": "option:0"},
+                headers=_ORIGIN,
+            )
+        assert response.status_code == 200
+        # Defeat notice present.
+        assert "defeat" in response.text.lower()
+        # Fresh scene choices present — not a choiceless screen.
+        assert "choice-dock" in response.text
+        # REWIND_APPLIED boundary appended to the event log.
+        final_state = load(save_path)
+        rewind_events = [e for e in final_state.events if e.kind == EventKind.REWIND_APPLIED]
+        assert len(rewind_events) >= 1
+
+    def test_checkpoint_freetext_defeat_no_crash(self, tmp_path: Path):
+        """R2/AE6: checkpoint campaign, accepted free-text check forced to a
+        life-threatening miss → response is 200, state rewound, scene choices
+        present (not a 500, not a choiceless screen).
+
+        This exercises the defensive belt: on the restart edge the controller
+        may be freshly constructed and the CheckpointManager may lack a
+        snapshot. We simulate this by clearing the snapshot before the
+        free-text accept.
+        """
+        from src.engine.audit import EventKind
+        from src.engine.persistence import load as load_state
+        from src.engine.persistence import save as save_state
+
+        saves_dir = tmp_path / "saves"
+        save_path = _create_adventure_save(saves_dir, death_mode="checkpoint")
+
+        # Set up a save with an active mission and a pending free-text check.
+        state = load_state(save_path)
+        state.active_mission = {
+            "id": "m1",
+            "hook": {"patron": "P", "objective": "O", "complication": "C", "reward": "R"},
+            "scenes_completed": 0,
+            "min_scenes": 3,
+            "success_text": "",
+            "failure_text": "",
+            "abandonment_text": "",
+        }
+        state.pending_freetext = {
+            "text": "I brave the explosion",
+            "check": {
+                "label": "Brave",
+                "skill": "athletics",
+                "characteristic": "END",
+                "difficulty": "difficult",
+                "description": "",
+                "life_threatening": True,
+            },
+            "scaffold": {
+                "focus": "Burning Room",
+                "focus_description": "Flames everywhere",
+                "situation": "Desperate",
+                "npc_hint": "",
+            },
+            "options": [
+                {
+                    "label": "Retreat",
+                    "skill": "athletics",
+                    "characteristic": "END",
+                    "difficulty": "average",
+                    "description": "",
+                    "life_threatening": False,
+                }
+            ],
+        }
+        save_state(state, save_path)
+
+        with _get_client(saves_dir) as client:
+            # GET builds the session and reconstructs the controller.
+            client.get("/adventure/Hero")
+
+            # The controller is freshly constructed — simulate the restart
+            # edge by clearing the snapshot so the defensive belt fires.
+            controller = _get_cached_controller(client)
+            controller.checkpoint_mgr.clear()
+            assert not controller.checkpoint_mgr.has_snapshot
+
+            # Force defeat so the life-threatening check triggers it.
+            _force_defeat(controller)
+
+            response = client.post(
+                "/adventure/Hero/action",
+                data={"choice": "accept_freetext"},
+                headers=_ORIGIN,
+            )
+        assert response.status_code == 200
+        # State rewound — REWIND_APPLIED in the event log.
+        final_state = load_state(save_path)
+        rewind_events = [e for e in final_state.events if e.kind == EventKind.REWIND_APPLIED]
+        assert len(rewind_events) >= 1
+        # Fresh scene choices present.
+        assert "choice-dock" in response.text
+
+    def test_no_duplicated_play_continues_text(self, tmp_path: Path):
+        """R9: 'Play continues.' appears at most once — from the strategy
+        message — never duplicated by the controller appending its own."""
+        saves_dir = tmp_path / "saves"
+        _create_adventure_save(saves_dir, death_mode="narrative")
+        with _get_client(saves_dir) as client:
+            client.get("/adventure/Hero")
+            client.post(
+                "/adventure/Hero/action",
+                data={"choice": "accept_mission"},
+                headers=_ORIGIN,
+            )
+            controller = _get_cached_controller(client)
+            _force_defeat(controller)
+
+            response = client.post(
+                "/adventure/Hero/action",
+                data={"choice": "option:0"},
+                headers=_ORIGIN,
+            )
+        assert response.status_code == 200
+        # The narrative strategy's own message includes "Play continues."
+        # — that's the strategy owning the sentence. The controller must
+        # NOT add its own, which would produce two occurrences.
+        count = response.text.count("Play continues.")
+        assert count <= 1, f"Expected at most 1 'Play continues.' (strategy owns it), got {count}"

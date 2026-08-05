@@ -256,8 +256,9 @@ class TestResumeRouting:
         assert response.status_code == 303
         assert "/memorial/" in response.headers.get("location", "")
 
-    def test_resume_pending_freetext_routes_to_play(self, tmp_path: Path):
-        """A save with pending_freetext set routes to the play route (not adventure)."""
+    def test_resume_pending_freetext_routes_to_adventure(self, tmp_path: Path):
+        """U4: a save with pending_freetext routes to the adventure screen
+        (not the lifepath shell) so the interpretation prompt is restored."""
         from src.engine.persistence import save
         from src.engine.state import CampaignConfig, GameState
 
@@ -288,7 +289,62 @@ class TestResumeRouting:
                 follow_redirects=False,
             )
         assert response.status_code == 303
-        assert "/play/" in response.headers.get("location", "")
+        assert "/adventure/" in response.headers.get("location", "")
+
+    def test_resume_mustered_out_with_freetext_routes_to_adventure(self, tmp_path: Path):
+        """U4: a mustered-out character with pending free-text resumes to the
+        adventure screen with the interpretation prompt restored, not the
+        lifepath shell."""
+        from src.engine.persistence import save
+        from src.engine.state import CampaignConfig, GameState
+
+        state = GameState.new(seed=42)
+        state.campaign = CampaignConfig()
+        state.character.name = "MusteredPending"
+        state.character.alive = True
+        state.character.career = "navy"
+        state.character.characteristics = {
+            "STR": 7,
+            "DEX": 6,
+            "END": 5,
+            "INT": 8,
+            "EDU": 9,
+            "SOC": 6,
+        }
+        state.narrative_log.append("mustered_out=true")
+        state.pending_freetext = {
+            "text": "I sneak past the guard",
+            "check": {
+                "label": "Sneak",
+                "skill": "stealth",
+                "characteristic": "DEX",
+                "difficulty": "average",
+            },
+            "scaffold": {
+                "focus": "Corridor",
+                "focus_description": "Dim",
+                "situation": "Guarded",
+                "npc_hint": "",
+            },
+            "options": [],
+        }
+        saves_dir = tmp_path / "saves"
+        saves_dir.mkdir(parents=True, exist_ok=True)
+        save(state, saves_dir / "MusteredPending.json")
+
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/resume",
+                data={"save": "MusteredPending"},
+                headers={"Origin": "http://127.0.0.1"},
+                follow_redirects=False,
+            )
+        assert response.status_code == 303
+        location = response.headers.get("location", "")
+        assert "/adventure/" in location, f"Expected /adventure/ in location, got {location}"
+        assert "/play/" not in location, (
+            f"Mustered-out free-text save must NOT route to /play/, got {location}"
+        )
 
     def test_resume_mustered_out_routes_to_adventure(self, tmp_path: Path):
         """A mustered-out character with full characteristics routes to adventure."""
