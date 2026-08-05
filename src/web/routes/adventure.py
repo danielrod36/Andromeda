@@ -33,14 +33,13 @@ _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 
-def _render_adventure(
-    request: Request,
+def _adventure_context(
     save_name: str,
     controller: AdventureController,
     view: AdventureView | None = None,
     recap=None,
-) -> HTMLResponse:
-    """Render the adventure screen from a view (or the controller's current view).
+) -> dict:
+    """Build the Jinja context for the adventure screen.
 
     When *view* is provided (e.g. the return value of ``apply_choice``), it is
     rendered directly — this preserves receipts, defeat interstitials, and
@@ -53,34 +52,65 @@ def _render_adventure(
 
     # U16: Extract tool-call pills from recent events.
     from src.game.pills import extract_recent_pills
-    from src.game.theming import resolve_theme_attr
 
     pills = extract_recent_pills(
         controller.state.events,
         since_seq=controller.action_start_seq - 1,
     )
 
-    return templates.TemplateResponse(
-        request,
-        "adventure.html",
-        {
-            "save_name": save_name,
-            "theme": resolve_theme_attr(controller.state.campaign.theme_pack),
-            "phase": view.phase,
-            "prompt": view.prompt,
-            "choices": view.choices,
-            "receipts": view.receipts,
-            "scaffold_text": view.scaffold_text,
-            "defeat": view.defeat,
-            "mission_ending": view.mission_ending,
-            "change_lines": view.change_lines,
-            "pills": pills,
-            "character_name": char.name,
-            "character_career": char.career or "—",
-            "character_terms": char.terms,
-            "recap": recap,
-        },
-    )
+    return {
+        "save_name": save_name,
+        "phase": view.phase,
+        "prompt": view.prompt,
+        "choices": view.choices,
+        "receipts": view.receipts,
+        "scaffold_text": view.scaffold_text,
+        "defeat": view.defeat,
+        "mission_ending": view.mission_ending,
+        "change_lines": view.change_lines,
+        "pills": pills,
+        "character_name": char.name,
+        "character_career": char.career or "—",
+        "character_terms": char.terms,
+        "recap": recap,
+    }
+
+
+def _render_adventure(
+    request: Request,
+    save_name: str,
+    controller: AdventureController,
+    view: AdventureView | None = None,
+    recap=None,
+) -> HTMLResponse:
+    """Render the full adventure page (GET).
+
+    The page wraps the shared spine partial inside `<section id="spine">` and
+    includes the client-managed drawer.
+    """
+    from src.game.theming import resolve_theme_attr
+
+    context = _adventure_context(save_name, controller, view, recap)
+    context["theme"] = resolve_theme_attr(controller.state.campaign.theme_pack)
+    return templates.TemplateResponse(request, "adventure.html", context)
+
+
+def _render_adventure_fragment(
+    request: Request,
+    save_name: str,
+    controller: AdventureController,
+    view: AdventureView | None = None,
+) -> HTMLResponse:
+    """Render the adventure POST fragment (U5, R10/R11, AE5).
+
+    Returns ONLY the spine inner content plus one OOB block: the status
+    strip.  No ``<html>``/``<body>``/duplicate ``#spine`` — the fragment is
+    swapped into the existing ``#spine`` via ``hx-swap="innerHTML"``.  The
+    drawer is never included, so its open state and loaded tab content
+    survive every action.
+    """
+    context = _adventure_context(save_name, controller, view)
+    return templates.TemplateResponse(request, "adventure_action.html", context)
 
 
 @router.get("/{save_name}", response_class=HTMLResponse)
@@ -133,7 +163,7 @@ async def adventure_action(save_name: str, request: Request) -> HTMLResponse:
                 evict_session(save_name, DEFAULT_SAVES_DIR, request)
                 return conflict_notice()
 
-        return _render_adventure(request, save_name, controller, view=view)
+        return _render_adventure_fragment(request, save_name, controller, view=view)
     finally:
         session.end_action()
 
@@ -172,6 +202,6 @@ async def adventure_freetext(save_name: str, request: Request) -> HTMLResponse:
                 evict_session(save_name, DEFAULT_SAVES_DIR, request)
                 return conflict_notice()
 
-        return _render_adventure(request, save_name, controller, view=view)
+        return _render_adventure_fragment(request, save_name, controller, view=view)
     finally:
         session.end_action()

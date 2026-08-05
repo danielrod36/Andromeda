@@ -1,0 +1,43 @@
+{# Lifepath spine inner content — shared by GET (full page) and POST
+   (fragment response).  Does NOT include the `<section id="spine">`
+   wrapper; the caller wraps it (GET) or injects it as innerHTML (POST). #}
+{% include "partials/recap.html" %}
+
+{% if receipts %}
+{% for receipt in receipts %}
+<div class="receipt">{{ receipt }}</div>
+{% endfor %}
+{% endif %}
+
+<p class="prompt">{{ prompt }}</p>
+
+<!-- Choice cards -->
+{% if choices %}
+<div id="choice-dock">
+  {% for choice in choices %}
+  <form method="post" action="/play/{{ save_name }}/action"
+        hx-post="/play/{{ save_name }}/action"
+        hx-target="#spine"
+        hx-swap="innerHTML"
+        hx-disabled-elt="button"
+        style="display:inline">
+    <input type="hidden" name="choice" value="{{ choice.option_id }}">
+    <button type="submit" class="choice-card{% if choice.dimmed %} dimmed{% endif %}">
+      {{ choice.label }}
+      {% if choice.description %}
+      <small>{{ choice.description }}</small>
+      {% endif %}
+      {% if choice.requirement %}
+      <small class="requirement">{{ choice.requirement }}</small>
+      {% endif %}
+    </button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if phase == "complete" %}
+<div id="choice-dock">
+  <a href="/adventure/{{ save_name }}" class="action-button">Begin Adventure</a>
+</div>
+{% endif %}

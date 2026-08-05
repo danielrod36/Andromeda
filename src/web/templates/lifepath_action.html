@@ -1,0 +1,23 @@
+{# Lifepath POST fragment response (U5, R10/R11, AE5).
+
+   Renders ONLY the spine inner content plus one out-of-band block: the
+   status strip.  The drawer is NEVER included — its open state and
+   loaded tab content survive every action.  The lifepath drawer pin
+   travels as a `data-drawer-pinned` attribute on the OOB status strip
+   so `app.js` can open/close the drawer to match on each swap without
+   touching drawer content. #}
+{% include "partials/lifepath_spine.html" %}
+<header id="status-strip" hx-swap-oob="true"
+        data-drawer-pinned="{{ 'true' if drawer_pinned else 'false' }}">
+  <span class="status-char-ref">{{ character_name }}</span>
+  <span class="status-mission">{{ character_career }}</span>
+  <span class="status-credits">Terms: {{ character_terms }}</span>
+  <span class="status-llm">{{ phase }}</span>
+  <button id="drawer-toggle" class="status-link drawer-toggle"
+          aria-expanded="{{ 'true' if drawer_pinned else 'false' }}"
+          aria-controls="drawer"
+          aria-label="Toggle character details drawer">
+    Details
+  </button>
+  <div id="action-notice" aria-live="polite" role="status"></div>
+</header>
