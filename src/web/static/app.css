@@ -413,6 +413,96 @@ body {
 
 .status-link:hover { color: var(--vellum); }
 
+/* SSE narration blocks (U8, R14) */
+#narration-stream { margin: 0.5rem 0; }
+
+.narration-block {
+  font-family: var(--font-prose);
+  margin-bottom: 0.75rem;
+}
+
+.badge-block {
+  display: inline-block;
+  font-family: var(--font-chrome);
+  font-size: 0.8rem;
+  color: var(--haze);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
+  border-radius: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  margin: 0.25rem 0;
+}
+
+.change-block {
+  font-family: var(--font-chrome);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.divider-block {
+  border: none;
+  border-top: 1px solid var(--border-tint);
+  margin: 1rem 0;
+}
+
+.error-block {
+  color: var(--signal-red);
+  font-family: var(--font-chrome);
+  font-size: 0.9rem;
+}
+
+/* Retry control (U8, R14, AE4) */
+.retry-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  flex-wrap: wrap;
+}
+
+.retry-control input {
+  flex: 1;
+  min-width: 12rem;
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--vellum);
+  font-family: var(--font-prose);
+  font-size: 1rem;
+}
+
+.retry-control input:focus {
+  outline: none;
+  border-color: var(--brass);
+}
+
+.retry-control button {
+  font-family: var(--font-chrome);
+  font-size: 0.9rem;
+  color: var(--brass);
+  background: var(--surface-tint);
+  border: 1px solid var(--border-tint);
+  border-radius: 0.25rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.retry-control button:hover { color: var(--vellum); }
+
+.retry-count {
+  font-family: var(--font-chrome);
+  font-size: 0.8rem;
+  color: var(--haze);
+}
+
+.retry-disabled {
+  color: var(--haze);
+  font-style: italic;
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

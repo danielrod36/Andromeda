@@ -337,3 +337,154 @@ class TestTemplateAccessibility:
     def test_drawer_tabs_have_aria_label(self, tmp_path: Path):
         html = self._adventure_html(tmp_path / "saves")
         assert 'aria-label="Detail categories"' in html
+
+
+# ---------------------------------------------------------------------------
+# U8: SSE narration and guided-retry client wiring — static JS + template checks.
+# ---------------------------------------------------------------------------
+
+
+class TestNarrationClientJS:
+    """U8: static checks on app.js for the SSE narration + retry client."""
+
+    @property
+    def _app_js(self) -> str:
+        return (_STATIC_DIR / "app.js").read_text()
+
+    def test_eventsource_used_for_narration(self):
+        """Vanilla EventSource opens the narration GET stream."""
+        js = self._app_js
+        assert "EventSource" in js
+        assert "/narration" in js
+
+    def test_fetch_used_for_retry(self):
+        """Retry uses fetch POST with a stream reader (not EventSource)."""
+        js = self._app_js
+        assert "fetch" in js
+        assert "/retry" in js
+        assert "getReader" in js
+
+    def test_spine_target_filter(self):
+        """Narration fires only for htmx swaps whose target is #spine."""
+        js = self._app_js
+        assert '"spine"' in js
+        assert "e.detail" in js or "detail.target" in js
+
+    def test_single_live_source(self):
+        """At most one live EventSource — existing source closed before opening."""
+        js = self._app_js
+        assert "narrationSource" in js
+        assert "closeNarration" in js
+        assert ".close()" in js
+
+    def test_close_on_done_or_error(self):
+        """EventSource is closed when done or error blocks arrive."""
+        js = self._app_js
+        assert '"done"' in js
+        assert '"error"' in js
+        assert "closeNarration" in js
+
+    def test_receipt_blocks_skipped_client_side(self):
+        """Receipt blocks are skipped — already in the POST fragment."""
+        js = self._app_js
+        assert "receipt" in js
+
+    def test_llm_configured_check(self):
+        """Retry control hidden unless data-llm-configured is 'true'."""
+        js = self._app_js
+        assert "data-llm-configured" in js
+        assert '"true"' in js
+
+    def test_retry_cap_enforced_client_side(self):
+        """Client-side cap mirrors MAX_RETRIES_PER_BEAT (3)."""
+        js = self._app_js
+        assert "MAX_RETRIES" in js
+        assert "3" in js
+
+    def test_retry_attempt_resets_on_action_swap(self):
+        """Attempt counter resets when a new action swap hits #spine."""
+        js = self._app_js
+        assert "retryAttempt = 0" in js
+
+    def test_retry_steering_text_sent(self):
+        """Retry POST body includes steering_text and attempt fields."""
+        js = self._app_js
+        assert "steering_text" in js
+        assert "attempt" in js
+
+    def test_block_renderer_handles_all_types(self):
+        """Block renderer produces elements for each typed block."""
+        js = self._app_js
+        assert "narration-block" in js
+        assert "change-block" in js
+        assert "badge-block" in js
+        assert "divider-block" in js
+        assert "error-block" in js
+
+
+class TestNarrationRegionTemplate:
+    """U8: narration region and LLM data attribute in the adventure template."""
+
+    def test_narration_stream_region_exists(self, tmp_path: Path):
+        """The #narration-stream region exists in the rendered adventure page."""
+        saves_dir = tmp_path / "saves"
+        _create_save(saves_dir, theme_pack="scifi")
+        with _get_client(saves_dir) as client:
+            resp = client.get("/adventure/Hero")
+        assert 'id="narration-stream"' in resp.text
+
+    def test_llm_configured_attribute_present(self, tmp_path: Path):
+        """The body tag carries data-llm-configured with a boolean value."""
+        saves_dir = tmp_path / "saves"
+        _create_save(saves_dir, theme_pack="scifi")
+        with _get_client(saves_dir) as client:
+            resp = client.get("/adventure/Hero")
+        assert "data-llm-configured" in resp.text
+        # Must be either 'true' or 'false' — not empty or unrendered.
+        assert (
+            'data-llm-configured="true"' in resp.text or 'data-llm-configured="false"' in resp.text
+        )
+
+    def test_narration_region_in_fragment_too(self, tmp_path: Path):
+        """The narration region appears in POST fragment responses (inside spine)."""
+        saves_dir = tmp_path / "saves"
+        _create_save(saves_dir, theme_pack="scifi")
+        with _get_client(saves_dir) as client:
+            resp = client.post(
+                "/adventure/Hero/action",
+                data={"choice": ""},
+                headers={"Origin": "http://127.0.0.1"},
+            )
+        assert 'id="narration-stream"' in resp.text
+
+
+class TestNarrationCSS:
+    """U8: typed-block CSS styles exist for the narration region."""
+
+    @property
+    def _app_css(self) -> str:
+        return (_STATIC_DIR / "app.css").read_text()
+
+    def test_narration_stream_style_exists(self):
+        assert "#narration-stream" in self._app_css
+
+    def test_narration_block_style_exists(self):
+        assert ".narration-block" in self._app_css
+
+    def test_badge_block_style_exists(self):
+        assert ".badge-block" in self._app_css
+
+    def test_change_block_style_exists(self):
+        assert ".change-block" in self._app_css
+
+    def test_divider_block_style_exists(self):
+        assert ".divider-block" in self._app_css
+
+    def test_error_block_style_exists(self):
+        assert ".error-block" in self._app_css
+
+    def test_retry_control_style_exists(self):
+        assert ".retry-control" in self._app_css
+
+    def test_retry_disabled_style_exists(self):
+        assert ".retry-disabled" in self._app_css

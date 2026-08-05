@@ -48,6 +48,10 @@
 <div class="mission-ending">Mission resolved: {{ mission_ending }}</div>
 {% endif %}
 
+{# U8: SSE narration region — cleared per beat, appended to by the client.
+   Positioned above the choice dock so streamed narration reads first. #}
+<div id="narration-stream" aria-live="polite"></div>
+
 <p class="prompt">{{ prompt if not defeat else "Choose your action:" }}</p>
 
 <!-- Choice dock -->
