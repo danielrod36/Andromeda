@@ -114,8 +114,7 @@ def discover_saves(saves_dir: str | Path) -> list[SaveInfo]:
 def determine_resume_route(state: GameState) -> str:
     """Determine which web route a saved game should resume into (U6).
 
-    This is the web-shell resume predicate — it replaces the TUI's
-    ``"mustered_out=true"`` string-sentinel heuristic. The TUI's own
+    This is the web-shell resume predicate. The TUI's own
     flag-scanning resume logic is unchanged (KTD-3).
 
     Routes:

@@ -16,31 +16,21 @@ def _get_client() -> TestClient:
 
 
 class TestAppBoot:
-    """U4: the app boots and serves the shell page."""
+    """U4/U9: the app boots and the root route redirects to the menu."""
 
-    def test_get_index_returns_200(self):
-        """GET / returns 200 with HTML content."""
+    def test_get_index_redirects_to_menu(self):
+        """GET / redirects to /menu (U9)."""
+        with _get_client() as client:
+            response = client.get("/", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/menu"
+
+    def test_get_index_follows_to_menu(self):
+        """GET / following redirects lands on the menu page."""
         with _get_client() as client:
             response = client.get("/")
         assert response.status_code == 200
-        assert "text/html" in response.headers.get("content-type", "")
-
-    def test_index_has_four_regions(self):
-        """The shell page contains all four layout regions."""
-        with _get_client() as client:
-            response = client.get("/")
-        html = response.text
-        assert 'id="status-strip"' in html
-        assert 'id="spine"' in html
-        assert 'id="choice-dock"' in html
-        assert 'id="freetext-bar"' in html
-
-    def test_index_links_token_stylesheet(self):
-        """The token stylesheet is linked in the page."""
-        with _get_client() as client:
-            response = client.get("/")
-        html = response.text
-        assert "/static/tokens.css" in html
+        assert "Andromeda" in response.text
 
     def test_entry_module_importable(self):
         """The __main__ module is importable and constructs the app."""
@@ -109,7 +99,7 @@ class TestSameOriginGuard:
                 data={"test": "value"},
                 headers={"Origin": "http://127.0.0.1"},
             )
-        # 405 is expected — there's no POST handler for / yet.
+        # 405 is expected — there's no POST handler for /.
         # The point is we get past the guard (not 403).
         assert response.status_code != 403
 

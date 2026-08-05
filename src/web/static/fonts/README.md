@@ -1,22 +1,23 @@
 # Vendored Fonts
 
-Andromeda vendors fonts locally (offline-first; no CDN). Download these
-woff2 files and place them here:
+Andromeda vendors fonts locally (offline-first; no CDN). These woff2 files
+were downloaded from Fontsource's jsDelivr CDN, pinned at version 5.3.0
+(verified HTTP 200 on 2026-08-04).
 
 ## Literata (prose)
-- URL: https://github.com/google/fonts/tree/main/ofl/literata
-- Files: `Literata-Regular.woff2`, `Literata-Italic.woff2`, `Literata-Bold.woff2`
-- License: SIL Open Font License 1.1 (copy `OFL.txt` from the repo)
+
+- Source: `@fontsource/literata@5.3.0`
+- Files: `literata-latin-400-normal.woff2`, `literata-latin-700-normal.woff2`, `literata-latin-400-italic.woff2`
+- License: SIL Open Font License 1.1
 
 ## IBM Plex Sans (UI chrome)
-- URL: https://github.com/IBM/plex/tree/main/IBM-Plex-Sans/fonts/complete/woff2
-- Files: `IBMPlexSans-Regular.woff2`, `IBMPlexSans-Bold.woff2`
+
+- Source: `@fontsource/ibm-plex-sans@5.3.0`
+- Files: `ibm-plex-sans-latin-400-normal.woff2`, `ibm-plex-sans-latin-700-normal.woff2`
 - License: SIL Open Font License 1.1
 
 ## IBM Plex Mono (engine voice)
-- URL: https://github.com/IBM/plex/tree/main/IBM-Plex-Mono/fonts/complete/woff2
-- Files: `IBMPlexMono-Regular.woff2`, `IBMPlexMono-Bold.woff2`
-- License: SIL Open Font License 1.1
 
-Until the woff2 files are present, the CSS falls back to system fonts
-(Georgia for prose, system-ui for chrome, SF Mono/Consolas for engine voice).
+- Source: `@fontsource/ibm-plex-mono@5.3.0`
+- Files: `ibm-plex-mono-latin-400-normal.woff2`, `ibm-plex-mono-latin-700-normal.woff2`
+- License: SIL Open Font License 1.1

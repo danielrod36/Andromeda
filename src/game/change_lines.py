@@ -154,9 +154,7 @@ def _fmt_mission_resolved(changes: dict) -> ChangeLine | None:
 
 
 def _fmt_benefit(changes: dict) -> ChangeLine | None:
-    """Format ``lifepath_benefit`` — cash mustering-out benefits only."""
-    if changes.get("benefit_type") != "cash":
-        return None
+    """Format ``lifepath_benefit`` — cash and material mustering-out benefits."""
     result_text = changes.get("result_text", "")
     if not result_text:
         return None

@@ -195,7 +195,8 @@ class TestChangeLineDerivation:
         assert "50,000 Cr" in line.text
         assert line.css_class == CHANGE_POSITIVE
 
-    def test_benefit_material_suppressed(self):
+    def test_benefit_material_emits_change_line(self):
+        """U9: material benefits now produce a positive change-line too."""
         event = _make_event(
             "lifepath_benefit",
             {
@@ -207,7 +208,10 @@ class TestChangeLineDerivation:
             seq=1,
             kind=EventKind.ROLL,
         )
-        assert derive_change_line(event) is None
+        line = derive_change_line(event)
+        assert line is not None
+        assert "Low Pulsar" in line.text
+        assert line.css_class == CHANGE_POSITIVE
 
     def test_aging_apply(self):
         event = _make_event(

@@ -4,46 +4,65 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Andromeda — New Campaign</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/tokens.css">
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body data-theme="scifi">
   <main id="spine">
     <h1>New Campaign</h1>
+    {% if errors %}
+    <div role="alert" class="config-error-summary">
+      <p>Please correct the highlighted fields below.</p>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var firstError = document.querySelector('[aria-invalid="true"]');
+        if (firstError) firstError.focus();
+      });
+    </script>
+    {% endif %}
     <form method="post" action="/config">
       <p>
         <label for="name">Character Name</label>
-        <input type="text" id="name" name="name" value="{{ name }}" required>
-        {% if errors.name %}<span class="error">{{ errors.name }}</span>{% endif %}
+        <input type="text" id="name" name="name" value="{{ name }}" required
+               {% if errors.name %}aria-invalid="true" aria-describedby="name-error"{% endif %}>
+        {% if errors.name %}<span class="error" id="name-error">{{ errors.name }}</span>{% endif %}
       </p>
       <p>
         <label for="seed">Seed (optional — leave blank for random)</label>
-        <input type="text" id="seed" name="seed" value="{{ seed }}">
-        {% if errors.seed %}<span class="error">{{ errors.seed }}</span>{% endif %}
+        <input type="text" id="seed" name="seed" value="{{ seed }}"
+               {% if errors.seed %}aria-invalid="true" aria-describedby="seed-error"{% endif %}>
+        {% if errors.seed %}<span class="error" id="seed-error">{{ errors.seed }}</span>{% endif %}
       </p>
       <p>
         <label for="theme_pack">Theme Pack</label>
-        <select id="theme_pack" name="theme_pack">
+        <select id="theme_pack" name="theme_pack"
+                {% if errors.theme_pack %}aria-invalid="true" aria-describedby="theme_pack-error"{% endif %}>
           {% for pid, pname in packs %}
           <option value="{{ pid }}" {% if theme_pack == pid %}selected{% endif %}>{{ pname }}</option>
           {% endfor %}
         </select>
-        {% if errors.theme_pack %}<span class="error">{{ errors.theme_pack }}</span>{% endif %}
+        {% if errors.theme_pack %}<span class="error" id="theme_pack-error">{{ errors.theme_pack }}</span>{% endif %}
       </p>
       <p>
         <label for="resolution_profile">Resolution Profile</label>
-        <select id="resolution_profile" name="resolution_profile">
+        <select id="resolution_profile" name="resolution_profile"
+                {% if errors.resolution_profile %}aria-invalid="true" aria-describedby="resolution_profile-error"{% endif %}>
           <option value="narrative" {% if resolution_profile == "narrative" %}selected{% endif %}>Narrative (PbtA-style)</option>
           <option value="classic" {% if resolution_profile == "classic" %}selected{% endif %}>Classic (Success/Failure)</option>
         </select>
+        {% if errors.resolution_profile %}<span class="error" id="resolution_profile-error">{{ errors.resolution_profile }}</span>{% endif %}
       </p>
       <p>
         <label for="death_mode">Death Mode</label>
-        <select id="death_mode" name="death_mode">
+        <select id="death_mode" name="death_mode"
+                {% if errors.death_mode %}aria-invalid="true" aria-describedby="death_mode-error"{% endif %}>
           <option value="narrative" {% if death_mode == "narrative" %}selected{% endif %}>Narrative (injuries, no death)</option>
           <option value="checkpoint" {% if death_mode == "checkpoint" %}selected{% endif %}>Checkpoint (rewind on death)</option>
           <option value="ironman" {% if death_mode == "ironman" %}selected{% endif %}>Ironman (permanent death)</option>
         </select>
+        {% if errors.death_mode %}<span class="error" id="death_mode-error">{{ errors.death_mode }}</span>{% endif %}
       </p>
       <button type="submit">Begin Lifepath</button>
       <a href="/menu">Cancel</a>

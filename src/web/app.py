@@ -21,15 +21,13 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
 
 # Absolute paths so the app works regardless of CWD.
 _BASE_DIR = Path(__file__).resolve().parent
 _STATIC_DIR = _BASE_DIR / "static"
-_TEMPLATE_DIR = _BASE_DIR / "templates"
 
 
 class SameOriginGuard(BaseHTTPMiddleware):
@@ -125,10 +123,6 @@ def create_app() -> FastAPI:
     # Static files: CSS, JS, fonts, vendored htmx.
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
-    # Templates: autoescape is ON by default in Jinja2 — the security
-    # contract is that |safe is never used on non-markdown strings.
-    templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
-
     # Security: same-origin guard for mutation endpoints.
     app.add_middleware(SameOriginGuard)
 
@@ -175,8 +169,8 @@ def create_app() -> FastAPI:
     app.include_router(inspector_router)
 
     @app.get("/", response_class=HTMLResponse)
-    async def index(request: Request) -> HTMLResponse:
-        """Serve the base layout shell — four regions, no gameplay yet (U4)."""
-        return templates.TemplateResponse(request, "base.html", {"theme": "scifi"})
+    async def index(request: Request) -> RedirectResponse:
+        """Redirect to the main menu (U9)."""
+        return RedirectResponse(url="/menu", status_code=303)
 
     return app

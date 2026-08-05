@@ -164,6 +164,42 @@ class TestCampaignConfig:
         assert (saves_dir / "Han_Solo.json").exists()
         assert not (saves_dir / "Han Solo.json").exists()
 
+    def test_config_post_duplicate_name_rejected(self, tmp_path: Path):
+        """U9: submitting a name that already exists re-renders with error and
+        does not overwrite the existing save."""
+        from src.engine.persistence import save
+        from src.engine.state import CampaignConfig, GameState
+
+        saves_dir = tmp_path / "saves"
+        saves_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create an existing save named "Hero".
+        state = GameState.new(seed=99)
+        state.campaign = CampaignConfig()
+        state.character.name = "Hero"
+        save(state, saves_dir / "Hero.json")
+        original_mtime = (saves_dir / "Hero.json").stat().st_mtime
+
+        with _get_client(saves_dir) as client:
+            response = client.post(
+                "/config",
+                data={
+                    "name": "Hero",
+                    "seed": "12345",
+                    "theme_pack": "scifi",
+                    "resolution_profile": "narrative",
+                    "death_mode": "narrative",
+                },
+                headers={"Origin": "http://127.0.0.1"},
+            )
+        # Should re-render the form (200), not redirect.
+        assert response.status_code == 200
+        assert "already exists" in response.text
+        # The error summary carries role="alert".
+        assert 'role="alert"' in response.text
+        # The original save must not be overwritten.
+        assert (saves_dir / "Hero.json").stat().st_mtime == original_mtime
+
 
 class TestSavesList:
     """U6: the saves page renders save metadata."""

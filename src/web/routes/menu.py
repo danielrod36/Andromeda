@@ -1,9 +1,7 @@
 """Menu, campaign config, saves, and resume routes for the web shell (U6).
 
 These routes are the web shell's front door: main menu, new-campaign config
-form, save list, and resume routing. Gameplay routes (lifepath U7, adventure
-U9) are added in later units; this unit provides the routing infrastructure
-and the config→save→resume flow.
+form, save list, and resume routing.
 """
 
 from __future__ import annotations
@@ -99,6 +97,12 @@ async def config_submit(request: Request) -> HTMLResponse | RedirectResponse:
 
     if not name:
         errors["name"] = "Character name is required."
+
+    # Collision check: reject if a save with this name already exists.
+    if name:
+        candidate = resolve_save_path(get_saves_dir(), name)
+        if candidate.exists():
+            errors["name"] = f"A save named '{name}' already exists."
 
     # Seed: optional (auto-generate) or must be a non-negative integer.
     if seed_str:
