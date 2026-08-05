@@ -169,6 +169,12 @@
   var retryAttempt = 0;         // resets to 0 on each action swap into #spine
 
   function getSaveName() {
+    // Prefer the data attribute (always available in the rendered page);
+    // fall back to URL parsing for robustness.
+    var region = document.getElementById("narration-stream");
+    if (region && region.getAttribute("data-save-name")) {
+      return region.getAttribute("data-save-name");
+    }
     var parts = window.location.pathname.split("/");
     return parts[parts.length - 1] || parts[parts.length - 2] || "";
   }
@@ -233,19 +239,26 @@
         return;
       }
       if (data.type === "done") {
-        renderBlock(data);           // no-op for done, but harmless
         closeNarration();
         revealRetryControl();
       } else if (data.type === "error") {
         renderBlock(data);
         closeNarration();
+        revealRetryControl();
       } else {
         renderBlock(data);
       }
     };
 
     narrationSource.onerror = function () {
+      // Transport-level failure (network drop, server crash).  Show a
+      // fallback error and reveal the retry control so the player can
+      // attempt a retelling.  If the server already sent an ``error``
+      // block, closeNarration() was called in onmessage and the
+      // EventSource will not dispatch onerror after explicit close.
+      renderBlock({ type: "error", content: "Narration stream interrupted." });
       closeNarration();
+      revealRetryControl();
     };
   }
 
@@ -330,8 +343,6 @@
     body.set("steering_text", steeringText);
     body.set("attempt", String(retryAttempt));
 
-    var hadError = false;
-
     fetch("/stream/" + encodeURIComponent(saveName) + "/retry", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -354,10 +365,7 @@
               } catch (err) {
                 continue;
               }
-              if (data.type === "error") {
-                hadError = true;
-                renderBlock(data);
-              } else if (data.type !== "done") {
+              if (data.type !== "done") {
                 renderBlock(data);
               }
             }
@@ -369,7 +377,9 @@
         reader.read().then(function (result) {
           if (result.done) {
             if (buffer.trim()) processBuffer();
-            if (!hadError) revealRetryControl();
+            // Always reveal the retry control on stream end — the
+            // attempt counter already prevents over-cap retries.
+            revealRetryControl();
             return;
           }
           buffer += decoder.decode(result.value, { stream: true });
