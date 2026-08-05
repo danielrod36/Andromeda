@@ -566,19 +566,9 @@ class LifepathController:
             # so it survives a page refresh / controller rebuild (U2).
             receipts: list[str] = []
             outcome = self._get_reenlist_outcome(state)
-            for e in reversed(state.events):
-                if e.command_type == "lifepath_reenlistment":
-                    if e.roll is not None:
-                        raw = sum(e.roll.rolls)
-                        target_val = (
-                            career.re_enlistment if career and career.re_enlistment else "—"
-                        )
-                        receipts.append(f"Re-enlistment: 2D6={raw} vs {target_val} -> {outcome}")
-                    elif outcome == "must_retire":
-                        receipts.append("Re-enlistment: mandatory retirement (7+ terms)")
-                    else:
-                        receipts.append(f"Re-enlistment: {outcome}")
-                    break
+            receipt = self._format_reenlistment_receipt(state, char.career, outcome)
+            if receipt:
+                receipts.append(receipt)
             return PhaseView(
                 phase=phase,
                 prompt=(
@@ -1300,6 +1290,11 @@ class LifepathController:
                 prompt="The character did not survive.",
                 receipts=receipts,
             )
+        # Set rank_title for all non-death paths — mishap/crisis callers
+        # may have skipped finalize_term (kilo-code-bot review feedback).
+        career_id = self._engine.state.character.career
+        if career_id:
+            self._runner.finalize_term(career_id, result)
         if result.mishap:
             # Career ended via mishap — end career, then choose or muster.
             state = self._engine.state
@@ -1344,21 +1339,10 @@ class LifepathController:
             outcome = self._runner.run_reenlistment_step(career_id)
             self._engine.apply(SetFlagCommand(key="reenlist_outcome", value=outcome))
 
-        # Find the reenlistment event for the receipt.
-        reenlist_event = None
-        for e in reversed(state.events):
-            if e.command_type == "lifepath_reenlistment":
-                reenlist_event = e
-                break
-        if reenlist_event and reenlist_event.roll is not None:
-            raw = sum(reenlist_event.roll.rolls)
-            career = self._pack.careers.get(career_id or "")
-            target_val = career.re_enlistment if career and career.re_enlistment else "—"
-            receipts.append(f"Re-enlistment: 2D6={raw} vs {target_val} -> {outcome}")
-        elif outcome == "must_retire":
-            receipts.append("Re-enlistment: mandatory retirement (7+ terms)")
-        else:
-            receipts.append(f"Re-enlistment: {outcome}")
+        # Build the re-enlistment receipt (shared with get_phase_view).
+        receipt = self._format_reenlistment_receipt(state, career_id, outcome)
+        if receipt:
+            receipts.append(receipt)
 
         if outcome == "must_continue":
             # Auto-advance to next term.
@@ -1441,3 +1425,25 @@ class LifepathController:
         dm_str = f"+DM({dm})" if dm else ""
         tier_str = f" [{tier}]" if tier else ""
         return f"{label}: 2D6({raw}){dm_str}={total} vs {target} -> {outcome}{tier_str}"
+
+    def _format_reenlistment_receipt(
+        self, state: GameState, career_id: str, outcome: str | None
+    ) -> str | None:
+        """Format the re-enlistment receipt from the most recent event, or None.
+
+        Shared by ``get_phase_view`` (resume reconstruction) and
+        ``_resolve_reenlistment_and_view`` (live roll) so the format stays
+        in one place.
+        """
+        career = self._pack.careers.get(career_id or "")
+        for e in reversed(state.events):
+            if e.command_type != "lifepath_reenlistment":
+                continue
+            if e.roll is not None:
+                raw = sum(e.roll.rolls)
+                target_val = career.re_enlistment if career and career.re_enlistment else "—"
+                return f"Re-enlistment: 2D6={raw} vs {target_val} -> {outcome}"
+            if outcome == "must_retire":
+                return "Re-enlistment: mandatory retirement (7+ terms)"
+            return f"Re-enlistment: {outcome}"
+        return None
