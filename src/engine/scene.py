@@ -191,6 +191,10 @@ class RegisterFactCommand(Command):
 
     name: str
     description: str = ""
+    #: Provenance stamp — set to ``"llm"`` by LLM tool wrappers so pill
+    #: extraction can distinguish LLM-originated events from engine-originated
+    #: ones (KTD-R4, R13).  Engine code never sets this field.
+    origin: str | None = None
 
     def validate(self, state: GameState) -> None:
         if not self.name or not self.name.strip():
@@ -202,11 +206,14 @@ class RegisterFactCommand(Command):
             description=self.description,
         )
         state.entities.append(fact)
+        changes: dict = {"name": self.name, "description": self.description}
+        if self.origin is not None:
+            changes["origin"] = self.origin
         return Event(
             kind=EventKind.STATE_CHANGE,
             command_type=self.command_type,
             description=f"Registered narrative fact: {self.name}",
-            changes={"name": self.name, "description": self.description},
+            changes=changes,
         )
 
 
@@ -295,6 +302,10 @@ class RatifyFactCommand(Command):
 
     fact_name: str
     stats_description: str
+    #: Provenance stamp — set to ``"llm"`` by LLM tool wrappers so pill
+    #: extraction can distinguish LLM-originated events from engine-originated
+    #: ones (KTD-R4, R13).  Engine code never sets this field.
+    origin: str | None = None
 
     def validate(self, state: GameState) -> None:
         if not self.fact_name or not self.fact_name.strip():
@@ -312,14 +323,17 @@ class RatifyFactCommand(Command):
         if fact is None:
             raise ValueError(f"Cannot ratify fact {self.fact_name!r}: not found in entities")
         fact.description = (f"{fact.description} {self.stats_description}").strip()
+        changes: dict = {
+            "fact_name": self.fact_name,
+            "stats_description": self.stats_description,
+        }
+        if self.origin is not None:
+            changes["origin"] = self.origin
         return Event(
             kind=EventKind.STATE_CHANGE,
             command_type=self.command_type,
             description=(f"Ratified narrative fact as NPC: {self.fact_name}"),
-            changes={
-                "fact_name": self.fact_name,
-                "stats_description": self.stats_description,
-            },
+            changes=changes,
         )
 
 

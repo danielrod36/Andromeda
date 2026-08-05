@@ -74,7 +74,7 @@ async def set_narrative_flag(ctx: RunContext[ToolDeps], key: str, value: str) ->
             f"(e.g. 'met_npc'): got {key!r}"
         )
 
-    cmd = SetFlagCommand(key=key, value=value)
+    cmd = SetFlagCommand(key=key, value=value, origin="llm")
     ctx.deps.engine.apply(cmd)
     return f"Narrative flag set: {key}={value}"
 
@@ -97,7 +97,7 @@ async def add_narrative_log_entry(ctx: RunContext[ToolDeps], entry: str) -> str:
 
     # Use SetFlagCommand's mechanism (append to narrative_log) with a
     # special key prefix so these are identifiable.
-    cmd = SetFlagCommand(key="narration", value=entry.strip())
+    cmd = SetFlagCommand(key="narration", value=entry.strip(), origin="llm")
     ctx.deps.engine.apply(cmd)
     return "Narrative log entry added."
 
@@ -130,7 +130,7 @@ async def register_fact(ctx: RunContext[ToolDeps], name: str, description: str) 
         )
 
     description = (description or "").strip()
-    cmd = RegisterFactCommand(name=name, description=description)
+    cmd = RegisterFactCommand(name=name, description=description, origin="llm")
     ctx.deps.engine.apply(cmd)
     return f"Narrative fact registered: {name}"
 

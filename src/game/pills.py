@@ -1,9 +1,14 @@
-"""Tool-call pill extraction from the event log (U16, R18).
+"""Tool-call pill extraction from the event log (U16, R18; U7 provenance).
 
-Derives pill data from events representing LLM tool calls — register_fact,
-ratify_fact, set_flag. Each pill carries the tool name, a human-readable
-summary, and the audit sequence number for linking into the audit viewer
-overlay.
+Derives pill data from events that **provably originated from the LLM** —
+provenance is stamped at the command layer (KTD-R4): LLM tool wrappers pass
+``origin="llm"`` which lands in ``event.changes["origin"]``.  Only events
+carrying that stamp produce pills; engine-originated events never do, even
+if their ``command_type`` happens to match a tool-call type (e.g. scene
+consequences that register facts through the engine path).
+
+Each pill carries the tool name, a human-readable summary, and the audit
+sequence number for linking into the audit viewer overlay.
 
 The ``add_narrative_log_entry`` LLM tool (src/llm/tools.py) delegates to
 ``SetFlagCommand(key="narration")``, so its events carry
@@ -22,14 +27,8 @@ from dataclasses import dataclass
 
 from src.engine.audit import Event
 
-#: Command types that represent LLM tool calls (U16).
-_TOOL_COMMAND_TYPES: frozenset[str] = frozenset(
-    {
-        "register_fact",
-        "ratify_fact",
-        "set_flag",
-    }
-)
+#: Provenance marker stamped by LLM tool wrappers (KTD-R4, R13).
+_LLM_ORIGIN: str = "llm"
 
 #: Sentinel key used by the add_narrative_log_entry LLM tool, which
 #: delegates to SetFlagCommand(key="narration") — see src/llm/tools.py.
@@ -82,14 +81,15 @@ def _extract_label_and_summary(event: Event) -> tuple[str, str]:
 
 
 def extract_pills(events: list[Event]) -> list[ToolPill]:
-    """Extract tool-call pills from the event log (U16, R18).
+    """Extract tool-call pills from the event log (U16, R18; U7 provenance).
 
-    Returns pills for events matching LLM tool command types, in
-    sequence order. Events that aren't tool calls are skipped.
+    Returns pills only for events whose ``changes["origin"] == "llm"``,
+    in sequence order. Events without the provenance stamp — including
+    engine-originated fact registrations — are skipped (R13, AE3).
     """
     pills: list[ToolPill] = []
     for event in events:
-        if event.command_type not in _TOOL_COMMAND_TYPES:
+        if event.changes.get("origin") != _LLM_ORIGIN:
             continue
         label, summary = _extract_label_and_summary(event)
         pills.append(ToolPill(tool_name=label, summary=summary, seq=event.seq))
