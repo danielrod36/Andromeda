@@ -576,6 +576,21 @@ class AdventureController:
         if scaffold is None:
             return self.get_view()
 
+        # Defensive belt (U4, R2): ensure a checkpoint snapshot exists in
+        # checkpoint mode. The regular ``_do_resolve_option`` path takes a
+        # snapshot via ``_ensure_current_scene`` at scene start, but the
+        # free-text path resolves a check on a restored scene that bypasses
+        # ``_ensure_current_scene``. On the restart edge (in-memory session
+        # lost, controller freshly constructed), the manager may lack a
+        # snapshot, so a life-threatening miss would crash in
+        # ``CheckpointStrategy.handle_defeat`` → ``restore()``. The belt's
+        # snapshot is mid-scene (after generation and classification), so a
+        # belt-driven rewind can regenerate a different scene — acceptable on
+        # that edge, impossible in the normal cached-controller path (U1).
+        state = self._engine.state
+        if state.campaign.death_mode == "checkpoint" and not self._checkpoint_mgr.has_snapshot:
+            self._checkpoint_mgr.take_snapshot(state)
+
         check_result = self._scene_engine.resolve_scene(
             scaffold, option, clear_pending_freetext=True
         )
@@ -692,11 +707,15 @@ class AdventureController:
                 defeat=death_mode,
             )
 
-        return AdventureView(
-            phase="scene_active",
-            prompt=f"DEFEAT ({death_mode}): {result.message}. Play continues.",
-            defeat=death_mode,
-        )
+        # Non-terminal defeat (narrative / checkpoint): build the next scene
+        # view so the player has choices. The strategy's ``result.message``
+        # owns the defeat sentence; we carry it as a banner above the scene
+        # via the ``defeat`` flag and set the prompt to the strategy message
+        # so the template's defeat-notice block renders it.
+        view = self.get_view()
+        view.defeat = death_mode
+        view.prompt = result.message
+        return view
 
     # ------------------------------------------------------------------
     # Helpers.

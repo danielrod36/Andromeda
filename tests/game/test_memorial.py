@@ -201,7 +201,7 @@ class TestBuildMemorial:
             kind=EventKind.REWIND_APPLIED,
             command_type="rewind_applied",
             description="State rewound to scene start",
-            changes={"abandoned_events": 5},
+            changes={"abandoned_branch_events": 5},
         )
         state = _make_dead_state(
             death_mode="checkpoint",
