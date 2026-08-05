@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -402,9 +403,8 @@ class TestMusterOutBenefits:
             _setup_character_for_muster_out(client)
             response = client.get("/play/TestHero")
         # After 1 term, mustering out should have at least 1 benefit roll.
-        # The response should show cash and/or material choices.
-        text = response.text
-        assert "Cash table" in text or "Material table" in text or "benefit roll" in text.lower()
+        # The response must offer at least one claimable benefit table.
+        assert "claim_cash" in response.text or "claim_material" in response.text
 
     def test_claim_cash_applies_credits_with_receipt(self, tmp_path: Path):
         """Claiming a cash benefit produces a receipt with credits."""
@@ -414,8 +414,7 @@ class TestMusterOutBenefits:
             _setup_character_for_muster_out(client)
             response = client.get("/play/TestHero")
             if "claim_cash" not in response.text:
-                # Phase not at allocate — skip if forced path differs.
-                return
+                pytest.skip("Phase not at muster_out_allocate after setup")
             response = client.post(
                 "/play/TestHero/action",
                 data={"choice": "claim_cash"},
@@ -586,7 +585,6 @@ class TestMusterOutBenefits:
         engine = Engine(state, LiveRoller(state.rng))
         runner = LifepathRunner(engine, pack)
         runner.claim_benefit("navy", table="cash", dm=0)
-        runner._cash_rolls_taken = runner._count_cash_benefit_events()
         save_state(state, saves_dir / "ResumeHero.json")
 
         # Now build a fresh controller — it should reconstruct.
@@ -602,4 +600,4 @@ class TestMusterOutBenefits:
         # One cash benefit already claimed → remaining should be 0.
         assert controller._benefit_rolls_remaining == 0
         # Cash counter reconstructed.
-        assert controller._runner._cash_rolls_taken == 1
+        assert controller._runner.cash_rolls_taken == 1

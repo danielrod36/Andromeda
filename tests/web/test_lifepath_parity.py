@@ -215,27 +215,6 @@ class TestLifepathParity:
 # ---------------------------------------------------------------------------
 
 
-def _navy_two_terms_then_muster_rolls() -> list[list[int]]:
-    """Forced rolls for 2 navy terms + muster-out benefits.
-
-    Term 1: survival, commission, advancement, 3 skill rolls, reenlist.
-    Term 2: survival, commission (skip — rank 1), advancement, 3 skill rolls, reenlist.
-    Then muster-out benefits (cash + material).
-    """
-    return [
-        # Term 1
-        [4, 3],  # survival 2D6=7 (pass vs 5)
-        [4, 4],  # commission 2D6=8 (pass vs 7) → rank 1
-        [4, 3],  # advancement 2D6=7 (pass vs 6) → rank 2
-        [3],  # skill 1D6=3 (Personal Development)
-        [5],  # skill 1D6=5 (Service Skills)
-        [2],  # skill 1D6=2 (Specialist Skills)
-        # reenlistment: 2D6=10 → may_continue → player musters out
-        [5, 5],
-        # Term 2 (not reached — player mustered out after term 1)
-    ]
-
-
 class TestMusterOutParity:
     """U3: web controller muster-out matches engine batch path."""
 
@@ -317,18 +296,18 @@ class TestMusterOutParity:
                 f"  batch: {batch_benefit_events[0].changes['result_text']}"
             )
 
-    def test_cash_cap_enforced_at_three(self):
-        """The web controller enforces the 3-cash-roll cap."""
-        # 1-term character (rank 0) → 1 benefit roll total.
-        # Need more rolls to test the cap. Use rank 0, terms 3 → 3 rolls.
+    def test_all_rolls_consumed_completes_muster_out(self):
+        """Claiming the single available roll completes muster out.
+
+        A 1-term character with rank 2 has exactly 1 benefit roll.
+        After claiming it, the controller reaches ``complete`` and sets
+        ``mustered_out=true``.
+        """
         term_rolls = _navy_one_term_rolls()
-        # Add enough benefit rolls: 3 cash + 0 material.
-        all_rolls = [*term_rolls, [1], [2], [3]]
+        all_rolls = [*term_rolls, [3]]
 
         web_state = _make_state(seed=99)
         _setup_char(web_state)
-        # Override terms to get 3 benefit rolls.
-        web_state.character.terms = 0  # Will be 1 after the term.
         web_engine = Engine(web_state, ForcedRoller(all_rolls))
         web_ctrl = LifepathController(web_engine, load_scifi_pack())
 
@@ -339,9 +318,6 @@ class TestMusterOutParity:
             web_ctrl.apply_choice(f"skill_table:{t}")
         web_ctrl.apply_choice("reenlist_muster")
 
-        # 1 term, rank 2 → benefit_rolls_for(1, 2) = 1.
-        # Only 1 roll, so we can't test the cap here. Instead verify that
-        # after all rolls are consumed, the complete phase is reached.
         plan = web_ctrl._muster_plan
         assert plan is not None
         # Claim the one available roll.
@@ -417,4 +393,4 @@ class TestMusterOutParity:
         # Remaining should reflect the claimed benefit.
         assert fresh_ctrl._benefit_rolls_remaining == total - claimed
         # Cash counter reconstructed.
-        assert fresh_ctrl._runner._cash_rolls_taken == claimed
+        assert fresh_ctrl._runner.cash_rolls_taken == claimed

@@ -1574,6 +1574,25 @@ class LifepathRunner:
             if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "cash"
         )
 
+    @property
+    def cash_rolls_taken(self) -> int:
+        """Number of cash benefits claimed in this muster-out session."""
+        return self._cash_rolls_taken
+
+    def reconstruct_muster_counters(self, total_rolls: int) -> int:
+        """Rebuild cash/material counters from the event log (resume-safe).
+
+        Syncs ``_cash_rolls_taken`` from events and counts material events,
+        then returns the number of benefit rolls remaining.
+        """
+        self._cash_rolls_taken = self._count_cash_benefit_events()
+        material_taken = sum(
+            1
+            for e in self.engine.state.events
+            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
+        )
+        return total_rolls - self._cash_rolls_taken - material_taken
+
     def claim_benefit(self, career_id: str, table: str, dm: int = 0) -> str:
         """Roll one mustering-out benefit and persist it (FR2, agency).
 

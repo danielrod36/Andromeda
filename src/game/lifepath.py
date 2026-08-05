@@ -280,16 +280,8 @@ class LifepathController:
         plan = self._runner.muster_out(career_id)
         self._muster_plan = plan
 
-        # Sync the runner's cash counter so the cap is enforced on resume.
-        self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
-
-        material_taken = sum(
-            1
-            for e in self._engine.state.events
-            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-        )
-        claimed = self._runner._cash_rolls_taken + material_taken
-        self._benefit_rolls_remaining = plan.total_rolls - claimed
+        # Sync counters from events so the cap is enforced on resume.
+        self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(plan.total_rolls)
 
     # ------------------------------------------------------------------
     # Phase determination — headless port of the TUI's _determine_phase.
@@ -635,15 +627,9 @@ class LifepathController:
             career_id = self._get_muster_career_id()
             if career_id:
                 self._muster_plan = self._runner.muster_out(career_id)
-                self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
-                material_taken = sum(
-                    1
-                    for e in state.events
-                    if e.command_type == "lifepath_benefit"
-                    and e.changes.get("benefit_type") == "material"
+                self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(
+                    self._muster_plan.total_rolls
                 )
-                claimed = self._runner._cash_rolls_taken + material_taken
-                self._benefit_rolls_remaining = self._muster_plan.total_rolls - claimed
                 if self._benefit_rolls_remaining <= 0:
                     # No benefit rolls — go straight to complete.
                     self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
@@ -776,9 +762,9 @@ class LifepathController:
         the 3-roll cap is reached. Tracks remaining rolls via
         ``plan.total_rolls - (cash_taken + material_taken)``.
         """
+        career_id = self._get_muster_career_id()
         plan = self._muster_plan
         if plan is None:
-            career_id = self._get_muster_career_id()
             if not career_id:
                 return PhaseView(
                     phase="muster_out_allocate",
@@ -788,18 +774,10 @@ class LifepathController:
             plan = self._runner.muster_out(career_id)
             self._muster_plan = plan
 
-        career_id = self._get_muster_career_id()
         career = self._pack.careers.get(career_id)
 
         # Rebuild remaining from events (resume-safe, consistent with TUI).
-        self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
-        material_taken = sum(
-            1
-            for e in self._engine.state.events
-            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-        )
-        claimed = self._runner._cash_rolls_taken + material_taken
-        self._benefit_rolls_remaining = plan.total_rolls - claimed
+        self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(plan.total_rolls)
 
         remaining = self._benefit_rolls_remaining
         if remaining <= 0:
@@ -815,7 +793,7 @@ class LifepathController:
                 choices=[],
             )
 
-        cash_taken = self._runner._cash_rolls_taken
+        cash_taken = self._runner.cash_rolls_taken
         choices: list[ChoiceOption] = []
 
         if career and career.mustering_out_cash:
@@ -1566,28 +1544,21 @@ class LifepathController:
             self._muster_plan = plan
 
         dm = 0 if table == "cash" else plan.material_dm
-        try:
-            result_text = self._runner.claim_benefit(career_id, table=table, dm=dm)
-        except ValueError:
-            # Cash cap reached — refresh the view so the option shows dimmed.
-            return self._view_muster_out_allocate([])
+
+        # Guard the cash cap explicitly so genuine ValueErrors (unknown table,
+        # missing benefit table) propagate instead of being swallowed.
+        if table == "cash" and self._runner.cash_rolls_taken >= 3:
+            return self._view_muster_out_allocate(["Cash rolls exhausted (3/3 taken)."])
+
+        result_text = self._runner.claim_benefit(career_id, table=table, dm=dm)
 
         label = "Cash" if table == "cash" else "Material"
         receipt = f"{label} Benefit: {result_text}"
         if table == "cash":
             receipt += f" (Credits: {self._engine.state.character.credits:,})"
 
-        self._benefit_rolls_remaining -= 1
-
         # Rebuild remaining from events (authoritative, same as TUI).
-        self._runner._cash_rolls_taken = self._runner._count_cash_benefit_events()
-        material_taken = sum(
-            1
-            for e in self._engine.state.events
-            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-        )
-        claimed = self._runner._cash_rolls_taken + material_taken
-        self._benefit_rolls_remaining = plan.total_rolls - claimed
+        self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(plan.total_rolls)
 
         if self._benefit_rolls_remaining <= 0:
             self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
