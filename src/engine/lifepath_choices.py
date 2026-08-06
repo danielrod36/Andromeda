@@ -161,3 +161,88 @@ def choice_background_skills(
         allows_freetext=True,
         freetext_hint="Name a background skill, or describe the upbringing you imagine.",
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase builders — career & qualification (P2.T3)
+# ---------------------------------------------------------------------------
+
+
+def choice_career(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) -> ChoicePointView:
+    """All pack careers, sorted, with qualification previews (P2.T3, W4).
+
+    Dimmed only when a hard rule blocks attempting: a career already left
+    cannot be re-entered — except Drifter (B17, lifepath.py:1206-1209).
+    """
+    left = {r.career_id for r in state.character.career_history}
+    options = []
+    for career in sorted(pack.careers.values(), key=lambda c: c.name):
+        dm = _qual_dm(state, ruleset, career)
+        q = career.qualification
+        blocked = career.id in left and career.id != "drifter"
+        options.append(
+            ChoiceOptionView(
+                option_id=f"career:{career.id}",
+                label=career.name,
+                description=career.description,
+                preview=[f"2D6{dm:+d} vs {q.characteristic} {q.target}+ to qualify"],
+                odds_line=None if blocked else _check_odds_line(dm, q.target),
+                dimmed=blocked,
+                requirement="Cannot return to a career already left (B17)" if blocked else None,
+            )
+        )
+    return ChoicePointView(
+        choice_id="choose_career", phase="choose_career",
+        prompt="Choose a career to qualify for.", options=options,
+        allows_freetext=True,
+        freetext_hint="Name a career, or describe the life you want.",
+    )
+
+
+def choice_qualification_fallback(
+    state: GameState, pack: LoadedThemePack, ruleset: RuleSet
+) -> ChoicePointView:
+    """Post-failure paths: retry, draft, drifter (P2.T3)."""
+    char = state.character
+    draft_blocked = char.drafted or not pack.draft_table
+    draft_req = "Already drafted" if char.drafted else ("Pack has no draft table" if not pack.draft_table else None)
+    options = [
+        ChoiceOptionView(option_id="fallback_retry", label="Choose a different career"),
+        ChoiceOptionView(
+            option_id="fallback_draft", label="Submit to the draft (1D6)",
+            preview=["roll 1D6 on the pack's draft table"],
+            dimmed=draft_blocked, requirement=draft_req,
+        ),
+    ]
+    if "drifter" in pack.careers:
+        drifter = pack.careers["drifter"]
+        dm, q = _qual_dm(state, ruleset, drifter), drifter.qualification
+        options.append(
+            ChoiceOptionView(
+                option_id="fallback_drifter", label="Enter the Drifter career",
+                preview=[f"2D6{dm:+d} vs {q.characteristic} {q.target}+ to qualify"],
+                odds_line=_check_odds_line(dm, q.target),
+            )
+        )
+    return ChoicePointView(
+        choice_id="choose_qualification_fallback", phase="choose_qualification_fallback",
+        prompt="Qualification failed. Choose your path:", options=options,
+    )
+
+
+def choice_career_change(
+    state: GameState, pack: LoadedThemePack, ruleset: RuleSet
+) -> ChoicePointView:
+    """Career ended: new career at -2 per prior career, or muster out (P2.T3)."""
+    dm = -2 * len(state.character.career_history)
+    return ChoicePointView(
+        choice_id="choose_career_change", phase="choose_career_change",
+        prompt="Your career has ended. What next?",
+        options=[
+            ChoiceOptionView(option_id="career_change_new", label="Try a new career",
+                             preview=[f"qualification at DM {dm:+d}"]),
+            ChoiceOptionView(option_id="career_change_muster",
+                             label="Muster out (end character creation)",
+                             preview=["end character creation and roll mustering-out benefits"]),
+        ],
+    )
