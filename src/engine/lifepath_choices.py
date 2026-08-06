@@ -487,14 +487,22 @@ def choice_injury_stat(
 def choice_crisis_resolution(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Injury crisis: pay Cr10,000 or take the scar (P2.T5, B13)."""
+    """Crisis: pay Cr10,000 or decline (P2.T5, B13). Path-agnostic — reachable
+    from both injury and aging paths. Decline label is death-mode aware
+    (ironman = death, narrative/classic = lasting scar)."""
     char = state.character
     stat = next((s for s in _ALL if char.characteristics.get(s, 0) <= 0), "a characteristic")
     can_afford = char.credits >= 10_000
+    if state.campaign.death_mode == "ironman":
+        decline_label = "Accept death"
+        decline_preview = ["Ironman: the crisis is fatal. The character dies."]
+    else:
+        decline_label = "Accept lasting scar"
+        decline_preview = [f"{stat} stabilises at 1 with a permanent severe Injury"]
     return ChoicePointView(
         choice_id="choose_crisis_resolution",
         phase="choose_crisis_resolution",
-        prompt=f"Injury crisis: {stat} reached 0. Choose your response:",
+        prompt=f"Crisis: {stat} reached 0. Choose your response:",
         options=[
             ChoiceOptionView(
                 option_id="crisis_pay",
@@ -505,8 +513,8 @@ def choice_crisis_resolution(
             ),
             ChoiceOptionView(
                 option_id="crisis_scar",
-                label="Accept lasting scar",
-                preview=[f"{stat} stabilises at 1 with a permanent severe Injury"],
+                label=decline_label,
+                preview=decline_preview,
             ),
         ],
     )

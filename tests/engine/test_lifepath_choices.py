@@ -196,9 +196,27 @@ def test_crisis_resolution_dims_pay_when_broke(pack, ruleset):
     cp = choice_crisis_resolution(state, pack, ruleset)
     pay, scar = cp.options
     assert pay.dimmed and pay.requirement == "Requires Cr10,000"
-    assert "STR" in cp.prompt and scar.option_id == "crisis_scar"
+    assert "Crisis: STR" in cp.prompt and scar.option_id == "crisis_scar"
     state.character.credits = 10_000
     assert not choice_crisis_resolution(state, pack, ruleset).options[0].dimmed
+
+
+def test_crisis_resolution_ironman_shows_death_label(pack, ruleset):
+    """Ironman decline = death label; non-ironman = scar label (P1.T8 parity)."""
+    state = _make_state()
+    state.character.characteristics["STR"] = 0
+    state.campaign = CampaignConfig(death_mode="ironman")
+    from src.engine.lifepath_choices import choice_crisis_resolution
+
+    cp = choice_crisis_resolution(state, pack, ruleset)
+    decline = cp.options[1]
+    assert decline.label == "Accept death"
+    assert "fatal" in decline.preview[0].lower()
+
+    # Non-ironman shows scar label
+    state.campaign = CampaignConfig(death_mode="narrative")
+    decline = choice_crisis_resolution(state, pack, ruleset).options[1]
+    assert decline.label == "Accept lasting scar"
 
 
 def test_mishap_previews_full_table(pack, ruleset):
