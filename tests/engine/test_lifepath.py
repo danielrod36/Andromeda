@@ -587,6 +587,25 @@ class TestCareerChange:
         engine._roller = ForcedRoller([[5, 2]])
         runner.qualify("drifter")
 
+    def test_always_open_qualification_produces_audit_event(self, engine_and_pack):
+        """always_open careers must route through Engine.apply (Key Invariant #1).
+
+        A direct GameState field write bypasses the funnel — no Event is
+        appended, no sequence number assigned — breaking audit/replay. The
+        Drifter auto-qualification must still go through the funnel.
+        """
+        engine, pack = engine_and_pack
+        runner = LifepathRunner(engine, pack)
+        events_before = len(engine.state.events)
+        result = runner.qualify("drifter")
+        # Career set on the character.
+        assert result.success
+        assert engine.state.character.career == "drifter"
+        # An Event was appended through the funnel (audit/replay guarantee).
+        assert len(engine.state.events) == events_before + 1
+        enter_event = engine.state.events[-1]
+        assert enter_event.changes["career_id"] == "drifter"
+
     def test_qualify_applies_career_change_dm(self, engine_and_pack):
         """With one prior career, qualification gets an extra -2 DM."""
         engine, pack = engine_and_pack
@@ -1250,7 +1269,7 @@ class TestGamblingCashDM:
 
     def test_gambling_grants_cash_dm(self, pack, ruleset):
         engine = make_engine([])
-        engine.state.character.skills["gambling"] = 1
+        engine.state.character.skills["gambler"] = 1
         engine.state.character.terms = 2
         engine.state.character.career = "navy"
         runner = LifepathRunner(engine, pack, ruleset)

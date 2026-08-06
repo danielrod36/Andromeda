@@ -281,6 +281,29 @@ class QualificationCommand(Command):
         )
 
 
+class EnterCareerCommand(Command):
+    """Enter an always-open career (e.g. Drifter) without a qualification roll.
+
+    Always-open careers (``CareerData.always_open``) auto-qualify per SRD — no
+    dice are rolled, no career-change DM applies. Routing the career assignment
+    through the funnel ensures it is recorded as an audited :class:`Event` with a
+    sequence number, preserving the replay/checkpoint guarantee (Key Invariant
+    #1) that a direct ``GameState`` write would break.
+    """
+
+    command_type: ClassVar[str] = "lifepath_enter_career"
+    career_id: str
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.career = self.career_id
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Entered career {self.career_id} (always open).",
+            changes={"career_id": self.career_id, "always_open": True},
+        )
+
+
 class DraftCommand(Command):
     """Submit to the draft (B16): 1D6 indexes the pack draft table.
 
@@ -1257,7 +1280,7 @@ class LifepathRunner:
         career = self._get_career(career_id)
         # P3.T8b: always_open careers (drifter) auto-qualify — no roll consumed.
         if career.always_open:
-            self.engine.state.character.career = career_id
+            self.engine.apply(EnterCareerCommand(career_id=career_id))
             return QualificationResult(
                 career_id=career_id,
                 career_name=career.name,
@@ -1661,7 +1684,7 @@ class LifepathRunner:
         """Cash benefit DM: +1 if Gambling skill or retired (7 terms) (G2, P3.T3)."""
         ch = self.engine.state.character
         dm = 0
-        if ch.skills.get("gambling", 0) > 0:
+        if ch.skills.get("gambler", 0) > 0:
             dm += 1
         if ch.terms >= 7:  # mandatory retirement
             dm += 1
