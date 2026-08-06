@@ -237,8 +237,8 @@ class TestMusterOutParity:
         from src.engine.lifepath import benefit_rolls_for
 
         char = web_state.character
-        # terms=1, rank=2 → benefit_rolls_for(1, 2) = 1 + 0 = 1
-        expected_rolls = benefit_rolls_for(char.terms, char.rank)
+        # rank 2 survives EndCareer via CareerTermRecord.final_rank (B2)
+        expected_rolls = benefit_rolls_for(char.terms, char.career_history[-1].final_rank)
         assert web_ctrl._muster_plan is not None
         assert web_ctrl._muster_plan.total_rolls == expected_rolls
 
@@ -327,32 +327,27 @@ class TestMusterOutParity:
         assert "mustered_out=true" in web_state.narrative_log
 
     def test_material_dm_applied_for_high_rank(self):
-        """Rank 5+ characters get the material DM on material claims."""
-        from src.engine.lifepath import material_dm_for
+        """B2: rank-based muster bonuses survive EndCareerCommand (P1.T5).
 
-        term_rolls = _navy_one_term_rolls()
-        # Add benefit rolls: cash + material.
-        all_rolls = [*term_rolls, [3], [4]]
-
+        A rank-5 character mustering out via the web controller gets the +1
+        material DM and rank bonus rolls even though EndCareerCommand has
+        already reset character.rank to 0 — the plan reads the history record.
+        """
         web_state = _make_state(seed=99)
         _setup_char(web_state)
-        web_engine = Engine(web_state, ForcedRoller(all_rolls))
+        web_state.character.rank = 5
+        web_state.character.terms = 5
+        web_engine = Engine(web_state, ForcedRoller([]))
         web_ctrl = LifepathController(web_engine, load_scifi_pack())
 
-        web_ctrl.apply_choice("begin_term")
-        web_ctrl.apply_choice("commission_attempt")
-        web_ctrl.apply_choice("advancement_attempt")
-        for t in _SKILL_TABLES:
-            web_ctrl.apply_choice(f"skill_table:{t}")
         web_ctrl.apply_choice("reenlist_muster")
 
-        # After 1 term with commission+advancement success, rank = 2.
-        # material_dm_for(2) = 0. The plan should reflect this.
         plan = web_ctrl._muster_plan
         assert plan is not None
-        assert plan.material_dm == material_dm_for(web_state.character.rank)
-        # Rank 2 → DM 0.
-        assert plan.material_dm == 0
+        assert web_state.character.rank == 0  # EndCareerCommand reset it...
+        assert plan.final_rank == 5  # ...but the plan read the history record
+        assert plan.total_rolls == 7  # benefit_rolls_for(5, 5) = 5 + 2
+        assert plan.material_dm == 1
 
     def test_resume_reconstructs_remaining_from_events(self):
         """A fresh controller reconstructs remaining rolls from benefit events."""
