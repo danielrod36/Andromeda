@@ -14,6 +14,7 @@ from src.llm.advisor import (
     Advisor,
     AdvisorConfig,
     AlternativeConsidered,
+    HeuristicAdvisor,
     SuggestionRecord,
     _validate_selection,
     advisor_context_hash,
@@ -180,3 +181,56 @@ class TestAdvisor:
         with pytest.raises(ModelRetry, match=r"Valid option_ids: \['navy', 'scout'\]"):
             _validate_selection(record, ["navy", "scout"])
         _validate_selection(SuggestionRecord(**GOOD_OUTPUT), ["navy", "scout"])  # no raise
+
+
+class TestHeuristicAdvisor:
+    @pytest.mark.asyncio
+    async def test_picks_highest_odds_with_grounded_rationale(self):
+        record = await HeuristicAdvisor().suggest(make_choice(), RULES_SUMMARY)
+        assert record.selected_option_id == "navy"  # 72% beats 58%
+        assert "Best odds: 72%" in record.rationale
+        assert "DM +1 vs 8" in record.rationale  # cites the odds_line verbatim
+        assert "Alternatives: scout" in record.rationale
+        assert record.alternatives[0].option_id == "scout"
+        assert "58%" in record.alternatives[0].why_not
+
+    @pytest.mark.asyncio
+    async def test_narrative_odds_sum_strong_and_weak(self):
+        choice = make_choice()
+        choice.options[0].odds_line = "DM +0 · 17% strong / 42% weak / 42% miss · Chancy"
+        choice.options[1].odds_line = "DM +1 vs 8 · 50% Modest"
+        record = await HeuristicAdvisor().suggest(choice, RULES_SUMMARY)
+        assert record.selected_option_id == "navy"  # 17+42=59 beats 50
+
+    @pytest.mark.asyncio
+    async def test_tie_breaks_on_skill_mentions(self):
+        choice = make_choice()
+        choice.options[1].odds_line = "DM +1 vs 8 · 72% Favorable"  # tie navy
+        choice.options[1].preview = ["Gain skill: Pilot", "Gain skill: Survival"]
+        record = await HeuristicAdvisor().suggest(choice, RULES_SUMMARY)
+        assert record.selected_option_id == "scout"  # 2 skill lines beats 1
+
+    @pytest.mark.asyncio
+    async def test_final_tie_break_is_list_order(self):
+        choice = make_choice()
+        choice.options[1].odds_line = "DM +1 vs 8 · 72% Favorable"  # identical to navy
+        choice.options[1].preview = list(choice.options[0].preview)
+        record = await HeuristicAdvisor().suggest(choice, RULES_SUMMARY)
+        assert record.selected_option_id == "navy"  # listed first
+
+    @pytest.mark.asyncio
+    async def test_dimmed_options_never_selected(self):
+        choice = make_choice()
+        choice.options[2].odds_line = "DM +4 vs 8 · 97% Straightforward"  # dimmed 97%
+        record = await HeuristicAdvisor().suggest(choice, RULES_SUMMARY)
+        assert record.selected_option_id == "navy"
+        assert all(a.option_id != "agent" for a in record.alternatives)
+
+    @pytest.mark.asyncio
+    async def test_deterministic_and_stamped(self):
+        r1 = await HeuristicAdvisor().suggest(make_choice(), RULES_SUMMARY)
+        r2 = await HeuristicAdvisor().suggest(make_choice(), RULES_SUMMARY)
+        assert r1.model_dump_json() == r2.model_dump_json()
+        assert r1.context_hash == advisor_context_hash(make_choice(), RULES_SUMMARY)
+        assert r1.model_id == "heuristic.v1"
+        assert r1.prompt_version == "advisor.v1"

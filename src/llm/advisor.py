@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -23,7 +24,7 @@ from pydantic_ai import Agent, ModelRetry
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.usage import UsageLimits
 
-from src.engine.lifepath_choices import ChoicePointView
+from src.engine.lifepath_choices import ChoiceOptionView, ChoicePointView
 from src.llm.prompts import ADVISOR_SYSTEM_PROMPT, build_advisor_prompt
 
 logger = logging.getLogger(__name__)
@@ -184,3 +185,86 @@ class Advisor:
                     continue
                 raise
         raise last_exc  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# HeuristicAdvisor — deterministic offline path (P4.T4, ADR A11).
+# ---------------------------------------------------------------------------
+
+_PCT_RE = re.compile(r"(\d+)%")
+
+
+def _success_pct(option: ChoiceOptionView) -> int:
+    """Success probability parsed from an odds_line (P4.T4).
+
+    Classic lines (``DM +1 vs 8 · 72% Favorable``) carry one percentage.
+    Narrative lines (``17% strong / 42% weak / 42% miss``) count strong +
+    weak as success. No odds_line (or no percentage) sorts as 0%.
+    """
+    if not option.odds_line:
+        return 0
+    pcts = [int(m) for m in _PCT_RE.findall(option.odds_line)]
+    if not pcts:
+        return 0
+    if "strong" in option.odds_line and len(pcts) >= 2:
+        return pcts[0] + pcts[1]
+    return pcts[0]
+
+
+def _skill_mentions(option: ChoiceOptionView) -> int:
+    """Count preview lines mentioning skill gains (tie-breaker, P4.T4)."""
+    return sum(1 for line in option.preview if "skill" in line.lower())
+
+
+class HeuristicAdvisor:
+    """Deterministic offline advisor (P4.T4, ADR A11).
+
+    Picks the available option with the highest parsed success probability;
+    ties break toward more skill mentions in the preview, then toward list
+    order (stable). Pure: no clocks, no RNG, same input → same record.
+    """
+
+    model_id = "heuristic.v1"
+
+    async def suggest(self, choice: ChoicePointView, rules_summary: str) -> SuggestionRecord:
+        """Pick the highest-odds available option with a templated rationale."""
+        candidates = [o for o in choice.options if not o.dimmed] or list(choice.options)
+        if not candidates:
+            raise ValueError("HeuristicAdvisor requires at least one option")
+        scored = sorted(
+            enumerate(candidates),
+            key=lambda t: (_success_pct(t[1]), _skill_mentions(t[1]), -t[0]),
+            reverse=True,
+        )
+        best = scored[0][1]
+        best_pct, best_skills = _success_pct(best), _skill_mentions(best)
+
+        if best.odds_line:
+            rationale = f'Best odds: {best_pct}% ("{best.odds_line}").'
+        else:
+            rationale = "Selected on preview content (no odds line)."
+        if best_skills:
+            rationale += f" Preview lists {best_skills} skill-related gain(s)."
+
+        alternatives: list[AlternativeConsidered] = []
+        for _i, opt in scored[1:3]:
+            pct, skills = _success_pct(opt), _skill_mentions(opt)
+            if pct < best_pct:
+                why = f"Lower success odds ({pct}%)."
+            elif skills < best_skills:
+                why = "Fewer skill gains in preview."
+            else:
+                why = "Equal odds and skill gains; listed later."
+            alternatives.append(AlternativeConsidered(option_id=opt.option_id, why_not=why))
+        if alternatives:
+            rationale += f" Alternatives: {', '.join(a.option_id for a in alternatives)}."
+
+        return SuggestionRecord(
+            choice_id=choice.choice_id,
+            selected_option_id=best.option_id,
+            rationale=rationale,
+            alternatives=alternatives,
+            context_hash=advisor_context_hash(choice, rules_summary),
+            model_id=self.model_id,
+            prompt_version=ADVISOR_PROMPT_VERSION,
+        )
