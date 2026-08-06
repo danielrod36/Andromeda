@@ -473,6 +473,10 @@ class AdvancementCommand(Command):
     def validate(self, state: GameState) -> None:
         if not state.character.alive:
             raise ValueError("Cannot run advancement for a dead character")
+        if state.character.rank < 1:
+            raise ValueError("Advancement requires rank 1 or higher (B1)")
+        if state.character.rank >= 6:
+            raise ValueError("Rank 6 is the maximum (B5)")
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
         char_value = state.character.characteristics.get(self.characteristic, 7)
@@ -1150,16 +1154,16 @@ class LifepathRunner:
         self.engine.apply(DecrementBackgroundPicksCommand())
 
     def run_basic_training(self, career_id: str, chosen_skill: str | None = None) -> None:
-        """Basic training (B11): first career → all Service skills at 0;
-        later careers → one player-chosen Service skill at 0.
+        """Basic training (B11, P1.T6): first career → all Service skills at 0;
+        each NEW later career → one player-chosen Service skill at 0.
 
-        Tracked by ``character.basic_training_done`` — once True, subsequent
-        calls are no-ops. ``first_career`` is detected via empty
-        ``career_history``; when a later career is being entered the player
-        must pass a Service skill id via ``chosen_skill``.
+        First-career training is tracked by ``character.basic_training_done``.
+        Later-career grants need no flag: a career already in
+        ``career_history`` cannot be re-entered (``qualify`` raises; drifter
+        re-entry is guarded below), so each new career triggers exactly one
+        grant. ``chosen_skill`` is required (player choice) for later careers.
         """
-        if self.engine.state.character.basic_training_done:
-            return
+        state = self.engine.state
         career = self._get_career(career_id)
         service = next(
             (t for t in career.skill_tables if t.name == "Service Skills"),
@@ -1170,19 +1174,22 @@ class LifepathRunner:
                 f"Career {career_id!r} has no 'Service Skills' table; "
                 f"available: {[t.name for t in career.skill_tables]}"
             )
-        first_career = not self.engine.state.character.career_history
-        if first_career:
+        history = state.character.career_history
+        if not history:
+            if state.character.basic_training_done:
+                return
             for entry in service.entries.entries:
                 if not entry.result.startswith("+"):
                     self.engine.apply(GainSkillCommand(skill_id=entry.result, level=0))
-        else:
-            valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
-            if chosen_skill not in valid:
-                raise ValueError(
-                    f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}"
-                )
-            self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
-        self.engine.apply(SetBasicTrainingDoneCommand())
+            self.engine.apply(SetBasicTrainingDoneCommand())
+            return
+        # Later career (B11): one player-chosen Service skill at level 0.
+        if career_id in {r.career_id for r in history}:
+            return  # re-entered career (drifter) — training already received
+        valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
+        if chosen_skill not in valid:
+            raise ValueError(f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}")
+        self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
 
     # ------------------------------------------------------------------
     # Step 2: Qualification.
@@ -1359,15 +1366,29 @@ class LifepathRunner:
         result.commission_target = c["target"]
         result.commission_success = c["success"]
 
-    def run_advancement_step(self, career_id: str, result: TermResult) -> None:
-        """Roll advancement check and update rank.
+    def advancement_available(self, career_id: str) -> bool:
+        """Whether advancement can be attempted this term (B1/B5, P1.T1).
 
-        Modifies *result* in place.  Should only be called after a
-        successful survival check.
+        True when the career has an advancement block and ranks and the
+        character holds rank 1-5. SRD: advancement attempts require rank 1+;
+        rank 6 is the cap. ``AdvancementCommand.validate`` enforces the same
+        bounds so direct ``Engine.apply`` calls are gated too.
         """
         career = self._get_career(career_id)
-        if career.advancement is None:
+        if career.advancement is None or not career.ranks:
+            return False
+        return 1 <= self.engine.state.character.rank < 6
+
+    def run_advancement_step(self, career_id: str, result: TermResult) -> None:
+        """Roll advancement check and update rank (gated: rank 1-5, B1/B5).
+
+        No-op when :meth:`advancement_available` is False (rank 0, rank 6, or
+        a career without advancement/ranks). Should only be called after a
+        successful survival check.
+        """
+        if not self.advancement_available(career_id):
             return
+        career = self._get_career(career_id)
         state = self.engine.state
 
         adv_cmd = AdvancementCommand(
@@ -1541,6 +1562,25 @@ class LifepathRunner:
     # Step 4: Mustering out.
     # ------------------------------------------------------------------
 
+    def _effective_muster_rank(self, career_id: str) -> int:
+        """Rank used for mustering-out benefits (B2, P1.T4).
+
+        ``EndCareerCommand`` resets ``character.rank`` to 0 when it closes the
+        career into ``career_history``, so a plan computed after the career
+        ends must read the matching :class:`CareerTermRecord`'s ``final_rank``
+        — the only durable source. While the career is still active (plan
+        computed before EndCareer, e.g. the TUI's player-chosen path) the
+        live rank applies. Both sources agree, so every muster path gets
+        identical rank-based bonuses.
+        """
+        ch = self.engine.state.character
+        if ch.career:
+            return ch.rank
+        for record in reversed(ch.career_history):
+            if record.career_id == career_id:
+                return record.final_rank
+        return 0
+
     def muster_out(self, career_id: str | None = None) -> MusteringOutResult:
         """Compute the mustering-out plan (counts + DMs) without rolling (B15).
 
@@ -1549,13 +1589,15 @@ class LifepathRunner:
         empty — the caller (TUI per-roll or batch auto-allocation) fills them
         via :meth:`claim_benefit`.
         """
-        cid = career_id or self.engine.state.character.career
+        ch = self.engine.state.character
+        cid = (
+            career_id or ch.career or (ch.career_history[-1].career_id if ch.career_history else "")
+        )
         if not cid:
             return MusteringOutResult()
         career = self._get_career(cid)
-        state = self.engine.state
-        terms = state.character.terms
-        rank = state.character.rank
+        terms = ch.terms
+        rank = self._effective_muster_rank(cid)
 
         return MusteringOutResult(
             terms_served=terms,

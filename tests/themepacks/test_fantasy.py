@@ -312,23 +312,15 @@ class TestFantasyLifepath:
             [4, 2],  # SOC = 6
             # Knight qualification (STR 8, DM +1, target 5)
             [3, 2],  # 5 + 1 = 6 >= 5 -> success
-            # Term 1: survival, advancement, 2 skills (1D6)
+            # Term 1: survival, NO advancement at rank 0 (B1), 1 skill (1D6)
             [4, 3],  # Survival: END 8 + DM +1 = 8 >= 5 -> success
-            [5, 3],  # Advancement: EDU 7 + DM 0 = 8 >= 7 -> success (rank 1)
             [5],  # Skill (Personal Dev): 5 -> +1 EDU
-            [4],  # Skill (Service): 4 -> polearm
-            # Term 2
+            # Term 2: still rank 0, no advancement
             [3, 3],  # Survival: END 8 + DM +1 = 7 >= 5 -> success
-            [4, 4],  # Advancement: EDU 7 + DM 0 = 8 >= 7 -> success (rank 2)
-            [5],  # Skill (Personal Dev): 5 -> +1 EDU
             [4],  # Skill (Service): 4 -> polearm
-            # Mustering out (2 terms, rank 2)
-            # Cash: DM = 0 (per-term/per-rank DM removed, N3)
+            # Mustering out (2 terms, rank 0): benefit_rolls_for(2,0)=2, cash-first
             [1],  # roll 1
             [1],  # roll 1
-            # Material: 2 rolls
-            [3],  # roll 3
-            [5],  # roll 5
         ]
         engine = _make_engine(queue)
         runner = LifepathRunner(engine, fantasy_pack)
@@ -342,9 +334,9 @@ class TestFantasyLifepath:
         # Two terms completed.
         assert result.num_terms == 2
         assert result.terms[0].survival_success
-        assert result.terms[0].advancement_success
-        assert result.terms[0].rank_after == 1
-        assert result.terms[1].rank_after == 2
+        assert not result.terms[0].advancement_success  # B1: no advancement at rank 0
+        assert result.terms[0].rank_after == 0
+        assert result.terms[1].rank_after == 0
 
         # Character alive, career set.
         assert result.character_alive
@@ -352,10 +344,9 @@ class TestFantasyLifepath:
         assert char.alive
         assert char.career == "knight"
         assert char.terms == 2
-        assert char.rank == 2
+        assert char.rank == 0  # no commission → never advanced (B1)
 
-        # Mustering out completed (Task 12: benefit_rolls_for(2,2)=2 total,
-        # batch allocates cash-first → 2 cash, 0 material).
+        # Mustering out: benefit_rolls_for(2,0)=2, cash-first → 2 cash.
         assert result.mustering_out is not None
         assert len(result.mustering_out.cash_benefits) == 2
         assert len(result.mustering_out.material_benefits) == 0
@@ -371,14 +362,11 @@ class TestFantasyLifepath:
             [3, 2],  # SOC = 5
             # Mage qualification (INT 9, DM +1, target 6)
             [4, 3],  # 7 + 1 = 8 >= 6 -> success
-            # Term 1
+            # Term 1: no commission → no advancement at rank 0 (B1), 1 skill (1D6)
             [4, 3],  # Survival: INT 9 + DM +1 = 8 >= 5 -> success
-            [5, 4],  # Advancement: INT 9 + DM +1 = 10 >= 7 -> success (rank 1)
             [5],  # Skill 1 (1D6)
-            [4],  # Skill 2 (advancement -> extra, 1D6)
-            # Mustering out (1 term, rank 1)
+            # Mustering out (1 term, rank 0): benefit_rolls_for(1,0)=1, cash-first
             [1],  # cash
-            [2],  # material
         ]
         engine = _make_engine(queue)
         runner = LifepathRunner(engine, fantasy_pack)
@@ -389,7 +377,7 @@ class TestFantasyLifepath:
         assert result.num_terms == 1
         assert result.character_alive
         assert engine.state.character.career == "mage"
-        assert len(result.terms[0].skill_gains) == 2
+        assert len(result.terms[0].skill_gains) == 1  # hierarchy base only (B1)
 
     def test_fantasy_skills_gained_in_lifepath(self, fantasy_pack):
         """Skills gained during lifepath are fantasy skills, not sci-fi skills."""
@@ -402,11 +390,8 @@ class TestFantasyLifepath:
             [4, 2],  # chars
             [3, 2],  # qual: Knight STR 8 + 1 = 6 >= 5
             [4, 3],  # survival
-            [5, 3],  # advancement
-            [4],  # skill 1 -> roll 4 (1D6)
-            [3],  # skill 2 -> roll 3 (1D6, advancement extra)
-            [1],  # cash
-            [1],  # material
+            [4],  # skill 1 -> roll 4 (1D6, hierarchy base only — B1)
+            [1],  # cash — benefit_rolls_for(1,0)=1
         ]
         engine = _make_engine(queue)
         runner = LifepathRunner(engine, fantasy_pack)

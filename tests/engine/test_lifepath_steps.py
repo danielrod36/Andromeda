@@ -77,15 +77,17 @@ class TestStepEquivalence:
 
     def test_step_sequence_matches_run_term(self, pack):
         """Calling step methods in order gives identical TermResult as run_term."""
-        # Queue for a full term: survival, commission, advancement, skill rolls.
-        # Commission fails (low roll) so rank stays 0; advancement succeeds ->
-        # rank 1. Skill rolls: hierarchy base 1 + advancement 1 = 2.
+        # Queue for a full term: survival, commission (succeeds → rank 1),
+        # advancement (succeeds → rank 2), skill rolls.
+        # B1 fix: commission must precede advancement (rank 0 can't advance).
+        # Skill rolls: hierarchy base 1 + commission 1 + advancement 1 = 3.
         term_queue = [
             [4, 3],  # survival: INT 9 + DM 1 = 8 >= 5 -> success
-            [1, 2],  # commission: INT 9 + DM 1 = 4 < 9 -> fail (rank stays 0)
-            [5, 3],  # advancement: INT 9 + DM 1 = 9 >= 6 -> success (rank 1)
+            [4, 4],  # commission: SOC 6 + DM 0 = 8 >= 7 -> success (rank 1)
+            [5, 3],  # advancement: EDU 7 + DM 0 = 8 >= 6 -> success (rank 2)
             [5],  # skill 1 (1D6)
             [4],  # skill 2 (1D6)
+            [3],  # skill 3 (1D6)
         ]
 
         # Run via step methods.
@@ -194,30 +196,63 @@ class TestSurvivalStep:
 
 
 class TestAdvancementStep:
-    def test_advancement_success_promotes(self, pack):
+    """B1: advancement requires rank 1+ (P1.T1); B5 caps rank at 6 (P1.T3)."""
+
+    def test_advancement_rejected_at_rank_0(self, pack):
+        """Term-1 rank-0 advancement is no longer offered (B1).
+
+        The runner no-ops (no roll consumed, no rank change); the command
+        itself raises so a direct ``Engine.apply`` is also gated.
+        """
         engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3]],
-            pack,  # survival, advancement success
+            [[4, 3]],
+            pack,  # survival only — advancement must not consume a roll
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
-        runner.run_advancement_step("navy", result)
-
-        assert result.advancement_success
-        assert result.rank_after == 1
-        assert engine.state.character.rank == 1
-
-    def test_advancement_failure_no_promotion(self, pack):
-        _engine, runner = setup_qualified_engine(
-            [[4, 3], [1, 1]],
-            pack,  # survival, advancement fail (2 < 7)
-        )
-        result = runner.start_term("navy", 1)
-        runner.run_survival_step("navy", result)
-        runner.run_advancement_step("navy", result)
+        runner.run_advancement_step("navy", result)  # no-op at rank 0 (B1)
 
         assert not result.advancement_success
         assert result.rank_after == 0
+        assert engine.state.character.rank == 0
+
+    def test_advancement_command_raises_at_rank_0(self, engine_and_pack):
+        """The command gate is client-proof: validate rejects rank 0 (B1)."""
+        from src.engine.lifepath import AdvancementCommand
+
+        engine, _pack = engine_and_pack
+        engine.state.character.career = "navy"
+        with pytest.raises(ValueError, match="rank 1"):
+            engine.apply(AdvancementCommand(career_id="navy", characteristic="EDU", target=6))
+
+    def test_advancement_success_promotes_after_commission(self, pack):
+        """A commissioned (rank 1) character advances normally."""
+        engine, runner = setup_qualified_engine(
+            [[4, 3], [4, 4], [5, 3]],
+            pack,  # survival, commission (SOC 6: 8 >= 7), advancement (EDU 7: 8 >= 6)
+        )
+        result = runner.start_term("navy", 1)
+        runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
+        runner.run_advancement_step("navy", result)
+
+        assert result.commission_success
+        assert result.advancement_success
+        assert result.rank_after == 2
+        assert engine.state.character.rank == 2
+
+    def test_advancement_failure_no_promotion(self, pack):
+        _engine, runner = setup_qualified_engine(
+            [[4, 3], [4, 4], [1, 1]],
+            pack,  # survival, commission success, advancement fail (2 < 6)
+        )
+        result = runner.start_term("navy", 1)
+        runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
+        runner.run_advancement_step("navy", result)
+
+        assert not result.advancement_success
+        assert result.rank_after == 1
 
 
 # ---------------------------------------------------------------------------
@@ -359,11 +394,12 @@ class TestCommissionStep:
 class TestSkillRollStep:
     def test_single_skill_roll_returns_gain(self, pack):
         _engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3], [5]],
-            pack,  # survival, advancement, skill (1D6)
+            [[4, 3], [4, 4], [5, 3], [5]],
+            pack,  # survival, commission (rank 1), advancement (rank 2), skill (1D6)
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
         runner.run_advancement_step("navy", result)
 
         gain = runner.run_skill_roll_step("navy", result, "Personal Development")
@@ -372,9 +408,10 @@ class TestSkillRollStep:
         assert result.skill_gains[0] is gain
 
     def test_skill_roll_unknown_table_raises(self, pack):
-        _engine, runner = setup_qualified_engine([[4, 3], [5, 3], [5]], pack)
+        _engine, runner = setup_qualified_engine([[4, 3], [4, 4], [5, 3], [5]], pack)
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
         runner.run_advancement_step("navy", result)
 
         # Non-existent table name should raise KeyError, not fall back.
@@ -758,19 +795,43 @@ class TestBasicTraining:
                 assert engine.state.character.skills.get(entry.result) == 0
         assert engine.state.character.basic_training_done is True
 
-    def test_basic_training_later_career_grants_one_chosen(self, engine_and_pack):
-        from src.engine.state import CareerTermRecord
+    def test_basic_training_later_career_grants_one_chosen(self, pack):
+        """B11/B3: a second career grants ONE chosen Service skill at 0 (P1.T6).
 
-        engine, pack = engine_and_pack
-        engine.state.character.career_history = [
-            CareerTermRecord(career_id="army", terms=2, final_rank=1, ended_by="muster_out")
-        ]
-        runner = LifepathRunner(engine, pack)
-        # The player must choose a Service skill from the new career's table.
+        Drives the real flow — first-career basic training, EndCareerCommand,
+        career-change qualification — instead of injecting career_history.
+        """
+        from src.engine.lifepath import EndCareerCommand
+
+        engine, runner = setup_qualified_engine([], pack, career_id="army")
+        # First career: all Army service skills at level 0.
+        runner.run_basic_training("army")
+        assert engine.state.character.skills.get("mechanic") == 0
+        assert engine.state.character.basic_training_done is True
+
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        # Qualify for Navy as a second career (INT 9, DM +1 - 2 career change).
+        engine._roller.extend([[6, 6]])
+        qual = runner.qualify("navy")
+        assert qual.success
+
+        # Later career: the player chooses ONE Navy Service skill at level 0.
         runner.run_basic_training("navy", chosen_skill="engineer")
         assert engine.state.character.skills.get("engineer") == 0
         # Other Navy service skills are NOT granted for a later career.
         assert engine.state.character.skills.get("electronics_comms") is None
+
+    def test_basic_training_reentered_career_no_repeat_grant(self, engine_and_pack):
+        """Re-entering a career already in history (drifter) grants nothing."""
+        from src.engine.state import CareerTermRecord
+
+        engine, pack = engine_and_pack
+        engine.state.character.career_history = [
+            CareerTermRecord(career_id="drifter", terms=1, final_rank=0, ended_by="mishap")
+        ]
+        runner = LifepathRunner(engine, pack)
+        runner.run_basic_training("drifter")  # no-op — no raise, no grant
+        assert engine.state.character.skills == {}
 
     def test_basic_training_later_career_rejects_non_service_skill(self, engine_and_pack):
         from src.engine.state import CareerTermRecord
@@ -823,3 +884,36 @@ class TestAdvancedEducationGate:
         # Should not raise.
         gain = runner.run_skill_roll_step("navy", result, "Advanced Education")
         assert gain.table_name == "Advanced Education"
+
+
+# ---------------------------------------------------------------------------
+# B5: rank cap for advancement (P1.T3).
+# ---------------------------------------------------------------------------
+
+
+class TestAdvancementRankCap:
+    """B5: rank 6 is the maximum (P1.T3)."""
+
+    def test_advancement_command_raises_at_rank_6(self, engine_and_pack):
+        from src.engine.lifepath import AdvancementCommand
+
+        engine, _pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine.state.character.rank = 6
+        with pytest.raises(ValueError, match="Rank 6"):
+            engine.apply(AdvancementCommand(career_id="navy", characteristic="EDU", target=6))
+
+    def test_advancement_available_bounds(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack)
+        for rank, expected in [(0, False), (1, True), (5, True), (6, False)]:
+            engine.state.character.rank = rank
+            assert runner.advancement_available("navy") is expected, rank
+
+    def test_advancement_unavailable_for_career_without_block(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career = "scout"
+        engine.state.character.rank = 2
+        runner = LifepathRunner(engine, pack)
+        assert runner.advancement_available("scout") is False

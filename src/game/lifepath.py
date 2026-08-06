@@ -53,6 +53,7 @@ TERM_PHASES = frozenset(
         "mishap_roll",
         "choose_injury_stat",
         "choose_crisis_resolution",
+        "choose_basic_training_skill",
     }
 )
 
@@ -576,16 +577,48 @@ class LifepathController:
                     dimmed=True,
                     requirement="Requires Cr10,000",
                 )
+            decline_option = (
+                ChoiceOption(
+                    label="Accept death",
+                    option_id="crisis_scar",
+                    description="Ironman: the crisis is fatal. The character dies.",
+                )
+                if state.campaign.death_mode == "ironman"
+                else ChoiceOption(
+                    label="Accept lasting scar",
+                    option_id="crisis_scar",
+                    description=f"{crisis_stat} stabilises at 1 with a permanent severe Injury.",
+                )
+            )
             return PhaseView(
                 phase=phase,
-                prompt=f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
+                prompt=f"Crisis: {crisis_stat} reached 0. Choose your response:",
+                choices=[pay_option, decline_option],
+            )
+
+        if phase == "choose_basic_training_skill":
+            career = self._pack.careers.get(char.career)
+            service = (
+                next((t for t in career.skill_tables if t.name == "Service Skills"), None)
+                if career
+                else None
+            )
+            skill_ids = (
+                [e.result for e in service.entries.entries if not e.result.startswith("+")]
+                if service
+                else []
+            )
+            return PhaseView(
+                phase=phase,
+                prompt=(
+                    f"Basic training ({career.name if career else char.career}): "
+                    "choose ONE Service skill at level 0."
+                ),
                 choices=[
-                    pay_option,
                     ChoiceOption(
-                        label="Accept lasting scar",
-                        option_id="crisis_scar",
-                        description=f"{crisis_stat} stabilises at 1 with a permanent severe Injury.",
-                    ),
+                        label=f"{s.replace('_', ' ')} (level 0)", option_id=f"bt_skill:{s}"
+                    )
+                    for s in skill_ids
                 ],
             )
 
@@ -888,6 +921,9 @@ class LifepathController:
             return self.get_phase_view()
 
         # --- Term sub-phases ---
+        if option_id.startswith("bt_skill:"):
+            return self._do_basic_training_choice(option_id.split(":", 1)[1])
+
         if option_id == "begin_term":
             return self._do_survival_roll()
 
@@ -987,15 +1023,32 @@ class LifepathController:
         )
 
     def _run_basic_training_for_career(self, career_id: str) -> None:
-        """Trigger basic training on first-term career entry (B11)."""
+        """Trigger basic training on career entry (B11, P1.T7).
+
+        First career (empty history): grants all Service Skills at level 0
+        immediately. Later careers: sets the ``choose_basic_training_skill``
+        phase so the player picks ONE Service skill at level 0 (B3 — this
+        path was previously unreachable). Re-entered careers grant nothing.
+        """
         state = self._engine.state
-        if state.character.basic_training_done:
-            return
-        if not state.character.career_history:
-            career = self._pack.careers.get(career_id)
-            if career is None:
+        history = state.character.career_history
+        if not history:
+            if state.character.basic_training_done:
+                return
+            if self._pack.careers.get(career_id) is None:
                 return
             self._runner.run_basic_training(career_id)
+            return
+        if career_id in {r.career_id for r in history}:
+            return  # re-entered career — training already received
+        self._set_term_phase("choose_basic_training_skill")
+
+    def _do_basic_training_choice(self, skill: str) -> PhaseView:
+        """Apply the player's later-career basic training pick (B11, P1.T7)."""
+        career_id = self._engine.state.character.career
+        self._runner.run_basic_training(career_id, chosen_skill=skill)
+        self._set_term_phase("run_survival")
+        return self.get_phase_view()
 
     def _do_fallback_draft(self) -> PhaseView:
         """Apply DraftCommand + basic training, then route to run_survival."""
@@ -1069,8 +1122,7 @@ class LifepathController:
                 choices=view.choices,
                 receipts=receipts,
             )
-        career = self._pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self._runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
             view = self.get_phase_view()
             return PhaseView(
@@ -1107,8 +1159,7 @@ class LifepathController:
 
     def _advance_after_commission(self, career_id: str, receipts: list[str]) -> PhaseView:
         """Route to advancement (if available) or skill rolls after commission."""
-        career = self._pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self._runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
             view = self.get_phase_view()
             return PhaseView(
@@ -1245,7 +1296,6 @@ class LifepathController:
         if result is None:
             return self.get_phase_view()
 
-        state = self._engine.state
         injury_table = self._pack.injury_table
         if injury_table is None:
             return self._complete_term(result, [])
@@ -1261,15 +1311,11 @@ class LifepathController:
 
         crisis_stat = self._find_stat_at_zero()
         if crisis_stat:
-            if state.campaign.death_mode == "ironman":
-                self._engine.apply(ResolveInjuryCrisisCommand(stat=crisis_stat, pay=False))
-                result.died = True
-                return self._complete_term(result, [*receipts, "Ironman crisis: character died."])
             self._set_term_phase("choose_crisis_resolution")
             view = self.get_phase_view()
             return PhaseView(
                 phase="choose_crisis_resolution",
-                prompt=f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
+                prompt=f"Crisis: {crisis_stat} reached 0. Choose your response:",
                 choices=view.choices,
                 receipts=receipts,
             )
@@ -1281,6 +1327,9 @@ class LifepathController:
         result = self._current_term_result
         if result is None:
             return self.get_phase_view()
+
+        if pay and self._engine.state.character.credits < 10_000:
+            return self.get_phase_view()  # dimmed option; ignore crafted posts
 
         crisis_stat = self._find_stat_at_zero()
         if not crisis_stat:
@@ -1379,11 +1428,6 @@ class LifepathController:
         receipts = [receipt]
 
         if event.changes.get("crisis"):
-            if state.campaign.death_mode == "ironman":
-                self._engine.apply(ResolveInjuryCrisisCommand(stat=stat, pay=False))
-                result.died = True
-                self._aging_active = False
-                return self._complete_term(result, [*receipts, "Ironman crisis: character died."])
             self._set_term_phase("choose_crisis_resolution")
             view = self.get_phase_view()
             return PhaseView(

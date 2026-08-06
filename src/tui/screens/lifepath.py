@@ -669,15 +669,22 @@ class LifepathScreen(Screen):
                 if can_afford
                 else f"Pay Cr10,000 (have Cr{state.character.credits:,} — cannot afford)"
             )
+            is_ironman = state.campaign.death_mode == "ironman"
+            decline_label = "Accept death" if is_ironman else "Accept lasting scar"
+            decline_desc = (
+                "Ironman: the crisis is fatal. The character dies."
+                if is_ironman
+                else f"{crisis_stat} stabilises at 1 with a permanent severe Injury."
+            )
             cm.set_choices(
-                f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
+                f"Crisis: {crisis_stat} reached 0. Choose your response:",
                 [
                     (pay_label, "crisis_pay"),
-                    ("Accept lasting scar", "crisis_scar"),
+                    (decline_label, "crisis_scar"),
                 ],
                 descriptions=[
                     f"Pay for medical care. {crisis_stat} stabilises at 1.",
-                    f"{crisis_stat} stabilises at 1 with a permanent severe Injury.",
+                    decline_desc,
                 ],
             )
             if not can_afford:
@@ -1244,7 +1251,6 @@ class LifepathScreen(Screen):
         if result is None:
             return
 
-        state = self.app.engine.state
         injury_table = self.app.pack.injury_table
         if injury_table is None:
             self._complete_term_narration(result)
@@ -1260,20 +1266,10 @@ class LifepathScreen(Screen):
 
         crisis_stat = self._find_stat_at_zero()
         if crisis_stat:
-            if state.campaign.death_mode == "ironman":
-                # Ironman: crisis is mandatory death (no player choice).
-                self.app.engine.apply(ResolveInjuryCrisisCommand(stat=crisis_stat, pay=False))
-                self._narrate(
-                    f"[bold red]Injury crisis! {crisis_stat} reached 0. "
-                    f"Ironman rule: the character dies.[/bold red]"
-                )
-                result.died = True
-                self._complete_term_narration(result)
-            else:
-                self._narrate(f"[bold red]Injury crisis! {crisis_stat} reached 0.[/bold red]")
-                self._set_term_phase("choose_crisis_resolution")
-                self._post_step()
-                self.phase = self._determine_phase()
+            self._narrate(f"[bold red]Injury crisis! {crisis_stat} reached 0.[/bold red]")
+            self._set_term_phase("choose_crisis_resolution")
+            self._post_step()
+            self.phase = self._determine_phase()
         else:
             self._complete_term_narration(result)
 
@@ -1338,8 +1334,7 @@ class LifepathScreen(Screen):
         if self.app.runner.commission_available(career_id):
             self._set_term_phase("choose_commission")
             return
-        career = self.app.pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self.app.runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
             return
         # Non-hierarchy (or no advancement) -> straight to skills.
@@ -1394,8 +1389,7 @@ class LifepathScreen(Screen):
 
     def _advance_after_commission(self, career_id: str) -> None:
         """Route to advancement (if available) or skill rolls after commission."""
-        career = self.app.pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self.app.runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
         else:
             self._enter_choose_skills()
@@ -1607,21 +1601,10 @@ class LifepathScreen(Screen):
         self._narrate(f"  [red]Aging: {stat} -{slot.points} (now {new_val})[/red]")
 
         if event.changes.get("crisis"):
-            if state.campaign.death_mode == "ironman":
-                self.app.engine.apply(ResolveInjuryCrisisCommand(stat=stat, pay=False))
-                self._narrate(
-                    f"[bold red]Aging crisis! {stat} reached 0. "
-                    f"Ironman rule: the character dies.[/bold red]"
-                )
-                if result is not None:
-                    result.died = True
-                self._aging_active = False
-                self._complete_term_narration(result)
-            else:
-                self._narrate(f"[bold red]Aging crisis! {stat} reached 0.[/bold red]")
-                self._set_term_phase("choose_crisis_resolution")
-                self._post_step()
-                self.phase = self._determine_phase()
+            self._narrate(f"[bold red]Aging crisis! {stat} reached 0.[/bold red]")
+            self._set_term_phase("choose_crisis_resolution")
+            self._post_step()
+            self.phase = self._determine_phase()
             return
 
         # No crisis — check for remaining slots.

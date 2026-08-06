@@ -1270,17 +1270,14 @@ class TestInteractiveMishapFlow:
             assert cm.option_list._options[pay_idx].disabled
 
     # ------------------------------------------------------------------
-    # Ironman crisis is auto-death (no player choice).
+    # Ironman crisis offers pay like other modes (P1.T8 — was auto-death).
     # ------------------------------------------------------------------
 
-    async def test_ironman_crisis_is_auto_death(self, seeded_app):
-        """In ironman mode, a crisis is mandatory death — no choose_crisis phase.
+    async def test_ironman_crisis_offers_pay_and_death_choice(self, seeded_app):
+        """In ironman mode, a crisis offers pay/decline — no auto-death (P1.T8).
 
-        Normally ironman survival failure kills the character before the
-        mishap flow is reached.  This test sets up the mid-mishap state
-        directly (survival + mishap applied in narrative mode, then switch
-        to ironman) to exercise the defensive auto-death path in
-        ``_do_choose_injury_stat``.
+        Decline (crisis_scar) is death in ironman; pay survives with credits
+        deducted. This test exercises the new choose_crisis_resolution path.
         """
         from src.engine.commands import SetFlagCommand
         from src.engine.lifepath import (
@@ -1330,15 +1327,26 @@ class TestInteractiveMishapFlow:
             screen = await push_lifepath(app, pilot)
             assert screen.phase == "choose_injury_stat"
 
-            # Select STR (index 0) → crisis, ironman → auto-death.
+            # Select STR (index 0) → crisis.
             cm = app.screen.query_one(ChoiceMenuWidget)
             cm.option_list.highlighted = 0
             cm.option_list.action_select()
             await pilot.pause()
 
-            # No choose_crisis_resolution phase — character is dead.
-            assert screen.phase != "choose_crisis_resolution"
-            assert app.engine.state.character.alive is False
+            # Ironman now OFFERS the crisis choice (P1.T8) — no auto-death.
+            assert screen.phase == "choose_crisis_resolution"
+            assert app.engine.state.character.alive is True
+
+            # Pay (index 0) — survives, credits deducted.
+            cm = app.screen.query_one(ChoiceMenuWidget)
+            cm.option_list.highlighted = 0
+            cm.option_list.action_select()
+            await pilot.pause()
+
+            state_after = app.engine.state
+            assert state_after.character.alive is True
+            assert state_after.character.credits == 5_000
+            assert state_after.character.characteristics["STR"] == 1
 
 
 # ---------------------------------------------------------------------------
