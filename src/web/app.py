@@ -101,9 +101,10 @@ def create_app() -> FastAPI:
 
     Returns a FastAPI instance with:
     - Static file mount for CSS/JS/fonts/vendor assets
-    - Jinja2 templates with autoescape enabled (security contract)
+    - Jinja2 templates with autoescape enabled (security contract),
+      instantiated per route module
     - Same-origin guard middleware (security contract)
-    - A root route ``GET /`` serving the base layout shell
+    - A root route ``GET /`` redirecting to the main menu (U9)
     - Session registry on ``app.state`` (U1): keyed by
       ``(resolved_saves_dir, save_stem)`` → session bundle
     """
@@ -168,7 +169,7 @@ def create_app() -> FastAPI:
 
     app.include_router(inspector_router)
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/")
     async def index(request: Request) -> RedirectResponse:
         """Redirect to the main menu (U9)."""
         return RedirectResponse(url="/menu", status_code=303)
