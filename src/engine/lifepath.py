@@ -1601,6 +1601,16 @@ class LifepathRunner:
                 return record.final_rank
         return 0
 
+    def _compute_cash_dm(self) -> int:
+        """Cash benefit DM: +1 if Gambling skill or retired (7 terms) (G2, P3.T3)."""
+        ch = self.engine.state.character
+        dm = 0
+        if ch.skills.get("gambling", 0) > 0:
+            dm += 1
+        if ch.terms >= 7:  # mandatory retirement
+            dm += 1
+        return dm
+
     def muster_out(self, career_id: str | None = None) -> MusteringOutResult:
         """Compute the mustering-out plan (counts + DMs) without rolling (B15).
 
@@ -1618,13 +1628,14 @@ class LifepathRunner:
         career = self._get_career(cid)
         terms = ch.terms
         rank = self._effective_muster_rank(cid)
+        cash_dm = self._compute_cash_dm()
 
         return MusteringOutResult(
             terms_served=terms,
             final_rank=rank,
             career_name=career.name,
             total_rolls=benefit_rolls_for(terms, rank),
-            cash_dm=0,
+            cash_dm=cash_dm,
             material_dm=material_dm_for(rank),
         )
 

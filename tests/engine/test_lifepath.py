@@ -1245,3 +1245,32 @@ class TestFantasyMusterRow7:
             if max_range < 7:
                 missing.append((cid, max_range))
         assert not missing, f"fantasy material tables missing row 7: {missing}"
+
+
+class TestGamblingCashDM:
+    """G2: Gambling skill or retirement grants +1 DM on cash benefit rolls (P3.T3)."""
+
+    def test_gambling_grants_cash_dm(self, pack, ruleset):
+        engine = make_engine([])
+        engine.state.character.skills["gambling"] = 1
+        engine.state.character.terms = 2
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack, ruleset)
+        result = runner.muster_out("navy")
+        assert result.cash_dm == 1
+
+    def test_retirement_grants_cash_dm(self, pack, ruleset):
+        engine = make_engine([])
+        engine.state.character.terms = 7
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack, ruleset)
+        result = runner.muster_out("navy")
+        assert result.cash_dm == 1
+
+    def test_no_gambling_no_retirement_zero_dm(self, pack, ruleset):
+        engine = make_engine([])
+        engine.state.character.terms = 2
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack, ruleset)
+        result = runner.muster_out("navy")
+        assert result.cash_dm == 0
