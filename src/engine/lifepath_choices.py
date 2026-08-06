@@ -751,3 +751,56 @@ def choice_point_for_phase(
     if builder is None:
         raise ValueError(f"No choice-point builder for phase {phase!r}")
     return builder(state, pack, ruleset)
+
+
+# ---------------------------------------------------------------------------
+# Rules summary for the Advisor (P4.T6, ADR A5).
+# ---------------------------------------------------------------------------
+
+
+def build_rules_summary(choice: ChoicePointView, ruleset: RuleSet | None = None) -> str:
+    """Deterministic rules digest for a choice point (P4.T6, ADR A5).
+
+    Engine-owned so the Advisor's context is engine-derived, never
+    improvised: the difficulty ladder and characteristic-DM bands come from
+    the ruleset, eligibility notes from the choice's dimmed options. Same
+    inputs, same string — the digest feeds ``advisor_context_hash``, so any
+    ruleset change produces a new hash (stale records are detectable).
+    """
+    from src.rulesets.cepheus import CepheusRuleSet
+
+    rs = ruleset or CepheusRuleSet()
+    ladder = ", ".join(
+        f"{name.replace('_', ' ').title()} {dm:+d}" for name, dm in rs.difficulty_ladder.items()
+    )
+    lines = [
+        f"Checks: 2D6 + DM vs {rs.resolution_target}+.",
+        f"Difficulty ladder: {ladder}.",
+        f"Characteristic DM: {_characteristic_dm_bands(rs)}.",
+    ]
+    dimmed = [o for o in choice.options if o.dimmed]
+    if dimmed:
+        notes = "; ".join(f"{o.option_id} ({o.requirement or 'unavailable'})" for o in dimmed)
+        lines.append(f"Unavailable here: {notes}.")
+    else:
+        lines.append("All listed options are available.")
+    return "\n".join(lines)
+
+
+def _characteristic_dm_bands(ruleset: RuleSet, max_value: int = 17) -> str:
+    """Render characteristic-DM bands by probing the ruleset (P4.T6).
+
+    Bands are derived (not hardcoded) so a pluggable ruleset's ladder renders
+    correctly. The final band renders as ``N+``; values above ``max_value``
+    are outside chargen's reachable range.
+    """
+    bands: list[str] = []
+    start = 0
+    prev = ruleset.characteristic_dm(0)
+    for value in range(1, max_value + 1):
+        dm = ruleset.characteristic_dm(value)
+        if dm != prev:
+            bands.append(f"{start}-{value - 1}: {prev:+d}")
+            start, prev = value, dm
+    bands.append(f"{start}+: {prev:+d}")
+    return ", ".join(bands)
