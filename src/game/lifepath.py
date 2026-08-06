@@ -389,6 +389,15 @@ class LifepathController:
                         option_id=f"assign:{i}:{stat}",
                     )
                 )
+            choices.append(
+                ChoiceOption(
+                    label="Reroll Pool",
+                    option_id="reroll_pool",
+                    description="Discard the pool and roll six new values (once per character).",
+                    dimmed=char.pool_rerolled,
+                    requirement="Pool reroll already used" if char.pool_rerolled else "",
+                )
+            )
             return PhaseView(
                 phase=phase,
                 prompt=f"Assign pool values: {list(pool)}",
@@ -400,12 +409,9 @@ class LifepathController:
             picks_left = (
                 char.background_picks_remaining if char.background_picks_remaining > 0 else 3
             )
-            bg_skills = (
-                list(self._pack.background_skills[:6]) if self._pack.background_skills else []
-            )
+            bg_skills = list(self._pack.background_skills) if self._pack.background_skills else []
             choices = [
-                ChoiceOption(label=f"{s} (level 0)", option_id=f"bg_skill:{s}")
-                for s in bg_skills[:6]
+                ChoiceOption(label=f"{s} (level 0)", option_id=f"bg_skill:{s}") for s in bg_skills
             ]
             return PhaseView(
                 phase=phase,
@@ -415,17 +421,23 @@ class LifepathController:
             )
 
         if phase == "choose_career":
-            careers = list(self._pack.careers.values())[:8]
-            choices = [
-                ChoiceOption(
-                    label=f"{c.name}",
-                    option_id=f"career:{c.id}",
-                    description=c.description[:80] + "..."
-                    if len(c.description) > 80
-                    else c.description,
+            careers = sorted(self._pack.careers.values(), key=lambda c: c.name)
+            left = {r.career_id for r in char.career_history}
+            choices = []
+            for c in careers:
+                blocked = c.id in left and c.id != "drifter"
+                q = c.qualification
+                choices.append(
+                    ChoiceOption(
+                        label=c.name,
+                        option_id=f"career:{c.id}",
+                        description=f"Qualify: 2D6 vs {q.characteristic} {q.target}+",
+                        dimmed=blocked,
+                        requirement="Cannot return to a career already left (B17)"
+                        if blocked
+                        else "",
+                    )
                 )
-                for c in careers
-            ]
             return PhaseView(
                 phase=phase,
                 prompt="Choose a career to qualify for.",
@@ -888,6 +900,10 @@ class LifepathController:
             pool_index = int(parts[1])
             stat_name = parts[2] if len(parts) > 2 else ""
             self._runner.assign_characteristic(stat_name, pool_index)
+            return self.get_phase_view()
+
+        if option_id == "reroll_pool":
+            self._runner.reroll_pool()
             return self.get_phase_view()
 
         if option_id.startswith("bg_skill:"):

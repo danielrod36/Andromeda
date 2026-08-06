@@ -9,6 +9,8 @@ import pytest
 from src.engine.audit import EventKind, audit_rolls
 from src.engine.commands import (
     Engine,
+    RecordAdviceCommand,
+    RecordProposalCommand,
     RollCharacteristicCommand,
     SetFlagCommand,
 )
@@ -285,3 +287,47 @@ def test_check_accepts_valid_command_without_rng_or_mutation():
     assert engine.roller.remaining == 1
     assert engine.state.events == []
     assert engine.state.character.characteristics == {}
+
+
+def test_record_advice_appends_system_event_and_mutates_nothing():
+    """P2.T9: the payload IS the record; state changes only by the SYSTEM event."""
+    engine = Engine(GameState.new(seed=42))
+    payload = {
+        "choice_id": "choose_career",
+        "selected_option_id": "career:navy",
+        "rationale": "best odds given INT 9",
+    }
+    before = len(engine.state.events)
+    event = engine.apply(RecordAdviceCommand(payload=payload))
+    assert event.kind is EventKind.SYSTEM
+    assert event.command_type == "record_advice"
+    assert event.changes == payload
+    assert "choose_career" in event.description
+    assert len(engine.state.events) == before + 1
+    assert engine.state.narrative_log == []
+    assert engine.state.character.career == ""
+    assert engine.state.character.skills == {}
+
+
+def test_record_proposal_appends_system_event():
+    """P2.T9: proposal records (incl. rejections) log as SYSTEM with the payload."""
+    engine = Engine(GameState.new(seed=42))
+    payload = {
+        "choice_id": "choose_career",
+        "text": "join the navy",
+        "selected_option_id": "career:navy",
+        "validation": "passed",
+    }
+    event = engine.apply(RecordProposalCommand(payload=payload))
+    assert event.kind is EventKind.SYSTEM
+    assert event.command_type == "record_proposal"
+    assert event.changes == payload
+
+
+def test_record_commands_accept_empty_payload_and_stay_json_serializable():
+    """P2.T9: validate is a no-op accept; GameState stays JSON-serializable."""
+    engine = Engine(GameState.new(seed=42))
+    e1 = engine.apply(RecordAdviceCommand(payload={}))
+    e2 = engine.apply(RecordProposalCommand(payload={"weight": 0.5}))
+    assert e1.kind is EventKind.SYSTEM and e2.kind is EventKind.SYSTEM
+    engine.state.model_dump_json()  # must not raise

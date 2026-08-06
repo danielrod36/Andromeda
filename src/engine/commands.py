@@ -271,3 +271,56 @@ class SetCharacterDeadCommand(Command):
             description=desc,
             changes={"alive": False, "reason": self.reason},
         )
+
+
+class RecordAdviceCommand(Command):
+    """Record an Advisor suggestion in the event log (P2.T9, A2/A10).
+
+    The payload IS the record (a serialized SuggestionRecord, Part 4).
+    ``validate`` is the no-op default — advice is non-mechanical, so there is
+    no rules precondition. ``mutate`` appends a ``SYSTEM`` event and changes
+    nothing else; replay re-applies the record deterministically and never
+    re-calls the LLM.
+    """
+
+    command_type: ClassVar[str] = "record_advice"
+
+    payload: dict
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        description = str(
+            self.payload.get("description")
+            or f"Advice recorded for choice {self.payload.get('choice_id', '?')}"
+        )
+        return Event(
+            kind=EventKind.SYSTEM,
+            command_type=self.command_type,
+            description=description,
+            changes=dict(self.payload),
+        )
+
+
+class RecordProposalCommand(Command):
+    """Record a free-text translation in the event log (P2.T9, A3).
+
+    The payload IS the record (a serialized TranslationRecord, Part 5),
+    including its validation outcome — rejected proposals are recorded too.
+    ``validate`` is the no-op default; ``mutate`` appends a ``SYSTEM`` event
+    and changes nothing else.
+    """
+
+    command_type: ClassVar[str] = "record_proposal"
+
+    payload: dict
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        description = str(
+            self.payload.get("description")
+            or f"Proposal recorded for choice {self.payload.get('choice_id', '?')}"
+        )
+        return Event(
+            kind=EventKind.SYSTEM,
+            command_type=self.command_type,
+            description=description,
+            changes=dict(self.payload),
+        )
