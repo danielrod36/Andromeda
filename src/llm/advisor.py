@@ -14,10 +14,19 @@ candidates (ADR A3) and never mutates state.
 from __future__ import annotations
 
 import hashlib
+import logging
+from dataclasses import dataclass
+from typing import Any
 
 from pydantic import BaseModel
+from pydantic_ai import Agent, ModelRetry
+from pydantic_ai.exceptions import UnexpectedModelBehavior
+from pydantic_ai.usage import UsageLimits
 
 from src.engine.lifepath_choices import ChoicePointView
+from src.llm.prompts import ADVISOR_SYSTEM_PROMPT, build_advisor_prompt
+
+logger = logging.getLogger(__name__)
 
 #: Version tag stamped on every record; bump when the advisor prompt or
 #: output contract changes so replays can identify stale records.
@@ -59,3 +68,119 @@ def advisor_context_hash(choice: ChoicePointView, rules_summary: str) -> str:
     digest.update(choice.model_dump_json().encode("utf-8"))
     digest.update(rules_summary.encode("utf-8"))
     return digest.hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# LLM Advisor (P4.T3, ADR A2/A9).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AdvisorConfig:
+    """Configuration for the LLM Advisor (P4.T3). Mirrors AdapterConfig."""
+
+    model: str | None = None
+    max_retries: int = 3
+    request_limit: int = 5
+    token_limit: int | None = None
+    request_timeout: float | None = None
+
+
+def _validate_selection(record: SuggestionRecord, valid_ids: list[str]) -> None:
+    """Post-call candidate check (P4.T3, ADR A3).
+
+    Mirrors ``classify_freetext``'s ``valid_skill_ids`` gate: candidate
+    membership can't live in a field_validator because the valid set is
+    per-call. Raises ``ModelRetry`` listing the valid ids to feed the
+    retry loop.
+    """
+    if record.selected_option_id not in valid_ids:
+        raise ModelRetry(
+            f"selected_option_id '{record.selected_option_id}' is not an available option. "
+            f"Valid option_ids: {valid_ids}."
+        )
+
+
+class Advisor:
+    """LLM advisor producing recorded suggestions (P4.T3, ADR A2/A9).
+
+    Retry semantics mirror ``LLMAdapter._run_agent``: the agent is built
+    with ``retries=0`` and the advisor owns the loop (``max_retries + 1``
+    attempts, rejection reason appended to the prompt). Never raises —
+    exhaustion or provider failure returns ``None`` and the caller reports
+    advice as unavailable (ADR A1).
+    """
+
+    def __init__(
+        self, config: AdvisorConfig | None = None, *, test_model: Any | None = None
+    ) -> None:
+        self.config = config or AdvisorConfig()
+        self._agent: Agent[None, SuggestionRecord] | None = None
+        self._model_id = "none"
+        if test_model is not None or self.config.model is not None:
+            model: Any = test_model if test_model is not None else self.config.model
+            self._model_id = (
+                getattr(test_model, "model_name", None) or self.config.model or "unknown"
+            )
+            self._agent = Agent(
+                model,
+                output_type=SuggestionRecord,
+                system_prompt=ADVISOR_SYSTEM_PROMPT,
+                retries=0,  # Advisor owns the retry loop (mirrors LLMAdapter).
+                defer_model_check=test_model is None,
+            )
+
+    @property
+    def advisor_available(self) -> bool:
+        """True if an LLM model (real or test) is configured."""
+        return self._agent is not None
+
+    async def suggest(self, choice: ChoicePointView, rules_summary: str) -> SuggestionRecord | None:
+        """Suggest one option for the choice point; ``None`` when unavailable.
+
+        The record is stamped post-run: ``choice_id``, ``context_hash``,
+        ``model_id``, and ``prompt_version`` always overwrite the model's own
+        output — the LLM advises on *content*, the advisor owns *provenance*.
+        """
+        if self._agent is None:
+            return None
+        prompt = build_advisor_prompt(choice, rules_summary)
+        valid_ids = [o.option_id for o in choice.options if not o.dimmed]
+        try:
+            record = await self._run_with_retries(prompt, valid_ids)
+        except Exception as exc:
+            logger.warning("Advisor failed; advice unavailable: %s", exc)
+            return None
+        return record.model_copy(
+            update={
+                "choice_id": choice.choice_id,
+                "context_hash": advisor_context_hash(choice, rules_summary),
+                "model_id": self._model_id,
+                "prompt_version": ADVISOR_PROMPT_VERSION,
+            }
+        )
+
+    async def _run_with_retries(self, prompt: str, valid_ids: list[str]) -> SuggestionRecord:
+        """Manual retry loop mirroring ``LLMAdapter._run_agent`` (P4.T3)."""
+        total = self.config.max_retries + 1
+        full_prompt = prompt
+        last_exc: Exception | None = None
+        for attempt in range(1, total + 1):
+            try:
+                result = await self._agent.run(
+                    full_prompt,
+                    usage_limits=UsageLimits(request_limit=self.config.request_limit),
+                )
+                _validate_selection(result.output, valid_ids)
+                return result.output
+            except (ModelRetry, UnexpectedModelBehavior) as exc:
+                last_exc = exc
+                if attempt < total:
+                    full_prompt = (
+                        f"{full_prompt}\n\n"
+                        f"Your previous response was rejected: {exc}. "
+                        f"Please try again, addressing this feedback."
+                    )
+                    continue
+                raise
+        raise last_exc  # type: ignore[misc]

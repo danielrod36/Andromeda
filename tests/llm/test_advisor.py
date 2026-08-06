@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic_ai import ModelRetry
+from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
+from pydantic_ai.models.test import TestModel
+
 from src.engine.lifepath_choices import ChoiceOptionView, ChoicePointView
 from src.llm.advisor import (
     ADVISOR_PROMPT_VERSION,
+    Advisor,
+    AdvisorConfig,
     AlternativeConsidered,
     SuggestionRecord,
+    _validate_selection,
     advisor_context_hash,
 )
 from src.llm.prompts import ADVISOR_SYSTEM_PROMPT, build_advisor_prompt
@@ -99,3 +108,75 @@ class TestAdvisorPrompt:
         assert "up to 2 other available option_ids" in prompt
         assert RULES_SUMMARY in prompt
         assert ADVISOR_SYSTEM_PROMPT  # non-empty system prompt exists
+
+
+GOOD_OUTPUT = {
+    "choice_id": "career_qualification",
+    "selected_option_id": "navy",
+    "rationale": "Best qualification odds at 72% Favorable, and Pilot fits a pilot build.",
+    "alternatives": [{"option_id": "scout", "why_not": "Lower success odds (58%)."}],
+}
+
+
+def scripted_model(outputs: list[dict]) -> tuple[FunctionModel, list[int]]:
+    """FunctionModel returning each output dict in turn (the last repeats)."""
+    calls = [0]
+
+    def fn(messages, info: AgentInfo) -> ModelResponse:
+        calls[0] += 1
+        payload = outputs[min(calls[0] - 1, len(outputs) - 1)]
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, payload)])
+
+    return FunctionModel(fn), calls
+
+
+class TestAdvisor:
+    @pytest.mark.asyncio
+    async def test_suggest_deterministic_and_stamped(self):
+        """TestModel happy path: content from model, stamps from Advisor."""
+        stamped_input = dict(GOOD_OUTPUT, context_hash="bogus", model_id="bogus")
+        advisor = Advisor(test_model=TestModel(custom_output_args=stamped_input))
+        record = await advisor.suggest(make_choice(), RULES_SUMMARY)
+
+        assert record is not None
+        assert record.selected_option_id == "navy"
+        assert record.alternatives[0].option_id == "scout"
+        # Stamps overwrite whatever the model emitted (ADR A2).
+        assert record.context_hash == advisor_context_hash(make_choice(), RULES_SUMMARY)
+        assert record.model_id == "test"  # TestModel default model_name
+        assert record.prompt_version == "advisor.v1"
+
+    @pytest.mark.asyncio
+    async def test_retry_then_success_on_invalid_id(self):
+        """Invalid id on attempt 1 (ModelRetry), valid id on attempt 2."""
+        bad = dict(GOOD_OUTPUT, selected_option_id="zzz")
+        model, calls = scripted_model([bad, GOOD_OUTPUT])
+        advisor = Advisor(test_model=model)
+        record = await advisor.suggest(make_choice(), RULES_SUMMARY)
+
+        assert calls[0] == 2
+        assert record is not None
+        assert record.selected_option_id == "navy"
+
+    @pytest.mark.asyncio
+    async def test_exhaustion_returns_none_never_raises(self):
+        """Always-invalid output: max_retries+1 attempts, then None."""
+        bad = dict(GOOD_OUTPUT, selected_option_id="zzz")
+        model, calls = scripted_model([bad])
+        advisor = Advisor(config=AdvisorConfig(max_retries=2), test_model=model)
+        record = await advisor.suggest(make_choice(), RULES_SUMMARY)
+
+        assert calls[0] == 3  # 1 initial + 2 retries
+        assert record is None
+
+    @pytest.mark.asyncio
+    async def test_unavailable_without_model(self):
+        advisor = Advisor()  # no model configured
+        assert advisor.advisor_available is False
+        assert await advisor.suggest(make_choice(), RULES_SUMMARY) is None
+
+    def test_validate_selection_lists_valid_ids(self):
+        record = SuggestionRecord(**{**GOOD_OUTPUT, "selected_option_id": "zzz"})
+        with pytest.raises(ModelRetry, match=r"Valid option_ids: \['navy', 'scout'\]"):
+            _validate_selection(record, ["navy", "scout"])
+        _validate_selection(SuggestionRecord(**GOOD_OUTPUT), ["navy", "scout"])  # no raise
