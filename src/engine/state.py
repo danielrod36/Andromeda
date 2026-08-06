@@ -65,6 +65,13 @@ class Character(BaseModel):
     basic_training_done: bool = False
     # Pending aging reductions awaiting player assignment (Task 6).
     pending_aging: list[AgingSlot] = Field(default_factory=list)
+    # --- save schema v5 (P3.T4) ---
+    benefits_lost: bool = False
+    """Set by mishap 'Lose all benefits' (G3) — zeroes future benefit rolls."""
+    debt_cr: int = 0
+    """Outstanding debt from mishap consequences (G3)."""
+    mustered_careers: list[str] = Field(default_factory=list)
+    """Career ids that have already been mustered out (G4 tracking)."""
 
 
 class CampaignConfig(BaseModel):
@@ -139,7 +146,7 @@ class GameState(BaseModel):
     continues the exact same roll sequence.
     """
 
-    save_version: int = 4
+    save_version: int = 5
     seed: int
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     character: Character = Field(default_factory=Character)
