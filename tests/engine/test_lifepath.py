@@ -379,8 +379,7 @@ class TestQualificationFailure:
             [2, 1],
             # Navy qualification fail.
             [2, 1],
-            # Drifter qualification: SOC 3, DM -1, target 2 -> success
-            [3, 2],
+            # Drifter auto-qualifies (always_open, P3.T8b) — no roll consumed.
             # Term 1 (drifter, non-hierarchy -> 2 skill rolls)
             [4, 3],  # Survival: END 3 + DM -1 = 6 >= 6 -> success
             [5],
@@ -588,6 +587,25 @@ class TestCareerChange:
         engine._roller = ForcedRoller([[5, 2]])
         runner.qualify("drifter")
 
+    def test_always_open_qualification_produces_audit_event(self, engine_and_pack):
+        """always_open careers must route through Engine.apply (Key Invariant #1).
+
+        A direct GameState field write bypasses the funnel — no Event is
+        appended, no sequence number assigned — breaking audit/replay. The
+        Drifter auto-qualification must still go through the funnel.
+        """
+        engine, pack = engine_and_pack
+        runner = LifepathRunner(engine, pack)
+        events_before = len(engine.state.events)
+        result = runner.qualify("drifter")
+        # Career set on the character.
+        assert result.success
+        assert engine.state.character.career == "drifter"
+        # An Event was appended through the funnel (audit/replay guarantee).
+        assert len(engine.state.events) == events_before + 1
+        enter_event = engine.state.events[-1]
+        assert enter_event.changes["career_id"] == "drifter"
+
     def test_qualify_applies_career_change_dm(self, engine_and_pack):
         """With one prior career, qualification gets an extra -2 DM."""
         engine, pack = engine_and_pack
@@ -623,8 +641,7 @@ class TestAging:
             [2, 1],  # INT = 3
             [2, 1],  # EDU = 3
             [4, 2],  # SOC = 6
-            # Drifter qualification: SOC 6, DM 0, target 2 (auto-qualify)
-            [3, 2],  # 5 >= 2 -> success
+            # Drifter auto-qualifies (always_open, P3.T8b) — no roll consumed.
         ]
         # Terms 1-3 (ages 18->30): survival, 2 skill rolls each (non-hierarchy, B9).
         # No aging checks (age < 34).
@@ -686,7 +703,7 @@ class TestAging:
             [2, 1],
             [2, 1],
             [4, 2],
-            [3, 2],  # Drifter qualification: SOC 6 + DM 0 = 5 >= 2 -> success
+            # Drifter auto-qualifies (always_open, P3.T8b) — no roll consumed.
         ]
         for _term in range(3):
             queue.extend([[4, 3], [5], [5]])
@@ -1245,3 +1262,155 @@ class TestFantasyMusterRow7:
             if max_range < 7:
                 missing.append((cid, max_range))
         assert not missing, f"fantasy material tables missing row 7: {missing}"
+
+
+class TestGamblingCashDM:
+    """G2: Gambling skill or retirement grants +1 DM on cash benefit rolls (P3.T3)."""
+
+    def test_gambling_grants_cash_dm(self, pack, ruleset):
+        engine = make_engine([])
+        engine.state.character.skills["gambler"] = 1
+        engine.state.character.terms = 2
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack, ruleset)
+        result = runner.muster_out("navy")
+        assert result.cash_dm == 1
+
+    def test_retirement_grants_cash_dm(self, pack, ruleset):
+        engine = make_engine([])
+        engine.state.character.terms = 7
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack, ruleset)
+        result = runner.muster_out("navy")
+        assert result.cash_dm == 1
+
+    def test_no_gambling_no_retirement_zero_dm(self, pack, ruleset):
+        engine = make_engine([])
+        engine.state.character.terms = 2
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack, ruleset)
+        result = runner.muster_out("navy")
+        assert result.cash_dm == 0
+
+
+class TestMishapConsequences:
+    """G3: mishap effects (debt, lose_benefits) apply mechanically (P3.T5)."""
+
+    def test_mishap_debt_applies(self, pack):
+        from src.engine.lifepath import MishapRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        entries = [
+            SkillTableEntry(min=1, max=1, result="Injured in action."),
+            SkillTableEntry(min=2, max=2, result="Honorably discharged."),
+            SkillTableEntry(
+                min=3,
+                max=3,
+                result="Debt of Cr10,000.",
+                effects=[{"type": "debt", "amount": 10000}],
+            ),
+            SkillTableEntry(min=4, max=6, result="Other."),
+        ]
+        engine._roller = ForcedRoller([[3]])
+        event = engine.apply(MishapRollCommand(career_id="navy", entries=entries))
+        assert engine.state.character.debt_cr == 10000
+        assert "debt:10000" in event.changes.get("effects_applied", [])
+
+    def test_mishap_lose_benefits_zeroes_muster(self, pack):
+        from src.engine.lifepath import MishapRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        engine.state.character.career = "navy"
+        engine.state.character.terms = 3
+        entries = [
+            SkillTableEntry(
+                min=4,
+                max=4,
+                result="Dishonorably discharged. Lose all benefits.",
+                effects=[{"type": "lose_benefits"}],
+            ),
+        ]
+        engine._roller = ForcedRoller([[4]])
+        engine.apply(MishapRollCommand(career_id="navy", entries=entries))
+        assert engine.state.character.benefits_lost is True
+        runner = LifepathRunner(engine, pack)
+        result = runner.muster_out("navy")
+        assert result.total_rolls == 0
+
+
+class TestDuplicateBenefits:
+    """G5: duplicate material benefits handled per pack rules (P3.T7)."""
+
+    def test_weapon_duplicate_grants_skill(self, pack):
+        """Second 'Weapon' result grants a weapon skill level (P3.T7)."""
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        weapon_entry = SkillTableEntry(
+            min=3,
+            max=3,
+            result="Weapon",
+            on_duplicate="skill:gun_combat",
+        )
+        # First weapon → inventory
+        engine._roller = ForcedRoller([[3]])
+        engine.apply(BenefitRollCommand(benefit_type="material", entries=[weapon_entry]))
+        assert "Weapon" in engine.state.character.inventory
+
+        # Second weapon → gun_combat skill, not a second inventory item
+        engine._roller = ForcedRoller([[3]])
+        engine.apply(BenefitRollCommand(benefit_type="material", entries=[weapon_entry]))
+        assert engine.state.character.inventory.count("Weapon") == 1
+        assert engine.state.character.skills.get("gun_combat", 0) >= 1
+
+    def test_once_only_benefit_rerolls_if_already_owned(self, pack):
+        """Explorers' Society (once=True) rerolls if already in inventory (P3.T7)."""
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        engine.state.character.inventory.append("Explorers' Society")
+        engine._roller = ForcedRoller([[6], [2]])  # 6→already have→reroll→2
+        engine.apply(
+            BenefitRollCommand(
+                benefit_type="material",
+                entries=[
+                    SkillTableEntry(min=1, max=2, result="+1 EDU"),
+                    SkillTableEntry(min=6, max=6, result="Explorers' Society", once=True),
+                ],
+            )
+        )
+        assert engine.state.character.inventory.count("Explorers' Society") == 1
+
+    def test_reroll_preserves_material_dm(self, pack):
+        """A rank-5+ character's material DM applies to the reroll too (SRD).
+
+        The reroll is still a roll on the material benefits table, so the rank
+        DM (``self.dm``) should carry through — not be silently dropped to 0.
+        """
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        engine.state.character.inventory.append("Explorers' Society")
+        # dm=1 (rank 5+): first roll 5+1=6 -> once-only dup -> reroll;
+        # reroll 1+1=2 -> "Item B". With modifiers=0 the reroll totals 1
+        # and lands on "Item A" instead — the bug this test guards against.
+        engine._roller = ForcedRoller([[5], [1]])
+        event = engine.apply(
+            BenefitRollCommand(
+                benefit_type="material",
+                dm=1,
+                entries=[
+                    SkillTableEntry(min=1, max=1, result="Item A"),
+                    SkillTableEntry(min=2, max=2, result="Item B"),
+                    SkillTableEntry(min=6, max=6, result="Explorers' Society", once=True),
+                ],
+            )
+        )
+        assert event.roll.modifiers == 1
+        assert "Item B" in engine.state.character.inventory
+        assert "Item A" not in engine.state.character.inventory

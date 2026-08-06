@@ -777,6 +777,7 @@ drifter:
   name: "Drifter"
   description: >
     Individual that continually moves from place to place, without any fixed home or job.
+  always_open: true
   qualification:
     characteristic: SOC
     target: 2

@@ -917,3 +917,26 @@ class TestAdvancementRankCap:
         engine.state.character.rank = 2
         runner = LifepathRunner(engine, pack)
         assert runner.advancement_available("scout") is False
+
+
+class TestRankBonusSkills:
+    """G1: bonus skills from the ranks table are granted on rank attainment (P3.T2)."""
+
+    def test_rank_bonus_skill_granted_on_commission(self, pack):
+        """Commission to rank 1 grants the rank's bonus_skills entry if present."""
+        from src.rulesets.base import RankEntry
+
+        navy = pack.careers["navy"]
+        navy.ranks[0] = RankEntry(
+            rank=1,
+            title="Midshipman",
+            bonus_skills=[{"skill": "electronics_comms", "level": 1}],
+        )
+        engine, runner = setup_qualified_engine(
+            [[4, 3], [5, 5]],  # survival, commission SOC 6 DM 0 = 10 >= 7
+            pack,
+        )
+        result = runner.start_term("navy", 1)
+        runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)  # → rank 1
+        assert engine.state.character.skills.get("electronics_comms", 0) >= 1

@@ -159,6 +159,7 @@ class SkillGain:
     result_text: str
     gain_type: str
     gain_name: str
+    cascade_parent: str | None = None
 
 
 @dataclass
@@ -277,6 +278,29 @@ class QualificationCommand(Command):
                 "target": self.target,
                 "success": success,
             },
+        )
+
+
+class EnterCareerCommand(Command):
+    """Enter an always-open career (e.g. Drifter) without a qualification roll.
+
+    Always-open careers (``CareerData.always_open``) auto-qualify per SRD — no
+    dice are rolled, no career-change DM applies. Routing the career assignment
+    through the funnel ensures it is recorded as an audited :class:`Event` with a
+    sequence number, preserving the replay/checkpoint guarantee (Key Invariant
+    #1) that a direct ``GameState`` write would break.
+    """
+
+    command_type: ClassVar[str] = "lifepath_enter_career"
+    career_id: str
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.career = self.career_id
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Entered career {self.career_id} (always open).",
+            changes={"career_id": self.career_id, "always_open": True},
         )
 
 
@@ -653,7 +677,17 @@ class BenefitRollCommand(Command):
     dm: int = 0
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
-        return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
+        first = roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
+        if self.benefit_type != "material":
+            return first
+        entry = lookup_table_result(self.entries, first.total)
+        already_has = entry.result in state.character.inventory
+        needs_reroll = (entry.once and already_has) or (
+            entry.on_duplicate == "reroll" and already_has
+        )
+        if needs_reroll:
+            return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
+        return first
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         assert roll is not None
@@ -663,7 +697,17 @@ class BenefitRollCommand(Command):
             if m:
                 state.character.credits += int(m.group(1).replace(",", ""))
         else:
-            state.character.inventory.append(entry.result)
+            already_has = entry.result in state.character.inventory
+            if entry.once and already_has:
+                pass  # reroll already happened in resolve; if still a dup, forfeit
+            elif entry.on_duplicate and already_has:
+                if entry.on_duplicate.startswith("skill:"):
+                    skill_id = entry.on_duplicate.split(":", 1)[1]
+                    current = state.character.skills.get(skill_id, 0)
+                    state.character.skills[skill_id] = current + 1
+                # else: "reroll" — handled in resolve; forfeit if still dup
+            else:
+                state.character.inventory.append(entry.result)
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
@@ -700,6 +744,23 @@ class MishapRollCommand(Command):
         assert roll is not None
         entry = lookup_table_result(self.entries, roll.total)
         is_injury = roll.total in (1, 6)
+        effects_applied: list[str] = []
+
+        # G3: apply mechanical effects from the mishap entry (P3.T5).
+        if entry.effects:
+            for effect in entry.effects:
+                etype = str(effect.get("type", ""))
+                if etype == "debt":
+                    amount = int(effect.get("amount", 0))
+                    state.character.debt_cr += amount
+                    effects_applied.append(f"debt:{amount}")
+                elif etype == "lose_benefits":
+                    state.character.benefits_lost = True
+                    effects_applied.append("lose_benefits")
+                elif etype == "injury":
+                    is_injury = True
+                    effects_applied.append("injury")
+
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
@@ -710,6 +771,7 @@ class MishapRollCommand(Command):
                 "roll_total": roll.total,
                 "result_text": entry.result,
                 "injury": is_injury,
+                "effects_applied": effects_applied,
             },
         )
 
@@ -756,18 +818,19 @@ class ResolveInjuryCrisisCommand(Command):
     command_type: ClassVar[str] = "lifepath_injury_crisis"
     stat: str
     pay: bool
+    crisis_cost_cr: int = 10_000
 
     def validate(self, state: GameState) -> None:
-        if self.pay and state.character.credits < 10_000:
-            raise ValueError("Cannot afford the Cr10,000 injury crisis payment")
+        if self.pay and state.character.credits < self.crisis_cost_cr:
+            raise ValueError(f"Cannot afford Cr{self.crisis_cost_cr} crisis payment")
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         ch = state.character
         outcome = ""
         if self.pay:
-            ch.credits -= 10_000
+            ch.credits -= self.crisis_cost_cr
             ch.characteristics[self.stat] = max(1, ch.characteristics.get(self.stat, 0))
-            outcome = "paid_cr10000"
+            outcome = f"paid_cr{self.crisis_cost_cr}"
         elif state.campaign.death_mode == "ironman":
             ch.alive = False
             outcome = "death"
@@ -1215,6 +1278,22 @@ class LifepathRunner:
         if career_id in left and career_id != "drifter":
             raise ValueError(f"Cannot return to career {career_id!r} already left (B17)")
         career = self._get_career(career_id)
+        # P3.T8b: always_open careers (drifter) auto-qualify — no roll consumed.
+        if career.always_open:
+            self.engine.apply(EnterCareerCommand(career_id=career_id))
+            return QualificationResult(
+                career_id=career_id,
+                career_name=career.name,
+                characteristic=career.qualification.characteristic,
+                char_value=self.engine.state.character.characteristics.get(
+                    career.qualification.characteristic, 0
+                ),
+                char_dm=0,
+                raw_roll=0,
+                adjusted_total=0,
+                target=career.qualification.target,
+                success=True,
+            )
         dm = extra_dm + self.career_change_dm()
         cmd = QualificationCommand(
             career_id=career_id,
@@ -1365,6 +1444,24 @@ class LifepathRunner:
         result.commission_total = c["adjusted_total"]
         result.commission_target = c["target"]
         result.commission_success = c["success"]
+        if c["success"]:
+            self._grant_rank_bonus_skills(career_id, 1)
+
+    def _grant_rank_bonus_skills(self, career_id: str, new_rank: int) -> list[str]:
+        """Grant bonus skills for attaining ``new_rank`` in ``career_id`` (G1, P3.T2).
+
+        Returns a list of human-readable grant descriptions for the caller's event.
+        """
+        career = self._get_career(career_id)
+        grants: list[str] = []
+        for rank_entry in career.ranks:
+            if rank_entry.rank == new_rank and rank_entry.bonus_skills:
+                for bonus in rank_entry.bonus_skills:
+                    skill_id = str(bonus["skill"])
+                    level = int(bonus.get("level", 0))
+                    self.engine.apply(GainSkillCommand(skill_id=skill_id, level=level))
+                    grants.append(f"{skill_id}-{level} (rank {new_rank})")
+        return grants
 
     def advancement_available(self, career_id: str) -> bool:
         """Whether advancement can be attempted this term (B1/B5, P1.T1).
@@ -1404,6 +1501,8 @@ class LifepathRunner:
         result.advancement_total = ac["adjusted_total"]
         result.advancement_success = ac["success"]
         result.rank_after = state.character.rank
+        if ac["success"] and result.rank_after > result.rank_before:
+            self._grant_rank_bonus_skills(career_id, result.rank_after)
 
     def compute_num_skill_rolls(self, result: TermResult) -> int:
         """Compute the number of skill table rolls for this term.
@@ -1581,6 +1680,16 @@ class LifepathRunner:
                 return record.final_rank
         return 0
 
+    def _compute_cash_dm(self) -> int:
+        """Cash benefit DM: +1 if Gambling skill or retired (7 terms) (G2, P3.T3)."""
+        ch = self.engine.state.character
+        dm = 0
+        if ch.skills.get("gambler", 0) > 0:
+            dm += 1
+        if ch.terms >= 7:  # mandatory retirement
+            dm += 1
+        return dm
+
     def muster_out(self, career_id: str | None = None) -> MusteringOutResult:
         """Compute the mustering-out plan (counts + DMs) without rolling (B15).
 
@@ -1595,16 +1704,28 @@ class LifepathRunner:
         )
         if not cid:
             return MusteringOutResult()
+        # G3: mishap "Lose all benefits" zeroes all benefit rolls.
+        if ch.benefits_lost:
+            career = self._get_career(cid)
+            return MusteringOutResult(
+                terms_served=ch.terms,
+                final_rank=self._effective_muster_rank(cid),
+                career_name=career.name,
+                total_rolls=0,
+                cash_dm=0,
+                material_dm=0,
+            )
         career = self._get_career(cid)
         terms = ch.terms
         rank = self._effective_muster_rank(cid)
+        cash_dm = self._compute_cash_dm()
 
         return MusteringOutResult(
             terms_served=terms,
             final_rank=rank,
             career_name=career.name,
             total_rolls=benefit_rolls_for(terms, rank),
-            cash_dm=0,
+            cash_dm=cash_dm,
             material_dm=material_dm_for(rank),
         )
 

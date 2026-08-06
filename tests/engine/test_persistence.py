@@ -366,9 +366,9 @@ class TestV2ToV3Migration:
         assert loaded.pending_freetext["text"] == "I bribe the guard"
         assert loaded.pending_freetext["check"]["skill"] == "broker"
 
-    def test_current_save_version_is_4(self):
-        """CURRENT_SAVE_VERSION is 4 after U8."""
-        assert current_save_version() == 4
+    def test_current_save_version_is_5(self):
+        """CURRENT_SAVE_VERSION is 5 after P3.T4."""
+        assert current_save_version() == 5
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +389,7 @@ class TestV3ToV4Migration:
         p = tmp_path / "v3.json"
         p.write_text(json.dumps(v3))
         loaded = load(p)
-        assert loaded.save_version == 4
+        assert loaded.save_version == 5
         assert loaded.pending_hook is None
 
     def test_v4_save_round_trips_pending_hook(self, tmp_path: Path):
@@ -407,7 +407,78 @@ class TestV3ToV4Migration:
         p = tmp_path / "v4.json"
         save(state, p)
         loaded = load(p)
-        assert loaded.save_version == 4
+        assert loaded.save_version == 5
         assert loaded.pending_hook is not None
         assert loaded.pending_hook["patron"] == "Navy"
         assert loaded.pending_hook["objective"] == "Recover cargo"
+
+
+class TestV4ToV5Migration:
+    """P3.T4: v4 saves migrate to v5 with new Character fields defaulted."""
+
+    def test_current_save_version_is_5(self):
+        from src.engine.persistence import CURRENT_SAVE_VERSION
+
+        assert CURRENT_SAVE_VERSION == 5
+
+    def test_migrate_v4_to_v5_adds_defaults(self):
+        from src.engine.persistence import migrate
+
+        v4_data: dict[str, object] = {
+            "save_version": 4,
+            "seed": 42,
+            "campaign": {
+                "ruleset": "cepheus",
+                "theme_pack": "scifi",
+                "resolution_profile": "classic",
+                "death_mode": "narrative",
+            },
+            "character": {
+                "name": "Test",
+                "characteristics": {"STR": 7},
+                "skills": {},
+                "age": 22,
+                "terms": 1,
+                "career": "navy",
+                "rank": 1,
+                "alive": True,
+                "credits": 1000,
+                "inventory": [],
+                "unassigned_rolls": [],
+                "pool_rerolled": False,
+                "career_history": [],
+                "drafted": False,
+                "background_picks_remaining": -1,
+                "basic_training_done": True,
+                "pending_aging": [],
+            },
+            "rng": {"streams": {}},
+            "entities": [],
+            "events": [],
+            "narrative_log": [],
+            "active_mission": None,
+            "completed_missions": [],
+            "chapter_summaries": [],
+            "open_threads": [],
+            "mission_counter": 0,
+            "pending_freetext": None,
+            "pending_hook": None,
+        }
+        migrated = migrate(v4_data, from_version=4)
+        assert migrated["save_version"] == 5
+        assert migrated["character"]["benefits_lost"] is False
+        assert migrated["character"]["debt_cr"] == 0
+        assert migrated["character"]["mustered_careers"] == []
+
+    def test_v5_character_round_trips(self):
+        from src.engine.state import GameState
+
+        state = GameState.new(seed=42)
+        state.character.benefits_lost = True
+        state.character.debt_cr = 10000
+        state.character.mustered_careers = ["navy", "scout"]
+        dumped = state.model_dump_json()
+        restored = GameState.model_validate_json(dumped)
+        assert restored.character.benefits_lost is True
+        assert restored.character.debt_cr == 10000
+        assert restored.character.mustered_careers == ["navy", "scout"]

@@ -51,6 +51,17 @@ class SkillTableEntry(BaseModel):
     max: int = Field(alias="max")
     result: str
 
+    # Schema v2 additive fields (P3.T1, A6) — all default away.
+    effects: list[dict[str, str | int]] | None = None
+    """Mechanical effects: ``[{"type": "debt", "amount": 10000}, {"type": "lose_benefits"}]``."""
+
+    once: bool = False
+    """If True, this material benefit can only be claimed once per character."""
+
+    on_duplicate: str | None = None
+    """When a non-once material benefit repeats: ``"skill:<skill_id>"`` grants a
+    skill level instead, or ``"reroll"`` rerolls once on the lifepath stream."""
+
     model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
@@ -133,10 +144,12 @@ class BenefitsTable(BaseModel):
 
 
 class RankEntry(BaseModel):
-    """A rank/title within a career hierarchy."""
+    """A rank/title within a career hierarchy (schema v2: bonus_skills)."""
 
     rank: int
     title: str
+    bonus_skills: list[dict[str, int | str]] = Field(default_factory=list)
+    """List of ``{"skill": <skill_id>, "level": <int>}`` granted at this rank (P3.T1)."""
 
 
 class CareerData(BaseModel):
@@ -162,6 +175,8 @@ class CareerData(BaseModel):
     ranks: list[RankEntry] = Field(default_factory=list)
     mustering_out_cash: BenefitsTable | None = None
     mustering_out_material: BenefitsTable | None = None
+    always_open: bool = False
+    """If True, this career auto-qualifies and ignores career-change DM (P3.T8b)."""
 
     @model_validator(mode="after")
     def _check_hierarchy_consistency(self) -> CareerData:
