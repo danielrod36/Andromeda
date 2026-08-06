@@ -1317,3 +1317,43 @@ class TestMishapConsequences:
         runner = LifepathRunner(engine, pack)
         result = runner.muster_out("navy")
         assert result.total_rolls == 0
+
+
+class TestDuplicateBenefits:
+    """G5: duplicate material benefits handled per pack rules (P3.T7)."""
+
+    def test_weapon_duplicate_grants_skill(self, pack):
+        """Second 'Weapon' result grants a weapon skill level (P3.T7)."""
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        weapon_entry = SkillTableEntry(
+            min=3, max=3, result="Weapon",
+            on_duplicate="skill:gun_combat",
+        )
+        # First weapon → inventory
+        engine._roller = ForcedRoller([[3]])
+        engine.apply(BenefitRollCommand(benefit_type="material", entries=[weapon_entry]))
+        assert "Weapon" in engine.state.character.inventory
+
+        # Second weapon → gun_combat skill, not a second inventory item
+        engine._roller = ForcedRoller([[3]])
+        engine.apply(BenefitRollCommand(benefit_type="material", entries=[weapon_entry]))
+        assert engine.state.character.inventory.count("Weapon") == 1
+        assert engine.state.character.skills.get("gun_combat", 0) >= 1
+
+    def test_once_only_benefit_rerolls_if_already_owned(self, pack):
+        """Explorers' Society (once=True) rerolls if already in inventory (P3.T7)."""
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        engine.state.character.inventory.append("Explorers' Society")
+        engine._roller = ForcedRoller([[6], [2]])  # 6→already have→reroll→2
+        engine.apply(BenefitRollCommand(
+            benefit_type="material", entries=[
+                SkillTableEntry(min=1, max=2, result="+1 EDU"),
+                SkillTableEntry(min=6, max=6, result="Explorers' Society", once=True),
+            ]))
+        assert engine.state.character.inventory.count("Explorers' Society") == 1

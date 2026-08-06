@@ -653,7 +653,18 @@ class BenefitRollCommand(Command):
     dm: int = 0
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
-        return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
+        first = roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
+        if self.benefit_type != "material":
+            return first
+        entry = lookup_table_result(self.entries, first.total)
+        already_has = entry.result in state.character.inventory
+        needs_reroll = (
+            (entry.once and already_has)
+            or (entry.on_duplicate == "reroll" and already_has)
+        )
+        if needs_reroll:
+            return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=0)
+        return first
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         assert roll is not None
@@ -663,7 +674,17 @@ class BenefitRollCommand(Command):
             if m:
                 state.character.credits += int(m.group(1).replace(",", ""))
         else:
-            state.character.inventory.append(entry.result)
+            already_has = entry.result in state.character.inventory
+            if entry.once and already_has:
+                pass  # reroll already happened in resolve; if still a dup, forfeit
+            elif entry.on_duplicate and already_has:
+                if entry.on_duplicate.startswith("skill:"):
+                    skill_id = entry.on_duplicate.split(":", 1)[1]
+                    current = state.character.skills.get(skill_id, 0)
+                    state.character.skills[skill_id] = current + 1
+                # else: "reroll" — handled in resolve; forfeit if still dup
+            else:
+                state.character.inventory.append(entry.result)
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
