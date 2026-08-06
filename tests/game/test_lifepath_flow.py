@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from src.engine.commands import Engine, SetFlagCommand
 from src.engine.dice import ForcedRoller
-from src.engine.state import CampaignConfig, GameState
+from src.engine.state import CampaignConfig, CareerTermRecord, GameState
 from src.game.lifepath import LifepathController
 from src.themepacks.cepheus_scifi import load_scifi_pack
 
@@ -311,3 +311,39 @@ class TestAdvancementOfferGate:
         controller = LifepathController(engine, load_scifi_pack())
         view = controller.apply_choice("begin_term")
         assert view.phase == "choose_skills"  # no advancement at the cap (B5)
+
+
+class TestLaterCareerBasicTraining:
+    """B3/P1.T7: entering a second career offers one Service skill at 0."""
+
+    def _make_career_change_engine(self) -> Engine:
+        engine = _make_mid_lifepath_engine()
+        char = engine.state.character
+        char.career = ""  # first career ended; choosing a new one
+        char.career_history = [
+            CareerTermRecord(career_id="army", terms=2, final_rank=1, ended_by="muster_out")
+        ]
+        char.basic_training_done = True
+        char.terms = 2
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_career"))
+        return engine
+
+    def test_second_career_offers_service_skill_choice(self):
+        engine = self._make_career_change_engine()
+        engine._roller = ForcedRoller([[6, 6]])  # navy qual: 12 + (1 - 2) = 11 >= 6
+        controller = LifepathController(engine, load_scifi_pack())
+        view = controller.apply_choice("career:navy")
+        assert view.phase == "choose_basic_training_skill"
+        option_ids = [c.option_id for c in view.choices]
+        assert "bt_skill:engineer" in option_ids
+        assert "bt_skill:electronics_comms" in option_ids
+
+    def test_basic_training_choice_grants_skill_and_starts_term(self):
+        engine = self._make_career_change_engine()
+        engine._roller = ForcedRoller([[6, 6]])
+        controller = LifepathController(engine, load_scifi_pack())
+        controller.apply_choice("career:navy")
+        view = controller.apply_choice("bt_skill:engineer")
+        assert engine.state.character.skills.get("engineer") == 0
+        assert engine.state.character.skills.get("electronics_comms") is None
+        assert view.phase == "run_survival"

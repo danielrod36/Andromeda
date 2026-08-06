@@ -53,6 +53,7 @@ TERM_PHASES = frozenset(
         "mishap_roll",
         "choose_injury_stat",
         "choose_crisis_resolution",
+        "choose_basic_training_skill",
     }
 )
 
@@ -589,6 +590,32 @@ class LifepathController:
                 ],
             )
 
+        if phase == "choose_basic_training_skill":
+            career = self._pack.careers.get(char.career)
+            service = (
+                next((t for t in career.skill_tables if t.name == "Service Skills"), None)
+                if career
+                else None
+            )
+            skill_ids = (
+                [e.result for e in service.entries.entries if not e.result.startswith("+")]
+                if service
+                else []
+            )
+            return PhaseView(
+                phase=phase,
+                prompt=(
+                    f"Basic training ({career.name if career else char.career}): "
+                    "choose ONE Service skill at level 0."
+                ),
+                choices=[
+                    ChoiceOption(
+                        label=f"{s.replace('_', ' ')} (level 0)", option_id=f"bt_skill:{s}"
+                    )
+                    for s in skill_ids
+                ],
+            )
+
         if phase == "re_enlist":
             career = self._pack.careers.get(char.career)
             career_name = career.name if career else char.career
@@ -888,6 +915,9 @@ class LifepathController:
             return self.get_phase_view()
 
         # --- Term sub-phases ---
+        if option_id.startswith("bt_skill:"):
+            return self._do_basic_training_choice(option_id.split(":", 1)[1])
+
         if option_id == "begin_term":
             return self._do_survival_roll()
 
@@ -987,15 +1017,32 @@ class LifepathController:
         )
 
     def _run_basic_training_for_career(self, career_id: str) -> None:
-        """Trigger basic training on first-term career entry (B11)."""
+        """Trigger basic training on career entry (B11, P1.T7).
+
+        First career (empty history): grants all Service Skills at level 0
+        immediately. Later careers: sets the ``choose_basic_training_skill``
+        phase so the player picks ONE Service skill at level 0 (B3 — this
+        path was previously unreachable). Re-entered careers grant nothing.
+        """
         state = self._engine.state
-        if state.character.basic_training_done:
-            return
-        if not state.character.career_history:
-            career = self._pack.careers.get(career_id)
-            if career is None:
+        history = state.character.career_history
+        if not history:
+            if state.character.basic_training_done:
+                return
+            if self._pack.careers.get(career_id) is None:
                 return
             self._runner.run_basic_training(career_id)
+            return
+        if career_id in {r.career_id for r in history}:
+            return  # re-entered career — training already received
+        self._set_term_phase("choose_basic_training_skill")
+
+    def _do_basic_training_choice(self, skill: str) -> PhaseView:
+        """Apply the player's later-career basic training pick (B11, P1.T7)."""
+        career_id = self._engine.state.character.career
+        self._runner.run_basic_training(career_id, chosen_skill=skill)
+        self._set_term_phase("run_survival")
+        return self.get_phase_view()
 
     def _do_fallback_draft(self) -> PhaseView:
         """Apply DraftCommand + basic training, then route to run_survival."""
