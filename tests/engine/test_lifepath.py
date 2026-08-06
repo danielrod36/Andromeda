@@ -379,8 +379,7 @@ class TestQualificationFailure:
             [2, 1],
             # Navy qualification fail.
             [2, 1],
-            # Drifter qualification: SOC 3, DM -1, target 2 -> success
-            [3, 2],
+            # Drifter auto-qualifies (always_open, P3.T8b) — no roll consumed.
             # Term 1 (drifter, non-hierarchy -> 2 skill rolls)
             [4, 3],  # Survival: END 3 + DM -1 = 6 >= 6 -> success
             [5],
@@ -623,8 +622,7 @@ class TestAging:
             [2, 1],  # INT = 3
             [2, 1],  # EDU = 3
             [4, 2],  # SOC = 6
-            # Drifter qualification: SOC 6, DM 0, target 2 (auto-qualify)
-            [3, 2],  # 5 >= 2 -> success
+            # Drifter auto-qualifies (always_open, P3.T8b) — no roll consumed.
         ]
         # Terms 1-3 (ages 18->30): survival, 2 skill rolls each (non-hierarchy, B9).
         # No aging checks (age < 34).
@@ -686,7 +684,7 @@ class TestAging:
             [2, 1],
             [2, 1],
             [4, 2],
-            [3, 2],  # Drifter qualification: SOC 6 + DM 0 = 5 >= 2 -> success
+            # Drifter auto-qualifies (always_open, P3.T8b) — no roll consumed.
         ]
         for _term in range(3):
             queue.extend([[4, 3], [5], [5]])
@@ -1288,7 +1286,9 @@ class TestMishapConsequences:
             SkillTableEntry(min=1, max=1, result="Injured in action."),
             SkillTableEntry(min=2, max=2, result="Honorably discharged."),
             SkillTableEntry(
-                min=3, max=3, result="Debt of Cr10,000.",
+                min=3,
+                max=3,
+                result="Debt of Cr10,000.",
                 effects=[{"type": "debt", "amount": 10000}],
             ),
             SkillTableEntry(min=4, max=6, result="Other."),
@@ -1307,7 +1307,9 @@ class TestMishapConsequences:
         engine.state.character.terms = 3
         entries = [
             SkillTableEntry(
-                min=4, max=4, result="Dishonorably discharged. Lose all benefits.",
+                min=4,
+                max=4,
+                result="Dishonorably discharged. Lose all benefits.",
                 effects=[{"type": "lose_benefits"}],
             ),
         ]
@@ -1329,7 +1331,9 @@ class TestDuplicateBenefits:
 
         engine = make_engine([])
         weapon_entry = SkillTableEntry(
-            min=3, max=3, result="Weapon",
+            min=3,
+            max=3,
+            result="Weapon",
             on_duplicate="skill:gun_combat",
         )
         # First weapon → inventory
@@ -1351,9 +1355,13 @@ class TestDuplicateBenefits:
         engine = make_engine([])
         engine.state.character.inventory.append("Explorers' Society")
         engine._roller = ForcedRoller([[6], [2]])  # 6→already have→reroll→2
-        engine.apply(BenefitRollCommand(
-            benefit_type="material", entries=[
-                SkillTableEntry(min=1, max=2, result="+1 EDU"),
-                SkillTableEntry(min=6, max=6, result="Explorers' Society", once=True),
-            ]))
+        engine.apply(
+            BenefitRollCommand(
+                benefit_type="material",
+                entries=[
+                    SkillTableEntry(min=1, max=2, result="+1 EDU"),
+                    SkillTableEntry(min=6, max=6, result="Explorers' Society", once=True),
+                ],
+            )
+        )
         assert engine.state.character.inventory.count("Explorers' Society") == 1

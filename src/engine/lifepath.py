@@ -159,6 +159,7 @@ class SkillGain:
     result_text: str
     gain_type: str
     gain_name: str
+    cascade_parent: str | None = None
 
 
 @dataclass
@@ -658,9 +659,8 @@ class BenefitRollCommand(Command):
             return first
         entry = lookup_table_result(self.entries, first.total)
         already_has = entry.result in state.character.inventory
-        needs_reroll = (
-            (entry.once and already_has)
-            or (entry.on_duplicate == "reroll" and already_has)
+        needs_reroll = (entry.once and already_has) or (
+            entry.on_duplicate == "reroll" and already_has
         )
         if needs_reroll:
             return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=0)
@@ -795,18 +795,19 @@ class ResolveInjuryCrisisCommand(Command):
     command_type: ClassVar[str] = "lifepath_injury_crisis"
     stat: str
     pay: bool
+    crisis_cost_cr: int = 10_000
 
     def validate(self, state: GameState) -> None:
-        if self.pay and state.character.credits < 10_000:
-            raise ValueError("Cannot afford the Cr10,000 injury crisis payment")
+        if self.pay and state.character.credits < self.crisis_cost_cr:
+            raise ValueError(f"Cannot afford Cr{self.crisis_cost_cr} crisis payment")
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         ch = state.character
         outcome = ""
         if self.pay:
-            ch.credits -= 10_000
+            ch.credits -= self.crisis_cost_cr
             ch.characteristics[self.stat] = max(1, ch.characteristics.get(self.stat, 0))
-            outcome = "paid_cr10000"
+            outcome = f"paid_cr{self.crisis_cost_cr}"
         elif state.campaign.death_mode == "ironman":
             ch.alive = False
             outcome = "death"
@@ -1254,6 +1255,22 @@ class LifepathRunner:
         if career_id in left and career_id != "drifter":
             raise ValueError(f"Cannot return to career {career_id!r} already left (B17)")
         career = self._get_career(career_id)
+        # P3.T8b: always_open careers (drifter) auto-qualify — no roll consumed.
+        if career.always_open:
+            self.engine.state.character.career = career_id
+            return QualificationResult(
+                career_id=career_id,
+                career_name=career.name,
+                characteristic=career.qualification.characteristic,
+                char_value=self.engine.state.character.characteristics.get(
+                    career.qualification.characteristic, 0
+                ),
+                char_dm=0,
+                raw_roll=0,
+                adjusted_total=0,
+                target=career.qualification.target,
+                success=True,
+            )
         dm = extra_dm + self.career_change_dm()
         cmd = QualificationCommand(
             career_id=career_id,

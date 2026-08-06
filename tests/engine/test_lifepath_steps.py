@@ -928,7 +928,8 @@ class TestRankBonusSkills:
 
         navy = pack.careers["navy"]
         navy.ranks[0] = RankEntry(
-            rank=1, title="Midshipman",
+            rank=1,
+            title="Midshipman",
             bonus_skills=[{"skill": "electronics_comms", "level": 1}],
         )
         engine, runner = setup_qualified_engine(

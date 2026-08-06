@@ -175,6 +175,8 @@ class CareerData(BaseModel):
     ranks: list[RankEntry] = Field(default_factory=list)
     mustering_out_cash: BenefitsTable | None = None
     mustering_out_material: BenefitsTable | None = None
+    always_open: bool = False
+    """If True, this career auto-qualifies and ignores career-change DM (P3.T8b)."""
 
     @model_validator(mode="after")
     def _check_hierarchy_consistency(self) -> CareerData:
