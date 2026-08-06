@@ -700,6 +700,23 @@ class MishapRollCommand(Command):
         assert roll is not None
         entry = lookup_table_result(self.entries, roll.total)
         is_injury = roll.total in (1, 6)
+        effects_applied: list[str] = []
+
+        # G3: apply mechanical effects from the mishap entry (P3.T5).
+        if entry.effects:
+            for effect in entry.effects:
+                etype = str(effect.get("type", ""))
+                if etype == "debt":
+                    amount = int(effect.get("amount", 0))
+                    state.character.debt_cr += amount
+                    effects_applied.append(f"debt:{amount}")
+                elif etype == "lose_benefits":
+                    state.character.benefits_lost = True
+                    effects_applied.append("lose_benefits")
+                elif etype == "injury":
+                    is_injury = True
+                    effects_applied.append("injury")
+
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
@@ -710,6 +727,7 @@ class MishapRollCommand(Command):
                 "roll_total": roll.total,
                 "result_text": entry.result,
                 "injury": is_injury,
+                "effects_applied": effects_applied,
             },
         )
 
@@ -1625,6 +1643,17 @@ class LifepathRunner:
         )
         if not cid:
             return MusteringOutResult()
+        # G3: mishap "Lose all benefits" zeroes all benefit rolls.
+        if ch.benefits_lost:
+            career = self._get_career(cid)
+            return MusteringOutResult(
+                terms_served=ch.terms,
+                final_rank=self._effective_muster_rank(cid),
+                career_name=career.name,
+                total_rolls=0,
+                cash_dm=0,
+                material_dm=0,
+            )
         career = self._get_career(cid)
         terms = ch.terms
         rank = self._effective_muster_rank(cid)

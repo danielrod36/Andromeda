@@ -1274,3 +1274,46 @@ class TestGamblingCashDM:
         runner = LifepathRunner(engine, pack, ruleset)
         result = runner.muster_out("navy")
         assert result.cash_dm == 0
+
+
+class TestMishapConsequences:
+    """G3: mishap effects (debt, lose_benefits) apply mechanically (P3.T5)."""
+
+    def test_mishap_debt_applies(self, pack):
+        from src.engine.lifepath import MishapRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        entries = [
+            SkillTableEntry(min=1, max=1, result="Injured in action."),
+            SkillTableEntry(min=2, max=2, result="Honorably discharged."),
+            SkillTableEntry(
+                min=3, max=3, result="Debt of Cr10,000.",
+                effects=[{"type": "debt", "amount": 10000}],
+            ),
+            SkillTableEntry(min=4, max=6, result="Other."),
+        ]
+        engine._roller = ForcedRoller([[3]])
+        event = engine.apply(MishapRollCommand(career_id="navy", entries=entries))
+        assert engine.state.character.debt_cr == 10000
+        assert "debt:10000" in event.changes.get("effects_applied", [])
+
+    def test_mishap_lose_benefits_zeroes_muster(self, pack):
+        from src.engine.lifepath import MishapRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        engine.state.character.career = "navy"
+        engine.state.character.terms = 3
+        entries = [
+            SkillTableEntry(
+                min=4, max=4, result="Dishonorably discharged. Lose all benefits.",
+                effects=[{"type": "lose_benefits"}],
+            ),
+        ]
+        engine._roller = ForcedRoller([[4]])
+        engine.apply(MishapRollCommand(career_id="navy", entries=entries))
+        assert engine.state.character.benefits_lost is True
+        runner = LifepathRunner(engine, pack)
+        result = runner.muster_out("navy")
+        assert result.total_rolls == 0
