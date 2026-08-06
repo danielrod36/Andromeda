@@ -1365,6 +1365,24 @@ class LifepathRunner:
         result.commission_total = c["adjusted_total"]
         result.commission_target = c["target"]
         result.commission_success = c["success"]
+        if c["success"]:
+            self._grant_rank_bonus_skills(career_id, 1)
+
+    def _grant_rank_bonus_skills(self, career_id: str, new_rank: int) -> list[str]:
+        """Grant bonus skills for attaining ``new_rank`` in ``career_id`` (G1, P3.T2).
+
+        Returns a list of human-readable grant descriptions for the caller's event.
+        """
+        career = self._get_career(career_id)
+        grants: list[str] = []
+        for rank_entry in career.ranks:
+            if rank_entry.rank == new_rank and rank_entry.bonus_skills:
+                for bonus in rank_entry.bonus_skills:
+                    skill_id = str(bonus["skill"])
+                    level = int(bonus.get("level", 0))
+                    self.engine.apply(GainSkillCommand(skill_id=skill_id, level=level))
+                    grants.append(f"{skill_id}-{level} (rank {new_rank})")
+        return grants
 
     def advancement_available(self, career_id: str) -> bool:
         """Whether advancement can be attempted this term (B1/B5, P1.T1).
@@ -1404,6 +1422,8 @@ class LifepathRunner:
         result.advancement_total = ac["adjusted_total"]
         result.advancement_success = ac["success"]
         result.rank_after = state.character.rank
+        if ac["success"] and result.rank_after > result.rank_before:
+            self._grant_rank_bonus_skills(career_id, result.rank_after)
 
     def compute_num_skill_rolls(self, result: TermResult) -> int:
         """Compute the number of skill table rolls for this term.
