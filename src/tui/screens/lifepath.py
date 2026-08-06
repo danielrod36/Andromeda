@@ -672,12 +672,12 @@ class LifepathScreen(Screen):
             is_ironman = state.campaign.death_mode == "ironman"
             decline_label = "Accept death" if is_ironman else "Accept lasting scar"
             decline_desc = (
-                "Ironman: the injury is fatal. The character dies."
+                "Ironman: the crisis is fatal. The character dies."
                 if is_ironman
                 else f"{crisis_stat} stabilises at 1 with a permanent severe Injury."
             )
             cm.set_choices(
-                f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
+                f"Crisis: {crisis_stat} reached 0. Choose your response:",
                 [
                     (pay_label, "crisis_pay"),
                     (decline_label, "crisis_scar"),

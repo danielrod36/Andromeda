@@ -581,7 +581,7 @@ class LifepathController:
                 ChoiceOption(
                     label="Accept death",
                     option_id="crisis_scar",
-                    description="Ironman: the injury is fatal. The character dies.",
+                    description="Ironman: the crisis is fatal. The character dies.",
                 )
                 if state.campaign.death_mode == "ironman"
                 else ChoiceOption(
@@ -592,7 +592,7 @@ class LifepathController:
             )
             return PhaseView(
                 phase=phase,
-                prompt=f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
+                prompt=f"Crisis: {crisis_stat} reached 0. Choose your response:",
                 choices=[pay_option, decline_option],
             )
 
@@ -1315,7 +1315,7 @@ class LifepathController:
             view = self.get_phase_view()
             return PhaseView(
                 phase="choose_crisis_resolution",
-                prompt=f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
+                prompt=f"Crisis: {crisis_stat} reached 0. Choose your response:",
                 choices=view.choices,
                 receipts=receipts,
             )
