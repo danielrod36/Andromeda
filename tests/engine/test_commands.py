@@ -267,3 +267,21 @@ def test_swap_state_leaves_forced_roller_untouched():
 
     assert engine.roller is roller
     assert engine.state is new_state
+
+
+def test_check_rejects_invalid_command_without_rng_or_event():
+    """P2.T1: check() runs validate only — no roll consumed, no event appended."""
+    engine = Engine(GameState.new(seed=42), roller=ForcedRoller([[3, 5]]))
+    with pytest.raises(ValueError, match="Unknown characteristic"):
+        engine.check(RollCharacteristicCommand(characteristic="LUCK"))
+    assert engine.roller.remaining == 1
+    assert engine.state.events == []
+
+
+def test_check_accepts_valid_command_without_rng_or_mutation():
+    """P2.T1: a passing check leaves state, RNG queue, and log untouched."""
+    engine = Engine(GameState.new(seed=42), roller=ForcedRoller([[3, 5]]))
+    engine.check(RollCharacteristicCommand(characteristic="STR"))
+    assert engine.roller.remaining == 1
+    assert engine.state.events == []
+    assert engine.state.character.characteristics == {}

@@ -137,6 +137,16 @@ class Engine:
         self._state.events.append(event)
         return event
 
+    def check(self, cmd: Command) -> None:
+        """Validate-only gate (P2.T1, A4): run ``cmd.validate(state)`` and nothing else.
+
+        No resolve, no mutate, no RNG consumption, no event append. Returns
+        ``None`` when the command is legal against current state; raises
+        exactly what ``validate`` raises otherwise. Parts 4–5 use it to vet
+        LLM-proposed commands before recording them.
+        """
+        cmd.validate(self._state)
+
 
 # ---------------------------------------------------------------------------
 # Minimal concrete commands.
