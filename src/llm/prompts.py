@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 
+from src.engine.lifepath_choices import ChoicePointView
 from src.llm.state_view import CuratedView
 
 # ---------------------------------------------------------------------------
@@ -41,6 +42,26 @@ narrative.
 
 5. **Concise but vivid.** Each term's narration should be 2-4 sentences — \
 enough to paint a picture without belaboring the point.
+"""
+
+
+ADVISOR_SYSTEM_PROMPT = """\
+You are the Advisor for Andromeda character creation, a deterministic-rules \
+CYOA RPG. You recommend ONE option from an engine-enumerated candidate list.
+
+## Core rules
+
+1. **Candidates only.** Select an option_id from the list in the prompt. \
+Never invent options or mechanics.
+
+2. **Ground every claim.** Your rationale must cite the listed previews and \
+odds lines — they are the engine's authoritative mechanics.
+
+3. **Unavailable means unavailable.** Options marked UNAVAILABLE cannot be \
+selected.
+
+4. **Honest trade-offs.** Name up to 2 alternatives with a concrete reason \
+each was not chosen.
 """
 
 
@@ -332,4 +353,46 @@ def build_recap_prompt(
         f"deterministic facts — polish them into flowing prose, but do NOT "
         f"contradict or omit any of them. Do NOT mention dice, rolls, "
         f"modifiers, stats, target numbers, or any game mechanics."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Advisor prompt (P4.T2, ADR A3).
+# ---------------------------------------------------------------------------
+
+
+def build_advisor_prompt(choice: ChoicePointView, rules_summary: str) -> str:
+    """Build the user-turn prompt for an Advisor suggestion (P4.T2, ADR A3).
+
+    Every option is presented verbatim (option_id, label, description,
+    preview lines, odds_line) so the rationale is grounded in engine-computed
+    facts. Dimmed options are shown but marked UNAVAILABLE. The Advisor
+    validates ``selected_option_id`` against the non-dimmed ids post-call.
+    """
+    blocks: list[str] = []
+    for o in choice.options:
+        lines = [f"  - option_id: {o.option_id}", f"    label: {o.label}"]
+        if o.description:
+            lines.append(f"    description: {o.description}")
+        for p in o.preview:
+            lines.append(f"    preview: {p}")
+        if o.odds_line:
+            lines.append(f"    odds: {o.odds_line}")
+        if o.dimmed:
+            lines.append(
+                f"    UNAVAILABLE ({o.requirement or 'requirement not met'}) — do not select"
+            )
+        blocks.append("\n".join(lines))
+    options_block = "\n".join(blocks)
+
+    return (
+        f"## Decision\n{choice.prompt}\n\n"
+        f"## Options (engine-enumerated; ids verbatim)\n{options_block}\n\n"
+        f"## Rules Summary (engine-derived)\n{rules_summary}\n\n"
+        f"Select exactly ONE available option_id and respond with:\n"
+        f'- choice_id: "{choice.choice_id}"\n'
+        f"- selected_option_id: one of the available option_ids above.\n"
+        f"- rationale: 2-4 sentences grounded in the listed previews and odds — quote them.\n"
+        f"- alternatives: up to 2 other available option_ids, each with a one-sentence why_not.\n"
+        f"Never select an UNAVAILABLE option. Do not invent mechanics not listed above."
     )

@@ -9,6 +9,7 @@ from src.llm.advisor import (
     SuggestionRecord,
     advisor_context_hash,
 )
+from src.llm.prompts import ADVISOR_SYSTEM_PROMPT, build_advisor_prompt
 
 RULES_SUMMARY = "Checks: 2D6 + DM vs 8+.\nDifficulty ladder: Easy +4, Routine +2."
 
@@ -70,3 +71,31 @@ class TestSuggestionModels:
         )
         assert SuggestionRecord(**record.model_dump()) == record
         assert ADVISOR_PROMPT_VERSION == "advisor.v1"
+
+
+class TestAdvisorPrompt:
+    def test_prompt_presents_options_verbatim(self):
+        prompt = build_advisor_prompt(make_choice(), RULES_SUMMARY)
+        for needle in (
+            "option_id: navy",
+            "option_id: scout",
+            "label: Navy",
+            "preview: 2D6+1 vs 6+ to qualify",
+            "odds: DM +1 vs 8 · 72% Favorable",
+            "odds: DM +0 vs 8 · 58% Modest",
+        ):
+            assert needle in prompt
+
+    def test_prompt_marks_dimmed_unavailable(self):
+        prompt = build_advisor_prompt(make_choice(), RULES_SUMMARY)
+        assert "UNAVAILABLE (INT 8+ required)" in prompt
+        assert "Never select an UNAVAILABLE option" in prompt
+
+    def test_prompt_instructs_single_grounded_pick(self):
+        prompt = build_advisor_prompt(make_choice(), RULES_SUMMARY)
+        assert 'choice_id: "career_qualification"' in prompt
+        assert "Select exactly ONE available option_id" in prompt
+        assert "2-4 sentences grounded in the listed previews and odds" in prompt
+        assert "up to 2 other available option_ids" in prompt
+        assert RULES_SUMMARY in prompt
+        assert ADVISOR_SYSTEM_PROMPT  # non-empty system prompt exists
