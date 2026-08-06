@@ -7,6 +7,7 @@ so saves round-trip across shells.
 from __future__ import annotations
 
 from src.engine.commands import Engine, SetFlagCommand
+from src.engine.dice import ForcedRoller
 from src.engine.state import CampaignConfig, GameState
 from src.game.lifepath import LifepathController
 from src.themepacks.cepheus_scifi import load_scifi_pack
@@ -280,3 +281,33 @@ class TestBackgroundSkillMutation:
         event_types = [e.command_type for e in engine.state.events]
         assert "lifepath_gain_skill" in event_types
         assert "lifepath_decrement_background_picks" in event_types
+
+
+class TestAdvancementOfferGate:
+    """B1/B5: the controller offers advancement only at ranks 1-5 (P1.T2/T3)."""
+
+    def test_advancement_not_offered_at_rank_0(self):
+        engine = _make_mid_lifepath_engine()
+        engine._roller = ForcedRoller([[4, 3]])  # survival: INT 10 + DM 1 = 8 >= 5
+        controller = LifepathController(engine, load_scifi_pack())
+        view = controller.apply_choice("begin_term")
+        assert view.phase == "choose_commission"
+        view = controller.apply_choice("commission_decline")
+        assert view.phase == "choose_skills"  # NOT choose_advancement (B1)
+
+    def test_advancement_offered_after_successful_commission(self):
+        engine = _make_mid_lifepath_engine()
+        engine._roller = ForcedRoller([[4, 3], [5, 5]])  # survival, commission 10-1=9 >= 7
+        controller = LifepathController(engine, load_scifi_pack())
+        controller.apply_choice("begin_term")
+        view = controller.apply_choice("commission_attempt")
+        assert engine.state.character.rank == 1
+        assert view.phase == "choose_advancement"
+
+    def test_advancement_not_offered_at_rank_6(self):
+        engine = _make_mid_lifepath_engine()
+        engine.state.character.rank = 6
+        engine._roller = ForcedRoller([[4, 3]])  # survival pass
+        controller = LifepathController(engine, load_scifi_pack())
+        view = controller.apply_choice("begin_term")
+        assert view.phase == "choose_skills"  # no advancement at the cap (B5)

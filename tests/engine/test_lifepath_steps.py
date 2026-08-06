@@ -242,7 +242,7 @@ class TestAdvancementStep:
         assert engine.state.character.rank == 2
 
     def test_advancement_failure_no_promotion(self, pack):
-        engine, runner = setup_qualified_engine(
+        _engine, runner = setup_qualified_engine(
             [[4, 3], [4, 4], [1, 1]],
             pack,  # survival, commission success, advancement fail (2 < 6)
         )
@@ -860,3 +860,36 @@ class TestAdvancedEducationGate:
         # Should not raise.
         gain = runner.run_skill_roll_step("navy", result, "Advanced Education")
         assert gain.table_name == "Advanced Education"
+
+
+# ---------------------------------------------------------------------------
+# B5: rank cap for advancement (P1.T3).
+# ---------------------------------------------------------------------------
+
+
+class TestAdvancementRankCap:
+    """B5: rank 6 is the maximum (P1.T3)."""
+
+    def test_advancement_command_raises_at_rank_6(self, engine_and_pack):
+        from src.engine.lifepath import AdvancementCommand
+
+        engine, _pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine.state.character.rank = 6
+        with pytest.raises(ValueError, match="Rank 6"):
+            engine.apply(AdvancementCommand(career_id="navy", characteristic="EDU", target=6))
+
+    def test_advancement_available_bounds(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        runner = LifepathRunner(engine, pack)
+        for rank, expected in [(0, False), (1, True), (5, True), (6, False)]:
+            engine.state.character.rank = rank
+            assert runner.advancement_available("navy") is expected, rank
+
+    def test_advancement_unavailable_for_career_without_block(self, engine_and_pack):
+        engine, pack = engine_and_pack
+        engine.state.character.career = "scout"
+        engine.state.character.rank = 2
+        runner = LifepathRunner(engine, pack)
+        assert runner.advancement_available("scout") is False
