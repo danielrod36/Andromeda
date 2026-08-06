@@ -473,6 +473,10 @@ class AdvancementCommand(Command):
     def validate(self, state: GameState) -> None:
         if not state.character.alive:
             raise ValueError("Cannot run advancement for a dead character")
+        if state.character.rank < 1:
+            raise ValueError("Advancement requires rank 1 or higher (B1)")
+        if state.character.rank >= 6:
+            raise ValueError("Rank 6 is the maximum (B5)")
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
         char_value = state.character.characteristics.get(self.characteristic, 7)
@@ -1359,15 +1363,29 @@ class LifepathRunner:
         result.commission_target = c["target"]
         result.commission_success = c["success"]
 
-    def run_advancement_step(self, career_id: str, result: TermResult) -> None:
-        """Roll advancement check and update rank.
+    def advancement_available(self, career_id: str) -> bool:
+        """Whether advancement can be attempted this term (B1/B5, P1.T1).
 
-        Modifies *result* in place.  Should only be called after a
-        successful survival check.
+        True when the career has an advancement block and ranks and the
+        character holds rank 1-5. SRD: advancement attempts require rank 1+;
+        rank 6 is the cap. ``AdvancementCommand.validate`` enforces the same
+        bounds so direct ``Engine.apply`` calls are gated too.
         """
         career = self._get_career(career_id)
-        if career.advancement is None:
+        if career.advancement is None or not career.ranks:
+            return False
+        return 1 <= self.engine.state.character.rank < 6
+
+    def run_advancement_step(self, career_id: str, result: TermResult) -> None:
+        """Roll advancement check and update rank (gated: rank 1-5, B1/B5).
+
+        No-op when :meth:`advancement_available` is False (rank 0, rank 6, or
+        a career without advancement/ranks). Should only be called after a
+        successful survival check.
+        """
+        if not self.advancement_available(career_id):
             return
+        career = self._get_career(career_id)
         state = self.engine.state
 
         adv_cmd = AdvancementCommand(

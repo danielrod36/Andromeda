@@ -194,30 +194,63 @@ class TestSurvivalStep:
 
 
 class TestAdvancementStep:
-    def test_advancement_success_promotes(self, pack):
+    """B1: advancement requires rank 1+ (P1.T1); B5 caps rank at 6 (P1.T3)."""
+
+    def test_advancement_rejected_at_rank_0(self, pack):
+        """Term-1 rank-0 advancement is no longer offered (B1).
+
+        The runner no-ops (no roll consumed, no rank change); the command
+        itself raises so a direct ``Engine.apply`` is also gated.
+        """
         engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3]],
-            pack,  # survival, advancement success
+            [[4, 3]],
+            pack,  # survival only — advancement must not consume a roll
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
-        runner.run_advancement_step("navy", result)
-
-        assert result.advancement_success
-        assert result.rank_after == 1
-        assert engine.state.character.rank == 1
-
-    def test_advancement_failure_no_promotion(self, pack):
-        _engine, runner = setup_qualified_engine(
-            [[4, 3], [1, 1]],
-            pack,  # survival, advancement fail (2 < 7)
-        )
-        result = runner.start_term("navy", 1)
-        runner.run_survival_step("navy", result)
-        runner.run_advancement_step("navy", result)
+        runner.run_advancement_step("navy", result)  # no-op at rank 0 (B1)
 
         assert not result.advancement_success
         assert result.rank_after == 0
+        assert engine.state.character.rank == 0
+
+    def test_advancement_command_raises_at_rank_0(self, engine_and_pack):
+        """The command gate is client-proof: validate rejects rank 0 (B1)."""
+        from src.engine.lifepath import AdvancementCommand
+
+        engine, _pack = engine_and_pack
+        engine.state.character.career = "navy"
+        with pytest.raises(ValueError, match="rank 1"):
+            engine.apply(AdvancementCommand(career_id="navy", characteristic="EDU", target=6))
+
+    def test_advancement_success_promotes_after_commission(self, pack):
+        """A commissioned (rank 1) character advances normally."""
+        engine, runner = setup_qualified_engine(
+            [[4, 3], [4, 4], [5, 3]],
+            pack,  # survival, commission (SOC 6: 8 >= 7), advancement (EDU 7: 8 >= 6)
+        )
+        result = runner.start_term("navy", 1)
+        runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
+        runner.run_advancement_step("navy", result)
+
+        assert result.commission_success
+        assert result.advancement_success
+        assert result.rank_after == 2
+        assert engine.state.character.rank == 2
+
+    def test_advancement_failure_no_promotion(self, pack):
+        engine, runner = setup_qualified_engine(
+            [[4, 3], [4, 4], [1, 1]],
+            pack,  # survival, commission success, advancement fail (2 < 6)
+        )
+        result = runner.start_term("navy", 1)
+        runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
+        runner.run_advancement_step("navy", result)
+
+        assert not result.advancement_success
+        assert result.rank_after == 1
 
 
 # ---------------------------------------------------------------------------
