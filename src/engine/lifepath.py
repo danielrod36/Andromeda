@@ -1154,16 +1154,16 @@ class LifepathRunner:
         self.engine.apply(DecrementBackgroundPicksCommand())
 
     def run_basic_training(self, career_id: str, chosen_skill: str | None = None) -> None:
-        """Basic training (B11): first career → all Service skills at 0;
-        later careers → one player-chosen Service skill at 0.
+        """Basic training (B11, P1.T6): first career → all Service skills at 0;
+        each NEW later career → one player-chosen Service skill at 0.
 
-        Tracked by ``character.basic_training_done`` — once True, subsequent
-        calls are no-ops. ``first_career`` is detected via empty
-        ``career_history``; when a later career is being entered the player
-        must pass a Service skill id via ``chosen_skill``.
+        First-career training is tracked by ``character.basic_training_done``.
+        Later-career grants need no flag: a career already in
+        ``career_history`` cannot be re-entered (``qualify`` raises; drifter
+        re-entry is guarded below), so each new career triggers exactly one
+        grant. ``chosen_skill`` is required (player choice) for later careers.
         """
-        if self.engine.state.character.basic_training_done:
-            return
+        state = self.engine.state
         career = self._get_career(career_id)
         service = next(
             (t for t in career.skill_tables if t.name == "Service Skills"),
@@ -1174,19 +1174,24 @@ class LifepathRunner:
                 f"Career {career_id!r} has no 'Service Skills' table; "
                 f"available: {[t.name for t in career.skill_tables]}"
             )
-        first_career = not self.engine.state.character.career_history
-        if first_career:
+        history = state.character.career_history
+        if not history:
+            if state.character.basic_training_done:
+                return
             for entry in service.entries.entries:
                 if not entry.result.startswith("+"):
                     self.engine.apply(GainSkillCommand(skill_id=entry.result, level=0))
-        else:
-            valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
-            if chosen_skill not in valid:
-                raise ValueError(
-                    f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}"
-                )
-            self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
-        self.engine.apply(SetBasicTrainingDoneCommand())
+            self.engine.apply(SetBasicTrainingDoneCommand())
+            return
+        # Later career (B11): one player-chosen Service skill at level 0.
+        if career_id in {r.career_id for r in history}:
+            return  # re-entered career (drifter) — training already received
+        valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
+        if chosen_skill not in valid:
+            raise ValueError(
+                f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}"
+            )
+        self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
 
     # ------------------------------------------------------------------
     # Step 2: Qualification.

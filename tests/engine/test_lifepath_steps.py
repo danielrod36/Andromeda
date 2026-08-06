@@ -795,19 +795,43 @@ class TestBasicTraining:
                 assert engine.state.character.skills.get(entry.result) == 0
         assert engine.state.character.basic_training_done is True
 
-    def test_basic_training_later_career_grants_one_chosen(self, engine_and_pack):
-        from src.engine.state import CareerTermRecord
+    def test_basic_training_later_career_grants_one_chosen(self, pack):
+        """B11/B3: a second career grants ONE chosen Service skill at 0 (P1.T6).
 
-        engine, pack = engine_and_pack
-        engine.state.character.career_history = [
-            CareerTermRecord(career_id="army", terms=2, final_rank=1, ended_by="muster_out")
-        ]
-        runner = LifepathRunner(engine, pack)
-        # The player must choose a Service skill from the new career's table.
+        Drives the real flow — first-career basic training, EndCareerCommand,
+        career-change qualification — instead of injecting career_history.
+        """
+        from src.engine.lifepath import EndCareerCommand
+
+        engine, runner = setup_qualified_engine([], pack, career_id="army")
+        # First career: all Army service skills at level 0.
+        runner.run_basic_training("army")
+        assert engine.state.character.skills.get("mechanic") == 0
+        assert engine.state.character.basic_training_done is True
+
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        # Qualify for Navy as a second career (INT 9, DM +1 - 2 career change).
+        engine._roller.extend([[6, 6]])
+        qual = runner.qualify("navy")
+        assert qual.success
+
+        # Later career: the player chooses ONE Navy Service skill at level 0.
         runner.run_basic_training("navy", chosen_skill="engineer")
         assert engine.state.character.skills.get("engineer") == 0
         # Other Navy service skills are NOT granted for a later career.
         assert engine.state.character.skills.get("electronics_comms") is None
+
+    def test_basic_training_reentered_career_no_repeat_grant(self, engine_and_pack):
+        """Re-entering a career already in history (drifter) grants nothing."""
+        from src.engine.state import CareerTermRecord
+
+        engine, pack = engine_and_pack
+        engine.state.character.career_history = [
+            CareerTermRecord(career_id="drifter", terms=1, final_rank=0, ended_by="mishap")
+        ]
+        runner = LifepathRunner(engine, pack)
+        runner.run_basic_training("drifter")  # no-op — no raise, no grant
+        assert engine.state.character.skills == {}
 
     def test_basic_training_later_career_rejects_non_service_skill(self, engine_and_pack):
         from src.engine.state import CareerTermRecord
