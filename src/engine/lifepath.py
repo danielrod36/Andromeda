@@ -1559,6 +1559,25 @@ class LifepathRunner:
     # Step 4: Mustering out.
     # ------------------------------------------------------------------
 
+    def _effective_muster_rank(self, career_id: str) -> int:
+        """Rank used for mustering-out benefits (B2, P1.T4).
+
+        ``EndCareerCommand`` resets ``character.rank`` to 0 when it closes the
+        career into ``career_history``, so a plan computed after the career
+        ends must read the matching :class:`CareerTermRecord`'s ``final_rank``
+        — the only durable source. While the career is still active (plan
+        computed before EndCareer, e.g. the TUI's player-chosen path) the
+        live rank applies. Both sources agree, so every muster path gets
+        identical rank-based bonuses.
+        """
+        ch = self.engine.state.character
+        if ch.career:
+            return ch.rank
+        for record in reversed(ch.career_history):
+            if record.career_id == career_id:
+                return record.final_rank
+        return 0
+
     def muster_out(self, career_id: str | None = None) -> MusteringOutResult:
         """Compute the mustering-out plan (counts + DMs) without rolling (B15).
 
@@ -1567,13 +1586,13 @@ class LifepathRunner:
         empty — the caller (TUI per-roll or batch auto-allocation) fills them
         via :meth:`claim_benefit`.
         """
-        cid = career_id or self.engine.state.character.career
+        ch = self.engine.state.character
+        cid = career_id or ch.career or (ch.career_history[-1].career_id if ch.career_history else "")
         if not cid:
             return MusteringOutResult()
         career = self._get_career(cid)
-        state = self.engine.state
-        terms = state.character.terms
-        rank = state.character.rank
+        terms = ch.terms
+        rank = self._effective_muster_rank(cid)
 
         return MusteringOutResult(
             terms_served=terms,

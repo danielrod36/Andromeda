@@ -932,6 +932,39 @@ class TestMusterOutOverhaul:
         assert plan.cash_benefits == []
         assert plan.material_benefits == []
 
+    def test_muster_out_reads_final_rank_after_end_career(self, engine_and_pack):
+        """B2: rank-based muster bonuses survive EndCareerCommand (P1.T4).
+
+        EndCareerCommand resets character.rank to 0; the plan must read the
+        CareerTermRecord's final_rank so O4+ bonus rolls and the O5+ material
+        DM apply on every muster path.
+        """
+        from src.engine.lifepath import EndCareerCommand
+
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine.state.character.terms = 3
+        engine.state.character.rank = 5
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        assert engine.state.character.rank == 0  # reset by EndCareerCommand
+        runner = LifepathRunner(engine, pack)
+        plan = runner.muster_out()  # career + rank both resolved from history
+        assert plan.final_rank == 5
+        assert plan.total_rolls == 5  # benefit_rolls_for(3, 5) = 3 + 2
+        assert plan.material_dm == 1  # rank >= 5
+
+    def test_muster_out_uses_live_rank_while_career_active(self, engine_and_pack):
+        """A plan computed before EndCareer (TUI player-chosen path) agrees."""
+        engine, pack = engine_and_pack
+        engine.state.character.career = "navy"
+        engine.state.character.terms = 3
+        engine.state.character.rank = 5
+        runner = LifepathRunner(engine, pack)
+        plan = runner.muster_out("navy")
+        assert plan.final_rank == 5
+        assert plan.total_rolls == 5
+        assert plan.material_dm == 1
+
     def test_batch_muster_out_allocates_cash_first(self, pack):
         """Batch path allocates cash-first (up to 3), then material."""
         queue = [
