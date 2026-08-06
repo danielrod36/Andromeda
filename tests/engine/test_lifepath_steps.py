@@ -77,15 +77,17 @@ class TestStepEquivalence:
 
     def test_step_sequence_matches_run_term(self, pack):
         """Calling step methods in order gives identical TermResult as run_term."""
-        # Queue for a full term: survival, commission, advancement, skill rolls.
-        # Commission fails (low roll) so rank stays 0; advancement succeeds ->
-        # rank 1. Skill rolls: hierarchy base 1 + advancement 1 = 2.
+        # Queue for a full term: survival, commission (succeeds → rank 1),
+        # advancement (succeeds → rank 2), skill rolls.
+        # B1 fix: commission must precede advancement (rank 0 can't advance).
+        # Skill rolls: hierarchy base 1 + commission 1 + advancement 1 = 3.
         term_queue = [
             [4, 3],  # survival: INT 9 + DM 1 = 8 >= 5 -> success
-            [1, 2],  # commission: INT 9 + DM 1 = 4 < 9 -> fail (rank stays 0)
-            [5, 3],  # advancement: INT 9 + DM 1 = 9 >= 6 -> success (rank 1)
+            [4, 4],  # commission: SOC 6 + DM 0 = 8 >= 7 -> success (rank 1)
+            [5, 3],  # advancement: EDU 7 + DM 0 = 8 >= 6 -> success (rank 2)
             [5],  # skill 1 (1D6)
             [4],  # skill 2 (1D6)
+            [3],  # skill 3 (1D6)
         ]
 
         # Run via step methods.
@@ -392,11 +394,12 @@ class TestCommissionStep:
 class TestSkillRollStep:
     def test_single_skill_roll_returns_gain(self, pack):
         _engine, runner = setup_qualified_engine(
-            [[4, 3], [5, 3], [5]],
-            pack,  # survival, advancement, skill (1D6)
+            [[4, 3], [4, 4], [5, 3], [5]],
+            pack,  # survival, commission (rank 1), advancement (rank 2), skill (1D6)
         )
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
         runner.run_advancement_step("navy", result)
 
         gain = runner.run_skill_roll_step("navy", result, "Personal Development")
@@ -405,9 +408,10 @@ class TestSkillRollStep:
         assert result.skill_gains[0] is gain
 
     def test_skill_roll_unknown_table_raises(self, pack):
-        _engine, runner = setup_qualified_engine([[4, 3], [5, 3], [5]], pack)
+        _engine, runner = setup_qualified_engine([[4, 3], [4, 4], [5, 3], [5]], pack)
         result = runner.start_term("navy", 1)
         runner.run_survival_step("navy", result)
+        runner.run_commission_step("navy", result)
         runner.run_advancement_step("navy", result)
 
         # Non-existent table name should raise KeyError, not fall back.

@@ -133,17 +133,19 @@ class TestCompleteLifepath:
             [4, 2],  # SOC = 6
             # Qualification (INT 9 -> DM +1, target 6)
             [5, 4],  # 9 + 1 = 10 >= 6 -> success
-            # Term 1: survival, commission (fails), advancement, 2 skill rolls (1D6)
+            # Term 1: survival, commission (fails) -> NO advancement at rank 0 (B1),
+            # 1 skill roll (hierarchy base).
             [4, 3],  # Survival: INT 9 + DM 1 = 8 >= 5 -> success
             [1, 2],  # Commission: SOC 6 + DM 0 = 3 < 7 -> fail (rank stays 0)
-            [5, 3],  # Advancement: EDU 7 + DM 0 = 8 >= 6 -> success (rank 1)
             [5],  # Skill (Personal Dev): 5 -> +1 EDU
-            [4],  # Skill (Service): 4 -> gunnery_turrets
-            # Term 2
+            # Term 2: commission available again (rank 0), succeeds; advancement
+            # at rank 1 succeeds -> rank 2; 3 skill rolls (1 + comm + adv).
             [3, 3],  # Survival: 6 + 1 = 7 >= 5 -> success
-            [4, 4],  # Advancement: EDU 8 + DM 0 = 8 >= 6 -> success (rank 2)
+            [4, 4],  # Commission: SOC 6 + DM 0 = 8 >= 7 -> rank 1
+            [4, 4],  # Advancement: EDU 8 + DM 0 = 8 >= 6 -> rank 2
             [5],  # Skill (Personal Dev): 5 -> +1 EDU
             [4],  # Skill (Service): 4 -> gunnery_turrets
+            [4],  # Skill (Specialist): 4 -> astrogation
             # Mustering out (2 terms, rank 2)
             # Cash: DM = 0, 2 rolls
             [1],  # 1 -> 1,000 Cr
@@ -175,9 +177,13 @@ class TestCompleteLifepath:
         assert result.num_terms == 2
         term1 = result.terms[0]
         assert term1.survival_success
-        assert term1.advancement_success
-        assert term1.rank_after == 1
-        assert len(term1.skill_gains) == 2
+        assert not term1.advancement_success  # B1: no advancement at rank 0
+        assert term1.rank_after == 0
+        assert len(term1.skill_gains) == 1  # hierarchy base only (no comm/adv bonus)
+        term2 = result.terms[1]
+        assert term2.advancement_success  # rank 1 -> 2
+        assert term2.rank_after == 2
+        assert len(term2.skill_gains) == 3  # base + commission + advancement
 
         # Character alive, skills gained.
         assert result.character_alive
@@ -198,9 +204,9 @@ class TestCompleteLifepath:
 
         # All rolls logged via the funnel (R9, AE7).
         rolls = audit_rolls(engine.state.events)
-        # 6 chars + 1 qual + (1 surv + 1 comm + 1 adv + 2 skill) * term 1
-        # + (1 surv + 1 adv + 2 skill) * term 2 + 2 cash
-        assert len(rolls) == 6 + 1 + 5 + 4 + 2
+        # 6 chars + 1 qual + (1 surv + 1 comm + 1 skill) term 1
+        # + (1 surv + 1 comm + 1 adv + 3 skill) term 2 + 2 cash
+        assert len(rolls) == 6 + 1 + 3 + 6 + 2
 
     def test_all_events_are_audited(self, pack):
         """Every lifepath roll appears in the audit log with full inputs (AE1)."""
@@ -213,13 +219,10 @@ class TestCompleteLifepath:
             [4, 2],  # chars (INT = 9)
             [5, 4],  # qualification: INT 9 + DM 1 = 10 >= 6 -> success
             [4, 3],  # survival: INT 9 + DM 1 = 8 >= 5 -> success
-            [1, 2],  # commission: SOC 6 + DM 0 = 3 < 7 -> fail
-            [5, 3],  # advancement: EDU 7 + DM 0 = 8 >= 6 -> success
-            [5],  # skill 1 (1D6)
-            [4],  # skill 2 (advancement gives extra, 1D6)
-            # mustering out (1 term, rank 1)
+            [1, 2],  # commission: SOC 6 + DM 0 = 3 < 7 -> fail (B1: no advancement at rank 0)
+            [5],  # skill 1 (1D6) — hierarchy base only
+            # mustering out (1 term, rank 0): benefit_rolls_for(1,0)=1, cash-first
             [1],  # cash
-            [2],  # material
         ]
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
@@ -810,23 +813,23 @@ class TestMusteringOut:
             [4, 2],  # chars (INT = 9)
             [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
         ]
-        # Term 1: survival, commission (fails, rank 0), advancement, 2 skill rolls.
+        # Term 1: survival, commission (fails, rank 0) -> NO advancement (B1), 1 skill roll.
         queue.extend(
             [
                 [4, 3],  # survival: INT 9 + DM 1 = 8 >= 5 -> success
-                [1, 2],  # commission: INT 9 + DM 1 = 4 < 9 -> fail (rank stays 0)
-                [5, 3],  # advancement: INT 9 + DM 1 = 9 >= 6 -> rank up
-                [5],  # skill 1 (1D6)
-                [5],  # skill 2 (advancement -> extra, 1D6)
+                [1, 2],  # commission: SOC 6 + DM 0 = 3 < 7 -> fail (rank stays 0)
+                [5],  # skill 1 (1D6) — hierarchy base only
             ]
         )
-        # Term 2: rank > 0, so no commission available; advancement only.
+        # Term 2: commission (rank 0, succeeds), advancement (rank 1, succeeds) -> rank 2.
         queue.extend(
             [
                 [4, 3],  # survival
-                [5, 3],  # advancement -> rank up
+                [5, 4],  # commission: SOC 6 + DM 0 = 9 >= 7 -> rank 1
+                [5, 3],  # advancement: EDU 7 + DM 0 = 8 >= 6 -> rank 2
                 [5],  # skill 1 (1D6)
-                [5],  # skill 2 (advancement -> extra, 1D6)
+                [5],  # skill 2 (commission bonus, 1D6)
+                [5],  # skill 3 (advancement bonus, 1D6)
             ]
         )
         # Mustering out: 2 terms, rank 2.
@@ -940,12 +943,10 @@ class TestMusterOutOverhaul:
             [4, 2],  # chars (INT = 9)
             [5, 4],  # qual
             [4, 3],  # survival
-            [1, 2],  # commission fail
-            [5, 3],  # advancement -> rank 1
-            [5],
-            [4],  # skill rolls
+            [1, 2],  # commission fail (B1: no advancement at rank 0)
+            [5],  # skill 1 (1D6) — hierarchy base only
         ]
-        # 1 term, rank 1: benefit_rolls_for(1, 1) = 1 total, 1 cash, 0 material.
+        # 1 term, rank 0: benefit_rolls_for(1, 0) = 1 total, 1 cash, 0 material.
         queue.append([3])  # cash: 10,000 Cr
         engine = make_engine(queue)
         runner = LifepathRunner(engine, pack)
@@ -1015,12 +1016,9 @@ class TestDeterminism:
             [4, 2],
             [5, 4],  # qual: INT 9 + DM 1 = 10 >= 6 -> success
             [4, 3],  # survival
-            [1, 2],  # commission: INT 9 + DM 1 = 4 < 9 -> fail
-            [5, 3],  # advancement
-            [5],  # skill 1 (1D6)
-            [4],  # skill 2 (1D6)
-            [3],  # cash
-            [2],  # material
+            [1, 2],  # commission fail (B1: no advancement at rank 0)
+            [5],  # skill 1 (1D6) — hierarchy base only
+            [3],  # cash — benefit_rolls_for(1,0)=1
         ]
         engine_a = make_engine(list(queue))
         engine_b = make_engine(list(queue))

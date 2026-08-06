@@ -1069,8 +1069,7 @@ class LifepathController:
                 choices=view.choices,
                 receipts=receipts,
             )
-        career = self._pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self._runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
             view = self.get_phase_view()
             return PhaseView(
@@ -1107,8 +1106,7 @@ class LifepathController:
 
     def _advance_after_commission(self, career_id: str, receipts: list[str]) -> PhaseView:
         """Route to advancement (if available) or skill rolls after commission."""
-        career = self._pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self._runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
             view = self.get_phase_view()
             return PhaseView(

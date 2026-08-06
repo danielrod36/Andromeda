@@ -1338,8 +1338,7 @@ class LifepathScreen(Screen):
         if self.app.runner.commission_available(career_id):
             self._set_term_phase("choose_commission")
             return
-        career = self.app.pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self.app.runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
             return
         # Non-hierarchy (or no advancement) -> straight to skills.
@@ -1394,8 +1393,7 @@ class LifepathScreen(Screen):
 
     def _advance_after_commission(self, career_id: str) -> None:
         """Route to advancement (if available) or skill rolls after commission."""
-        career = self.app.pack.careers.get(career_id)
-        if career and career.advancement is not None:
+        if self.app.runner.advancement_available(career_id):
             self._set_term_phase("choose_advancement")
         else:
             self._enter_choose_skills()
