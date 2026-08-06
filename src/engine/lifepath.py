@@ -1188,9 +1188,7 @@ class LifepathRunner:
             return  # re-entered career (drifter) — training already received
         valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
         if chosen_skill not in valid:
-            raise ValueError(
-                f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}"
-            )
+            raise ValueError(f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}")
         self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
 
     # ------------------------------------------------------------------
@@ -1592,7 +1590,9 @@ class LifepathRunner:
         via :meth:`claim_benefit`.
         """
         ch = self.engine.state.character
-        cid = career_id or ch.career or (ch.career_history[-1].career_id if ch.career_history else "")
+        cid = (
+            career_id or ch.career or (ch.career_history[-1].career_id if ch.career_history else "")
+        )
         if not cid:
             return MusteringOutResult()
         career = self._get_career(cid)

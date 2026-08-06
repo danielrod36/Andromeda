@@ -577,17 +577,23 @@ class LifepathController:
                     dimmed=True,
                     requirement="Requires Cr10,000",
                 )
+            decline_option = (
+                ChoiceOption(
+                    label="Accept death",
+                    option_id="crisis_scar",
+                    description="Ironman: the injury is fatal. The character dies.",
+                )
+                if state.campaign.death_mode == "ironman"
+                else ChoiceOption(
+                    label="Accept lasting scar",
+                    option_id="crisis_scar",
+                    description=f"{crisis_stat} stabilises at 1 with a permanent severe Injury.",
+                )
+            )
             return PhaseView(
                 phase=phase,
                 prompt=f"Injury crisis: {crisis_stat} reached 0. Choose your response:",
-                choices=[
-                    pay_option,
-                    ChoiceOption(
-                        label="Accept lasting scar",
-                        option_id="crisis_scar",
-                        description=f"{crisis_stat} stabilises at 1 with a permanent severe Injury.",
-                    ),
-                ],
+                choices=[pay_option, decline_option],
             )
 
         if phase == "choose_basic_training_skill":
@@ -1290,7 +1296,6 @@ class LifepathController:
         if result is None:
             return self.get_phase_view()
 
-        state = self._engine.state
         injury_table = self._pack.injury_table
         if injury_table is None:
             return self._complete_term(result, [])
@@ -1306,10 +1311,6 @@ class LifepathController:
 
         crisis_stat = self._find_stat_at_zero()
         if crisis_stat:
-            if state.campaign.death_mode == "ironman":
-                self._engine.apply(ResolveInjuryCrisisCommand(stat=crisis_stat, pay=False))
-                result.died = True
-                return self._complete_term(result, [*receipts, "Ironman crisis: character died."])
             self._set_term_phase("choose_crisis_resolution")
             view = self.get_phase_view()
             return PhaseView(
@@ -1326,6 +1327,9 @@ class LifepathController:
         result = self._current_term_result
         if result is None:
             return self.get_phase_view()
+
+        if pay and self._engine.state.character.credits < 10_000:
+            return self.get_phase_view()  # dimmed option; ignore crafted posts
 
         crisis_stat = self._find_stat_at_zero()
         if not crisis_stat:
@@ -1424,11 +1428,6 @@ class LifepathController:
         receipts = [receipt]
 
         if event.changes.get("crisis"):
-            if state.campaign.death_mode == "ironman":
-                self._engine.apply(ResolveInjuryCrisisCommand(stat=stat, pay=False))
-                result.died = True
-                self._aging_active = False
-                return self._complete_term(result, [*receipts, "Ironman crisis: character died."])
             self._set_term_phase("choose_crisis_resolution")
             view = self.get_phase_view()
             return PhaseView(

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from src.engine.commands import Engine, SetFlagCommand
 from src.engine.dice import ForcedRoller
-from src.engine.state import CampaignConfig, CareerTermRecord, GameState
+from src.engine.lifepath import TermResult
+from src.engine.state import AgingSlot, CampaignConfig, CareerTermRecord, GameState
 from src.game.lifepath import LifepathController
 from src.themepacks.cepheus_scifi import load_scifi_pack
 
@@ -347,3 +348,67 @@ class TestLaterCareerBasicTraining:
         assert engine.state.character.skills.get("engineer") == 0
         assert engine.state.character.skills.get("electronics_comms") is None
         assert view.phase == "run_survival"
+
+
+class TestIronmanCrisisChoice:
+    """P1.T8: interactive ironman offers crisis_pay like other modes."""
+
+    def _make_ironman_crisis_engine(self) -> Engine:
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.campaign.death_mode = "ironman"
+        state.character.characteristics = {
+            "STR": 4,
+            "DEX": 9,
+            "END": 6,
+            "INT": 8,
+            "EDU": 10,
+            "SOC": 5,
+        }
+        state.character.credits = 15_000
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_injury_stat"))
+        return engine
+
+    def _prime_term(self, controller: LifepathController) -> None:
+        controller._current_term_result = TermResult(
+            term_number=1, career_id="navy", career_name="Navy", age_before=18, age_after=22
+        )
+
+    def test_ironman_injury_crisis_offers_pay(self):
+        engine = self._make_ironman_crisis_engine()
+        engine._roller = ForcedRoller([[1], [5, 5]])  # injury -6 PHYSICAL; reenlist
+        controller = LifepathController(engine, load_scifi_pack())
+        self._prime_term(controller)
+        view = controller.apply_choice("injury_stat:STR")  # STR 4 -> 0 crisis
+        assert view.phase == "choose_crisis_resolution"  # NOT auto-death (P1.T8)
+        assert engine.state.character.alive is True
+        assert {c.option_id for c in view.choices} == {"crisis_pay", "crisis_scar"}
+
+        controller.apply_choice("crisis_pay")
+        char = engine.state.character
+        assert char.alive is True
+        assert char.credits == 5_000
+        assert char.characteristics["STR"] == 1
+
+    def test_ironman_injury_crisis_decline_is_death(self):
+        engine = self._make_ironman_crisis_engine()
+        engine._roller = ForcedRoller([[1]])
+        controller = LifepathController(engine, load_scifi_pack())
+        self._prime_term(controller)
+        controller.apply_choice("injury_stat:STR")
+        controller.apply_choice("crisis_scar")  # decline payment -> ironman death
+        assert engine.state.character.alive is False
+
+    def test_ironman_aging_crisis_offers_pay(self):
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.campaign.death_mode = "ironman"
+        state.character.credits = 15_000
+        state.character.pending_aging = [AgingSlot(group="physical", points=7)]
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_aging_reduction"))
+        controller = LifepathController(engine, load_scifi_pack())
+        self._prime_term(controller)
+        controller._aging_active = True
+        view = controller.apply_choice("aging_stat:STR")  # STR 7 - 7 = 0 crisis
+        assert view.phase == "choose_crisis_resolution"
+        assert engine.state.character.alive is True
