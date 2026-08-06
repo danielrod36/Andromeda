@@ -686,7 +686,7 @@ class BenefitRollCommand(Command):
             entry.on_duplicate == "reroll" and already_has
         )
         if needs_reroll:
-            return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=0)
+            return roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
         return first
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:

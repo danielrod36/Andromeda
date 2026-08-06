@@ -1384,3 +1384,33 @@ class TestDuplicateBenefits:
             )
         )
         assert engine.state.character.inventory.count("Explorers' Society") == 1
+
+    def test_reroll_preserves_material_dm(self, pack):
+        """A rank-5+ character's material DM applies to the reroll too (SRD).
+
+        The reroll is still a roll on the material benefits table, so the rank
+        DM (``self.dm``) should carry through — not be silently dropped to 0.
+        """
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine = make_engine([])
+        engine.state.character.inventory.append("Explorers' Society")
+        # dm=1 (rank 5+): first roll 5+1=6 -> once-only dup -> reroll;
+        # reroll 1+1=2 -> "Item B". With modifiers=0 the reroll totals 1
+        # and lands on "Item A" instead — the bug this test guards against.
+        engine._roller = ForcedRoller([[5], [1]])
+        event = engine.apply(
+            BenefitRollCommand(
+                benefit_type="material",
+                dm=1,
+                entries=[
+                    SkillTableEntry(min=1, max=1, result="Item A"),
+                    SkillTableEntry(min=2, max=2, result="Item B"),
+                    SkillTableEntry(min=6, max=6, result="Explorers' Society", once=True),
+                ],
+            )
+        )
+        assert event.roll.modifiers == 1
+        assert "Item B" in engine.state.character.inventory
+        assert "Item A" not in engine.state.character.inventory
