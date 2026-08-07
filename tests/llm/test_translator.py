@@ -325,3 +325,41 @@ class TestTranslatorRetryAndFallback:
         record = await translator.propose("anything", career_choice(), RULES_SUMMARY)
         assert record.validation == "rejected_no_match"
         assert "no LLM configured" in record.rejection_reason
+
+
+from src.engine.audit import EventKind  # noqa: E402
+from src.game.advice import record_proposal  # noqa: E402
+
+
+def passed_record() -> TranslationRecord:
+    return TranslationRecord(
+        choice_id="choose_career",
+        text="I want to follow my father into the Navy",
+        selected_option_id="career:navy",
+        rationale="Navy preview fits: 2D6+1 vs 6+ to qualify (INT 9).",
+        context_hash="deadbeefcafe0001",
+        validation="passed",
+    )
+
+
+class TestRecordProposal:
+    def test_system_event_and_untouched_state(self):
+        """Payload IS the record; a SYSTEM event; state untouched (ADR A2)."""
+        engine = make_engine()
+        before = engine.state.character.model_dump_json()
+        event = record_proposal(engine, passed_record())
+        assert event.kind is EventKind.SYSTEM
+        assert event.command_type == "record_proposal"
+        payload = (
+            event.changes
+        )  # flat shape — changes IS the payload (Part 2 RecordProposalCommand)
+        assert TranslationRecord.model_validate(payload) == passed_record()
+        assert engine.state.character.model_dump_json() == before
+        assert len(engine.state.events) == 1
+
+    def test_replay_determinism(self):
+        """Re-applying the same record on a fresh engine yields identical events."""
+        e1, e2 = make_engine(), make_engine()
+        ev1 = record_proposal(e1, passed_record())
+        ev2 = record_proposal(e2, passed_record())
+        assert ev1.model_dump() == ev2.model_dump()
