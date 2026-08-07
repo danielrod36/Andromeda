@@ -90,6 +90,8 @@ class LifepathController:
         self._muster_plan: MusteringOutResult | None = None
         #: U3: benefit rolls remaining in muster_out_allocate.
         self._benefit_rolls_remaining: int = 0
+        #: P6.T1: provenance of the most-recent choice (ADR A10).
+        self._choice_origin: str = "player"
 
         # U2: reconstruct term-level instance state on construction when
         # the persisted term_phase sits inside the term sub-machine.
@@ -884,12 +886,17 @@ class LifepathController:
     # Choice application — routes a choice to the appropriate step handler.
     # ------------------------------------------------------------------
 
-    def apply_choice(self, option_id: str) -> PhaseView:
+    def apply_choice(self, option_id: str, *, origin: str = "player") -> PhaseView:
         """Apply a player's choice and return the next PhaseView.
 
         Routes the ``option_id`` to the appropriate LifepathRunner method.
         Sets term_phase flags via SetFlagCommand (KTD-3 byte-identical).
+
+        ``origin`` (P6.T1, ADR A10) is stored for provenance audit —
+        ``"player"``, ``"advisor"``, or ``"freetext"``. Default
+        ``"player"`` for backward compatibility with existing callers.
         """
+        self._choice_origin = origin
         # --- Pre-career phases ---
         if option_id == "roll_pool":
             self._runner.roll_pool()
