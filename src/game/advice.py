@@ -16,10 +16,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.engine.audit import Event
-from src.engine.commands import Engine, RecordAdviceCommand
+from src.engine.commands import Engine, RecordAdviceCommand, RecordProposalCommand
 
 if TYPE_CHECKING:
     from src.llm.advisor import SuggestionRecord
+    from src.llm.translator import TranslationRecord
 
 
 def record_advice(engine: Engine, record: SuggestionRecord) -> Event:
@@ -35,3 +36,13 @@ def record_advice(engine: Engine, record: SuggestionRecord) -> Event:
     record and the applied choice is the shared ``choice_id``.
     """
     return engine.apply(RecordAdviceCommand(payload=record.model_dump()))
+
+
+def record_proposal(engine: Engine, record: TranslationRecord) -> Event:
+    """Record a translator proposal in the event log (P5.T5, ADR A2/A10).
+
+    The payload IS the record — replay re-applies the record deterministically
+    and never re-calls the LLM. Placement mirrors Part 4's ``record_advice``;
+    both are thin funnel-recording wrappers with no runtime LLM imports (A1).
+    """
+    return engine.apply(RecordProposalCommand(payload=record.model_dump()))
