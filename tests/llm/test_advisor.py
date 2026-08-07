@@ -234,3 +234,11 @@ class TestHeuristicAdvisor:
         assert r1.context_hash == advisor_context_hash(make_choice(), RULES_SUMMARY)
         assert r1.model_id == "heuristic.v1"
         assert r1.prompt_version == "advisor.v1"
+
+    @pytest.mark.asyncio
+    async def test_all_dimmed_returns_none(self):
+        """UNAVAILABLE means unavailable: return None when no option is selectable."""
+        choice = make_choice()
+        for opt in choice.options:
+            opt.dimmed = True
+        assert await HeuristicAdvisor().suggest(choice, RULES_SUMMARY) is None

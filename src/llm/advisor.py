@@ -226,11 +226,15 @@ class HeuristicAdvisor:
 
     model_id = "heuristic.v1"
 
-    async def suggest(self, choice: ChoicePointView, rules_summary: str) -> SuggestionRecord:
-        """Pick the highest-odds available option with a templated rationale."""
-        candidates = [o for o in choice.options if not o.dimmed] or list(choice.options)
+    async def suggest(self, choice: ChoicePointView, rules_summary: str) -> SuggestionRecord | None:
+        """Pick the highest-odds available option with a templated rationale.
+
+        Returns ``None`` when every option is dimmed (UNAVAILABLE means
+        unavailable), matching the LLM ``Advisor`` behavior.
+        """
+        candidates = [o for o in choice.options if not o.dimmed]
         if not candidates:
-            raise ValueError("HeuristicAdvisor requires at least one option")
+            return None
         scored = sorted(
             enumerate(candidates),
             key=lambda t: (_success_pct(t[1]), _skill_mentions(t[1]), -t[0]),
