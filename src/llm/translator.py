@@ -68,6 +68,7 @@ def context_hash_for(choice: ChoicePointView) -> str:
 _STATIC_DISPATCH_IDS: frozenset[str] = frozenset(
     {
         "roll_pool",
+        "reroll_pool",
         "fallback_retry",
         "fallback_draft",
         "fallback_drifter",
@@ -95,6 +96,7 @@ _STATIC_DISPATCH_IDS: frozenset[str] = frozenset(
 _DISPATCH_PREFIXES: tuple[str, ...] = (
     "assign:",
     "bg_skill:",
+    "bt_skill:",
     "career:",
     "skill_table:",
     "aging_stat:",
@@ -267,7 +269,15 @@ class Translator:
                 rationale=rationale.strip(),
                 validation="rejected_no_match",
             )
-        option = next(o for o in choice.options if o.option_id == selected_id)
+        option = next((o for o in choice.options if o.option_id == selected_id), None)
+        if option is None:
+            return TranslationRecord(
+                **base,
+                selected_option_id=selected_id,
+                rationale=rationale.strip(),
+                validation="rejected_invalid",
+                rejection_reason=f"selected id '{selected_id}' is not among the offered candidates",
+            )
         if option.dimmed:
             return TranslationRecord(
                 **base,

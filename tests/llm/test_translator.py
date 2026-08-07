@@ -130,6 +130,22 @@ class TestDispatchIdFor:
         for prefix in _DISPATCH_PREFIXES:
             assert f'startswith("{prefix}")' in source, f"{prefix} missing from apply_choice"
 
+    def test_controller_covers_table(self):
+        """Reverse drift guard: every dispatch branch in apply_choice must be in the table."""
+        import re
+
+        source = inspect.getsource(LifepathController.apply_choice)
+        static_in_controller = set(re.findall(r'option_id == "([^"]+)"', source))
+        prefix_in_controller = set(re.findall(r'option_id\.startswith\("([^"]+)"\)', source))
+        for key in static_in_controller:
+            assert key in _STATIC_DISPATCH_IDS, (
+                f"{key!r} dispatched by apply_choice but missing from _STATIC_DISPATCH_IDS"
+            )
+        for prefix in prefix_in_controller:
+            assert prefix in _DISPATCH_PREFIXES, (
+                f"{prefix!r} dispatched by apply_choice but missing from _DISPATCH_PREFIXES"
+            )
+
 
 import pytest  # noqa: E402
 from pydantic_ai.messages import ModelResponse, ToolCallPart  # noqa: E402
