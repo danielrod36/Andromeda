@@ -10,6 +10,7 @@ in the event log and replay deterministically.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
@@ -164,6 +165,64 @@ class ChargenSession:
         record = await self._translator.propose(text, choice, rules_summary)
         record_proposal(self._engine, record)
         return record
+
+    # ------------------------------------------------------------------
+    # Serialize / Restore (P6.T3)
+    # ------------------------------------------------------------------
+
+    def serialize(self) -> str:
+        """Serialize to a versioned JSON envelope (P6.T3).
+
+        Envelope shape::
+
+            {
+              "contract_version": 1,
+              "save_version": 5,
+              "state": <GameState.model_dump()>,
+            }
+        """
+        return json.dumps(
+            {
+                "contract_version": CONTRACT_VERSION,
+                "save_version": self._engine.state.save_version,
+                "state": json.loads(self._engine.state.model_dump_json()),
+            }
+        )
+
+    @classmethod
+    def restore(
+        cls,
+        data: str,
+        *,
+        advisor: object | None = None,
+        translator: object | None = None,
+    ) -> ChargenSession:
+        """Restore from a serialized envelope (P6.T3).
+
+        Runs save migrations if needed. Rejects future contract versions.
+        Never re-invokes the LLM — advice/proposal records are in the event log.
+        """
+        from src.engine.persistence import migrate
+        from src.engine.state import GameState
+
+        envelope = json.loads(data)
+        cv = envelope.get("contract_version", 0)
+        if cv > CONTRACT_VERSION:
+            raise ValueError(
+                f"Envelope contract_version {cv} is newer than "
+                f"supported {CONTRACT_VERSION}. Upgrade the client."
+            )
+
+        state_data = envelope["state"]
+        sv = state_data.get("save_version", 1)
+        if sv < 5:
+            state_data = migrate(state_data, from_version=sv)
+
+        state = GameState.model_validate(state_data)
+        pack = get_pack(state.campaign.theme_pack)
+        engine = Engine(state)
+        controller = LifepathController(engine, pack)
+        return cls(engine, controller, advisor=advisor, translator=translator)
 
     # ------------------------------------------------------------------
     # Internals
