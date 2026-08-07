@@ -95,3 +95,37 @@ class TestBuildTranslatorPrompt:
 
     def test_system_prompt_forbids_invention(self):
         assert "never invent options" in TRANSLATOR_SYSTEM_PROMPT
+
+
+import inspect  # noqa: E402
+
+from src.game.lifepath import LifepathController  # noqa: E402
+from src.llm.translator import (  # noqa: E402
+    _DISPATCH_PREFIXES,
+    _STATIC_DISPATCH_IDS,
+    dispatch_id_for,
+)
+
+
+class TestDispatchIdFor:
+    def test_static_ids_resolve(self):
+        assert dispatch_id_for("begin_term") == "begin_term"
+        assert dispatch_id_for("claim_cash") == "claim_cash"
+
+    def test_prefixed_ids_resolve(self):
+        assert dispatch_id_for("career:navy") == "career:"
+        assert dispatch_id_for("assign:3:INT") == "assign:"
+        assert dispatch_id_for("skill_table:personal_development") == "skill_table:"
+
+    def test_unknown_ids_do_not_resolve(self):
+        assert dispatch_id_for("teleport:mars") is None
+        assert dispatch_id_for("career_change_never") is None
+        assert dispatch_id_for("career:") is None  # bare prefix is not a choice
+
+    def test_table_covers_controller_dispatch(self):
+        """Drift guard: every static id and prefix must appear in apply_choice."""
+        source = inspect.getsource(LifepathController.apply_choice)
+        for key in sorted(_STATIC_DISPATCH_IDS):
+            assert f'"{key}"' in source, f"{key} missing from apply_choice"
+        for prefix in _DISPATCH_PREFIXES:
+            assert f'startswith("{prefix}")' in source, f"{prefix} missing from apply_choice"
