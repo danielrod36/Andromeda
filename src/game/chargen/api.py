@@ -20,7 +20,8 @@ from src.game.lifepath import LifepathController
 from src.themepacks import get_pack
 
 if TYPE_CHECKING:
-    pass
+    from src.llm.advisor import SuggestionRecord
+    from src.llm.translator import TranslationRecord
 
 CONTRACT_VERSION: int = 1
 
@@ -123,6 +124,46 @@ class ChargenSession:
             )
         self._controller.apply_choice(option_id, origin=origin)
         return self._step_result()
+
+    # ------------------------------------------------------------------
+    # Advisor / Translator (P6.T2)
+    # ------------------------------------------------------------------
+
+    async def suggest(self) -> SuggestionRecord:
+        """Get an advisor suggestion for the current choice (P6.T2, A2).
+
+        Records the advice via ``record_advice`` (funnel Command) so it
+        replays deterministically. Raises ``RuntimeError`` if no advisor.
+        """
+        if self._advisor is None:
+            raise RuntimeError("No advisor configured — pass advisor= to ChargenSession.create()")
+        from src.engine.lifepath_choices import build_rules_summary
+        from src.game.advice import record_advice
+
+        choice = self.current_choice()
+        rules_summary = build_rules_summary(choice)
+        record = await self._advisor.suggest(choice, rules_summary)
+        record_advice(self._engine, record)
+        return record
+
+    async def propose(self, text: str) -> TranslationRecord:
+        """Translate free text into a candidate selection (P6.T2, A3).
+
+        Records the proposal via ``record_proposal`` (funnel Command).
+        Raises ``RuntimeError`` if no translator.
+        """
+        if self._translator is None:
+            raise RuntimeError(
+                "No translator configured — pass translator= to ChargenSession.create()"
+            )
+        from src.engine.lifepath_choices import build_rules_summary
+        from src.game.advice import record_proposal
+
+        choice = self.current_choice()
+        rules_summary = build_rules_summary(choice)
+        record = await self._translator.propose(text, choice, rules_summary)
+        record_proposal(self._engine, record)
+        return record
 
     # ------------------------------------------------------------------
     # Internals
