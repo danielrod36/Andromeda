@@ -104,6 +104,14 @@ class LifepathController:
             self._reconstruct_muster_state()
 
     @property
+    def _origin_stamp(self) -> str | None:
+        """Return ``_choice_origin`` for ``SetFlagCommand``, or ``None`` when
+        the default ``"player"`` so existing events stay byte-identical (ADR A10
+        only requires non-player origins to be surfaced).
+        """
+        return self._choice_origin if self._choice_origin != "player" else None
+
+    @property
     def engine(self) -> Engine:
         return self._engine
 
@@ -129,7 +137,7 @@ class LifepathController:
 
     def _set_term_phase(self, phase: str) -> None:
         """Persist a ``term_phase`` flag via the command funnel (AE8-safe)."""
-        self._engine.apply(SetFlagCommand(key="term_phase", value=phase))
+        self._engine.apply(SetFlagCommand(key="term_phase", value=phase, origin=self._origin_stamp))
 
     @staticmethod
     def _get_reenlist_outcome(state: GameState) -> str | None:
@@ -679,7 +687,9 @@ class LifepathController:
                 )
                 if self._benefit_rolls_remaining <= 0:
                     # No benefit rolls — go straight to complete.
-                    self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+                    self._engine.apply(
+                        SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+                    )
                     return self.get_phase_view()
                 self._set_term_phase("muster_out_allocate")
                 return self._view_muster_out_allocate([])
@@ -829,7 +839,9 @@ class LifepathController:
         remaining = self._benefit_rolls_remaining
         if remaining <= 0:
             # All rolls exhausted — mark muster out and go to complete.
-            self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            self._engine.apply(
+                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+            )
             char = self._engine.state.character
             return PhaseView(
                 phase="complete",
@@ -892,9 +904,10 @@ class LifepathController:
         Routes the ``option_id`` to the appropriate LifepathRunner method.
         Sets term_phase flags via SetFlagCommand (KTD-3 byte-identical).
 
-        ``origin`` (P6.T1, ADR A10) is stored for provenance audit —
-        ``"player"``, ``"advisor"``, or ``"freetext"``. Default
-        ``"player"`` for backward compatibility with existing callers.
+        ``origin`` (P6.T1, ADR A10) is surfaced on the resulting
+        ``SetFlagCommand`` events via ``changes["origin"]`` — ``"player"``
+        (default, omitted from changes for byte-identical events),
+        ``"advisor"``, or ``"freetext"``.
         """
         self._choice_origin = origin
         # --- Pre-career phases ---
@@ -1534,7 +1547,9 @@ class LifepathController:
         outcome = self._get_reenlist_outcome(state)
         if outcome is None:
             outcome = self._runner.run_reenlistment_step(career_id)
-            self._engine.apply(SetFlagCommand(key="reenlist_outcome", value=outcome))
+            self._engine.apply(
+                SetFlagCommand(key="reenlist_outcome", value=outcome, origin=self._origin_stamp)
+            )
 
         # Build the re-enlistment receipt (shared with get_phase_view).
         receipt = self._format_reenlistment_receipt(state, career_id, outcome)
@@ -1543,7 +1558,9 @@ class LifepathController:
 
         if outcome == "must_continue":
             # Auto-advance to next term.
-            self._engine.apply(SetFlagCommand(key="reenlist_outcome", value="continued"))
+            self._engine.apply(
+                SetFlagCommand(key="reenlist_outcome", value="continued", origin=self._origin_stamp)
+            )
             self._current_term_result = None
             self._skill_rolls_remaining = 0
             self._set_term_phase("run_survival")
@@ -1628,7 +1645,9 @@ class LifepathController:
         self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(plan.total_rolls)
 
         if self._benefit_rolls_remaining <= 0:
-            self._engine.apply(SetFlagCommand(key="mustered_out", value="true"))
+            self._engine.apply(
+                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+            )
             view = self.get_phase_view()
             return PhaseView(
                 phase=view.phase,

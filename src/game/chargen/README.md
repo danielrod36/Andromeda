@@ -18,7 +18,7 @@ uv run pytest tests/game/test_chargen_session.py -q  # headless tests
 | `create(seed, pack_id, *, death_mode, advisor, translator)` | — | `ChargenSession` | New session |
 | `current_choice()` | sync | `ChoicePointView` | Current decision + enumerated options |
 | `choose(option_id)` | sync | `StepResult` | Apply a selection |
-| `suggest()` | async | `SuggestionRecord` | Advisor recommendation (HeuristicAdvisor or LLM) |
+| `suggest()` | async | `SuggestionRecord \| None` | Advisor recommendation (HeuristicAdvisor or LLM); `None` when unavailable |
 | `propose(text)` | async | `TranslationRecord` | Free-text to candidate translation |
 | `serialize()` | sync | `str` (JSON) | Versioned save envelope |
 | `restore(data, *, advisor, translator)` | sync | `ChargenSession` | Resume from save |

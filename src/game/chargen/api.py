@@ -130,11 +130,13 @@ class ChargenSession:
     # Advisor / Translator (P6.T2)
     # ------------------------------------------------------------------
 
-    async def suggest(self) -> SuggestionRecord:
+    async def suggest(self) -> SuggestionRecord | None:
         """Get an advisor suggestion for the current choice (P6.T2, A2).
 
         Records the advice via ``record_advice`` (funnel Command) so it
-        replays deterministically. Raises ``RuntimeError`` if no advisor.
+        replays deterministically. Returns ``None`` when the advisor has
+        nothing to suggest (all options dimmed, LLM failure, no model
+        configured). Raises ``RuntimeError`` if no advisor is injected.
         """
         if self._advisor is None:
             raise RuntimeError("No advisor configured — pass advisor= to ChargenSession.create()")
@@ -144,6 +146,8 @@ class ChargenSession:
         choice = self.current_choice()
         rules_summary = build_rules_summary(choice)
         record = await self._advisor.suggest(choice, rules_summary)
+        if record is None:
+            return None
         record_advice(self._engine, record)
         return record
 
@@ -185,7 +189,7 @@ class ChargenSession:
             {
                 "contract_version": CONTRACT_VERSION,
                 "save_version": self._engine.state.save_version,
-                "state": json.loads(self._engine.state.model_dump_json()),
+                "state": self._engine.state.model_dump(),
             }
         )
 
@@ -213,10 +217,11 @@ class ChargenSession:
                 f"supported {CONTRACT_VERSION}. Upgrade the client."
             )
 
-        state_data = envelope["state"]
+        state_data = envelope.get("state")
+        if state_data is None:
+            raise ValueError("Envelope missing required 'state' field.")
         sv = state_data.get("save_version", 1)
-        if sv < 5:
-            state_data = migrate(state_data, from_version=sv)
+        state_data = migrate(state_data, from_version=sv)
 
         state = GameState.model_validate(state_data)
         pack = get_pack(state.campaign.theme_pack)

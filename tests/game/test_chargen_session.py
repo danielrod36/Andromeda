@@ -95,6 +95,61 @@ class TestChargenSessionAdvisor:
         ]
         assert len(proposal_events) >= 1
 
+    def test_suggest_returns_none_when_advisor_has_nothing(self):
+        """suggest() returns None (not crash) when the advisor returns None.
+
+        Both Advisor (LLM failure / no model) and HeuristicAdvisor (all
+        options dimmed) can return None by contract. ChargenSession must
+        propagate that gracefully rather than crash in record_advice.
+        """
+
+        class EmptyAdvisor:
+            async def suggest(self, choice, rules_summary):
+                return None
+
+        session = ChargenSession.create(
+            seed=42, pack_id="scifi", death_mode="narrative", advisor=EmptyAdvisor()
+        )
+        record = asyncio.run(session.suggest())
+        assert record is None
+        # No advice event should have been recorded.
+        advice_events = [
+            e for e in session._engine.state.events if e.command_type == "record_advice"
+        ]
+        assert len(advice_events) == 0
+
+    def test_choose_with_advisor_origin_surfaces_in_events(self):
+        """choose(origin='advisor') stamps origin on SetFlagCommand events (ADR A10).
+
+        Drives several steps — the first few (roll_pool, assign) use runner
+        commands without SetFlagCommand, but term-phase transitions (career
+        change, survival, skills, etc.) route through _set_term_phase which
+        passes origin to SetFlagCommand.
+        """
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        for _ in range(50):
+            choice = session.current_choice()
+            if choice.phase == "complete":
+                break
+            pickable = [o for o in choice.options if not o.dimmed]
+            if pickable:
+                session.choose(pickable[0].option_id, origin="advisor")
+            elif choice.options:
+                session.choose(choice.options[0].option_id, origin="advisor")
+            else:
+                break
+        flagged = [e for e in session._engine.state.events if e.changes.get("origin") == "advisor"]
+        assert len(flagged) >= 1, "advisor origin should surface in SetFlagCommand events"
+
+    def test_choose_default_origin_is_byte_identical(self):
+        """Player-origin choices must NOT add origin to events (backward compat)."""
+        session_default = ChargenSession.create(seed=42, pack_id="scifi")
+        session_default.choose("roll_pool")
+        for e in session_default._engine.state.events:
+            assert "origin" not in e.changes, (
+                "player-origin events must not carry origin (byte-identical)"
+            )
+
 
 class TestChargenSessionSerialize:
     """serialize/restore round-trips with byte-identical RNG continuation."""
@@ -146,6 +201,22 @@ class TestChargenSessionSerialize:
         data = json.dumps(envelope)
         restored = ChargenSession.restore(data)
         assert restored._engine.state.save_version == 5
+
+    def test_restore_rejects_future_save_version(self):
+        """A save version newer than CURRENT_SAVE_VERSION is rejected."""
+        session = ChargenSession.create(seed=42)
+        data = session.serialize()
+        envelope = json.loads(data)
+        envelope["state"]["save_version"] = 999
+        data = json.dumps(envelope)
+        with pytest.raises(ValueError, match="newer than supported"):
+            ChargenSession.restore(data)
+
+    def test_restore_rejects_missing_state_field(self):
+        """Restore raises descriptive ValueError when 'state' key is absent."""
+        data = json.dumps({"contract_version": 1, "save_version": 5})
+        with pytest.raises(ValueError, match="state"):
+            ChargenSession.restore(data)
 
 
 class TestChargenParityAllDeathModes:
