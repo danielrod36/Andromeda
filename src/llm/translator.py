@@ -20,6 +20,8 @@ from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import UsageLimits
 
+from src.engine.audit import Event
+from src.engine.commands import Engine, SetCharacterNameCommand, SetFlagCommand
 from src.engine.lifepath_choices import ChoicePointView
 from src.llm.adapter import AdapterConfig
 from src.llm.prompts import TRANSLATOR_SYSTEM_PROMPT, build_translator_prompt
@@ -300,3 +302,27 @@ class Translator:
         return TranslationRecord(
             **base, selected_option_id=selected_id, rationale=clean, validation="passed"
         )
+
+
+# ---------------------------------------------------------------------------
+# Narrative-only freetext helper (P5.T6).
+# ---------------------------------------------------------------------------
+
+
+def apply_narrative_freetext(engine: Engine, field: str, text: str) -> Event:
+    """Apply free text to a narrative-only field through the funnel (P5.T6).
+
+    Unlike :meth:`Translator.propose` this path needs no LLM and has no
+    candidates — the player's text IS the value. ``field="name"`` routes
+    :class:`SetCharacterNameCommand`; ``field="homeworld"`` stores the blurb
+    as a narrative-log flag (no ``Character.homeworld`` field exists — see
+    part-5 Changelog). Raises ``ValueError`` for unknown fields or empty text.
+    """
+    if field == "name":
+        return engine.apply(SetCharacterNameCommand(name=text, origin="freetext"))
+    if field == "homeworld":
+        blurb = text.strip()
+        if not blurb:
+            raise ValueError("homeworld blurb must be non-empty")
+        return engine.apply(SetFlagCommand(key="homeworld_blurb", value=blurb, origin="freetext"))
+    raise ValueError(f"unknown narrative freetext field: {field!r}")

@@ -363,3 +363,34 @@ class TestRecordProposal:
         ev1 = record_proposal(e1, passed_record())
         ev2 = record_proposal(e2, passed_record())
         assert ev1.model_dump() == ev2.model_dump()
+
+
+from src.engine.commands import SetCharacterNameCommand  # noqa: E402
+from src.llm.translator import apply_narrative_freetext  # noqa: E402
+
+
+class TestNarrativeFreetext:
+    def test_set_name_through_funnel(self):
+        """Name change is validated, evented, replayable — not a direct write (P5.T6)."""
+        engine = make_engine()
+        event = engine.apply(SetCharacterNameCommand(name="  Beowulf  ", origin="freetext"))
+        assert engine.state.character.name == "Beowulf"
+        assert event.kind is EventKind.STATE_CHANGE
+        assert event.changes == {"name": "Beowulf", "origin": "freetext"}
+
+    def test_empty_name_rejected_before_mutation(self):
+        engine = make_engine()
+        with pytest.raises(ValueError, match="non-empty"):
+            engine.apply(SetCharacterNameCommand(name="   "))
+        assert engine.state.character.name == ""
+        assert engine.state.events == []  # validate raises → nothing appended
+
+    def test_apply_narrative_freetext_name_and_homeworld(self):
+        engine = make_engine()
+        apply_narrative_freetext(engine, "name", "Beowulf")
+        event = apply_narrative_freetext(engine, "homeworld", "A tidally-locked mining world.")
+        assert engine.state.character.name == "Beowulf"
+        assert "homeworld_blurb=A tidally-locked mining world." in engine.state.narrative_log
+        assert event.changes["origin"] == "freetext"
+        with pytest.raises(ValueError, match="unknown narrative freetext field"):
+            apply_narrative_freetext(engine, "backstory", "x")

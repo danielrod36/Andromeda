@@ -273,6 +273,37 @@ class SetCharacterDeadCommand(Command):
         )
 
 
+class SetCharacterNameCommand(Command):
+    """Set the character's name through the command funnel (P5.T6, ADR A10).
+
+    The TUI currently assigns ``state.character.name`` directly
+    (src/tui/app.py:167, :192) — an invariant-1 violation. The chargen
+    session (Part 6) routes name changes through the funnel so they are
+    validated, evented, and replayable. The frozen TUI is not rewired (A8).
+    """
+
+    command_type: ClassVar[str] = "set_character_name"
+
+    name: str
+    #: Provenance stamp (ADR A10): "player" | "freetext" | "advisor".
+    origin: str = "player"
+
+    def validate(self, state: GameState) -> None:
+        if not self.name.strip():
+            raise ValueError("character name must be non-empty")
+        if len(self.name.strip()) > 80:
+            raise ValueError("character name must be 80 characters or fewer")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.name = self.name.strip()
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Character named {state.character.name}",
+            changes={"name": state.character.name, "origin": self.origin},
+        )
+
+
 class RecordAdviceCommand(Command):
     """Record an Advisor suggestion in the event log (P2.T9, A2/A10).
 
