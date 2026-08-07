@@ -396,3 +396,54 @@ def build_advisor_prompt(choice: ChoicePointView, rules_summary: str) -> str:
         f"- alternatives: up to 2 other available option_ids, each with a one-sentence why_not.\n"
         f"Never select an UNAVAILABLE option. Do not invent mechanics not listed above."
     )
+
+
+# ---------------------------------------------------------------------------
+# Translator prompt (P5.T2, ADR A3).
+# ---------------------------------------------------------------------------
+
+TRANSLATOR_SYSTEM_PROMPT = """\
+You are the intent translator for Andromeda, a deterministic-rules CYOA RPG.
+
+The engine has enumerated every mechanically legal option for the current \
+decision. Your only job is to map the player's own words onto the single \
+option that best honors their stated intent — you can never invent options, \
+alter mechanics, or combine options. If no option honestly fits, say so.
+"""
+
+
+def build_translator_prompt(text: str, choice: ChoicePointView, rules_summary: str) -> str:
+    """Build the user-turn prompt for candidate-constrained translation (P5.T2, ADR A3).
+
+    The candidate list is reproduced verbatim (option_id, label, preview
+    mechanics) so the model can cite real mechanics in its rationale and can
+    never claim an option the engine did not offer. Dimmed options are listed
+    for context but marked unavailable.
+    """
+    lines: list[str] = []
+    for opt in choice.options:
+        lines.append(f'  - option_id: "{opt.option_id}" | label: "{opt.label}"')
+        for preview_line in opt.preview:
+            lines.append(f"      preview: {preview_line}")
+        if opt.dimmed:
+            reason = opt.requirement or "currently unavailable"
+            lines.append(f"      (UNAVAILABLE — {reason}; do not select)")
+    candidates_block = "\n".join(lines)
+
+    return (
+        f"## Rules Summary\n{rules_summary}\n\n"
+        f"## Current Decision\n{choice.prompt}\n\n"
+        f"## Candidate Options (verbatim — the only legal choices)\n"
+        f"{candidates_block}\n\n"
+        f"## Player's Own Words\n"
+        f'"{text}"\n\n'
+        f"Choose the single option_id that best honors the player's stated "
+        f"intent, and explain the mapping in 2-3 sentences that cite the "
+        f"option's preview mechanics. Rules:\n"
+        f"- selected_option_id must be exactly one of the option_id values "
+        f"listed above — never invent or combine ids.\n"
+        f"- Options marked UNAVAILABLE must not be selected.\n"
+        f"- If no candidate honestly fits the player's intent, return "
+        f"selected_option_id = null and give a plain-language reason in "
+        f"rationale."
+    )

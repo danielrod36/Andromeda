@@ -72,3 +72,26 @@ class TestTranslationRecord:
         changed = career_choice()
         changed.options[0] = changed.options[0].model_copy(update={"label": "Imperial Navy"})
         assert context_hash_for(changed) != h1
+
+
+from src.llm.prompts import TRANSLATOR_SYSTEM_PROMPT, build_translator_prompt  # noqa: E402
+
+
+class TestBuildTranslatorPrompt:
+    def test_prompt_lists_candidates_verbatim(self):
+        prompt = build_translator_prompt(
+            "I want to follow my father into the Navy",
+            career_choice(),
+            "Cepheus Engine lifepath: 2D6 + DM vs target.",
+        )
+        assert 'option_id: "career:navy"' in prompt
+        assert 'label: "Navy"' in prompt
+        assert "preview: 2D6+1 vs 6+ to qualify (INT 9)" in prompt
+        assert "UNAVAILABLE — SOC 8+ required (yours: SOC 5); do not select" in prompt
+        assert '"I want to follow my father into the Navy"' in prompt
+        assert "selected_option_id = null" in prompt
+        assert "never invent or combine ids" in prompt
+        assert "Cepheus Engine lifepath" in prompt
+
+    def test_system_prompt_forbids_invention(self):
+        assert "never invent options" in TRANSLATOR_SYSTEM_PROMPT
