@@ -146,3 +146,48 @@ class TestChargenSessionSerialize:
         data = json.dumps(envelope)
         restored = ChargenSession.restore(data)
         assert restored._engine.state.save_version == 5
+
+
+class TestChargenParityAllDeathModes:
+    """Full lifepaths in all three death modes via the session API.
+
+    Re-expresses TUI assertions from tests/tui/test_lifepath_phases.py
+    headlessly.
+    """
+
+    @pytest.mark.parametrize("death_mode", ["narrative", "ironman", "checkpoint"])
+    def test_full_lifepath_completes(self, death_mode):
+        """A complete lifepath runs end-to-end in every death mode."""
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode=death_mode)
+        # Auto-pick first available option until complete or 200 steps (safety valve)
+        for _ in range(200):
+            choice = session.current_choice()
+            if choice.phase == "complete":
+                break
+            pickable = [o for o in choice.options if not o.dimmed]
+            if pickable:
+                session.choose(pickable[0].option_id)
+            elif choice.options:
+                session.choose(choice.options[0].option_id)
+            else:
+                break
+        assert session._controller.determine_phase() == "complete"
+
+    def test_reenlist_shows_continue_and_muster(self):
+        """Re-enlistment offers both continue and muster-out (TUI:215)."""
+        session = ChargenSession.create(seed=44, pack_id="scifi", death_mode="narrative")
+        for _ in range(200):
+            choice = session.current_choice()
+            if choice.phase == "re_enlist":
+                option_ids = {o.option_id for o in choice.options}
+                assert "reenlist_continue" in option_ids
+                assert "reenlist_muster" in option_ids
+                return
+            pickable = [o for o in choice.options if not o.dimmed]
+            if pickable:
+                session.choose(pickable[0].option_id)
+            elif choice.options:
+                session.choose(choice.options[0].option_id)
+            else:
+                break
+        pytest.fail("Did not reach re_enlist phase")
