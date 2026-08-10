@@ -61,6 +61,16 @@ _PHYSICAL_CHARACTERISTICS = ("STR", "DEX", "END")
 _ALL_CHARACTERISTICS = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 
 
+def get_pending_crisis_cost(state: GameState) -> int | None:
+    """Rolled aging-crisis cost for the open crisis, or None (C2, C-A5)."""
+    for entry in reversed(state.narrative_log):
+        if entry.startswith("crisis_cost="):
+            return int(entry.split("=", 1)[1])
+        if entry == "term_phase=choose_crisis_resolution":
+            return None
+    return None
+
+
 class LifepathController:
     """Headless lifepath phase controller (U5, U2).
 

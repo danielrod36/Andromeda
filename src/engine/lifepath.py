@@ -852,6 +852,25 @@ class ResolveInjuryCrisisCommand(Command):
         )
 
 
+class RollAgingCrisisCostCommand(Command):
+    """Roll the 1D6 aging-crisis medical cost multiplier (SRD; C2, C-A5)."""
+
+    command_type: ClassVar[str] = "lifepath_aging_crisis_cost"
+
+    def resolve(self, state: GameState, roller: Roller) -> RollResult:
+        return roller.roll("lifepath", 1, 6)
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        assert roll is not None
+        return Event(
+            kind=EventKind.ROLL,
+            command_type=self.command_type,
+            description=f"Aging crisis cost: 1D6={roll.total} -> Cr{roll.total * 10_000:,}",
+            roll=roll,
+            changes={"crisis_multiplier": roll.total},
+        )
+
+
 class AdvanceTermCommand(Command):
     """Advance the character's age and term count via the funnel (R9, R10).
 
