@@ -1909,15 +1909,21 @@ class LifepathRunner:
             "reductions": ic["reductions"],
         }
 
-    def auto_resolve_crisis(self, stat: str) -> str:
+    def auto_resolve_crisis(self, stat: str, *, crisis_kind: str = "injury") -> str:
         """Apply :class:`ResolveInjuryCrisisCommand` with the deterministic default.
 
         Pays Cr10,000 if the character can afford it; otherwise applies the
         death-mode fallback (ironman → death, narrative/checkpoint → scar).
         Returns the outcome string (``paid_cr10000`` | ``death`` | ``scarred``).
         """
-        can_afford = self.engine.state.character.credits >= 10_000
-        event = self.engine.apply(ResolveInjuryCrisisCommand(stat=stat, pay=can_afford))
+        cost = 10_000
+        if crisis_kind == "aging":
+            cost_event = self.engine.apply(RollAgingCrisisCostCommand())
+            cost = cost_event.changes["crisis_multiplier"] * 10_000
+        can_afford = self.engine.state.character.credits >= cost
+        event = self.engine.apply(
+            ResolveInjuryCrisisCommand(stat=stat, pay=can_afford, crisis_cost_cr=cost)
+        )
         return event.changes["outcome"]
 
     _MENTAL_CHARACTERISTICS = ("INT", "EDU", "SOC")
@@ -1946,7 +1952,7 @@ class LifepathRunner:
                 ApplyAgingReductionCommand(characteristic=stat, points=slot.points)
             )
             if event.changes.get("crisis"):
-                self.auto_resolve_crisis(stat)
+                self.auto_resolve_crisis(stat, crisis_kind="aging")
 
     # ------------------------------------------------------------------
     # Full lifepath.
