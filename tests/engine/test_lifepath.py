@@ -1749,3 +1749,63 @@ class TestCascadeGrantSites:
         assert ch.skills.get("gun_combat_slug_rifle") == 1
         assert ch.skills.get("mechanic") == 1
         assert ch.pending_cascades == []
+
+
+class TestSchemaV2ProductionData:
+    """C5 — schema-v2 mechanics fire on real pack data (G1/G3/G5)."""
+
+    def test_real_pack_mishap_debt_applies(self, pack):
+        """Navy mishap row 3 applies Cr10,000 debt (C5/G3)."""
+        from src.engine.lifepath import MishapRollCommand
+
+        engine, _ = setup_qualified_engine([[3]], pack)  # forced 3 = debt row
+        navy = pack.careers["navy"]
+        engine.apply(MishapRollCommand(career_id="navy", entries=navy.mishap_table.entries))
+        assert engine.state.character.debt_cr == 10_000
+
+    def test_weapon_duplicate_pends_cascade_choice(self, pack):
+        """Second Weapon defers to a Gun Combat specialization pick (C5/G5 + C-A2)."""
+        from src.engine.lifepath import BenefitRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        entries = [
+            SkillTableEntry(
+                min=1, max=6, result="Weapon", on_duplicate="cascade:gun_combat"
+            )
+        ]
+        engine, _ = setup_qualified_engine([[2]], pack)
+        engine.apply(BenefitRollCommand(benefit_type="material", entries=entries))
+        assert engine.state.character.inventory == ["Weapon"]
+        engine._roller = ForcedRoller([[2]])
+        engine.apply(BenefitRollCommand(benefit_type="material", entries=entries))
+        assert engine.state.character.inventory == ["Weapon"]  # no second item
+        pending = engine.state.character.pending_cascades
+        assert len(pending) == 1 and pending[0].parent == "gun_combat"
+
+    def test_navy_entry_grants_rank0_vacc_suit(self, pack):
+        """Career entry grants the SRD rank-0 skill (C5/G1): navy Starman = vacc_suit-1.
+
+        Also pins the post-C4 basic-training shape: cascade service entries
+        pend set_zero choices instead of landing as flat skills.
+        """
+        engine, runner = setup_qualified_engine([], pack)  # navy qualified
+        runner.run_basic_training("navy")
+        ch = engine.state.character
+        assert ch.skills.get("vacc_suit") == 1  # rank-0 entry grant
+        # Flat service entries at 0; cascade entries pending:
+        assert ch.skills.get("engineer") == 0
+        assert ch.skills.get("gunnery_turrets") == 0
+        pending_parents = [p.parent for p in ch.pending_cascades]
+        assert set(pending_parents) == {"electronics", "gun_combat", "melee", "drive"}
+        assert all(p.grant_mode == "set_zero" for p in ch.pending_cascades)
+
+    def test_navy_rank3_grants_tactics_cascade_pending(self, pack):
+        """Reaching navy rank 3 pends a Tactics specialization choice (C5/G1)."""
+        engine, runner = setup_qualified_engine([], pack)
+        engine.state.character.rank = 2
+        grants = runner._grant_rank_bonus_skills("navy", 3)
+        assert grants  # human-readable grant descriptions returned
+        pending = engine.state.character.pending_cascades
+        assert len(pending) == 1
+        assert pending[0].parent == "tactics"
+        assert pending[0].grant_mode == "increment"
