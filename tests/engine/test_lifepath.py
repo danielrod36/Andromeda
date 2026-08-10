@@ -1414,3 +1414,55 @@ class TestDuplicateBenefits:
         assert event.roll.modifiers == 1
         assert "Item B" in engine.state.character.inventory
         assert "Item A" not in engine.state.character.inventory
+
+
+class TestAgingCrisisCostRoll:
+    """C2: aging crisis cost is 1D6 x 10,000 rolled on the lifepath stream (SRD)."""
+
+    def test_roll_records_multiplier(self, pack):
+        from src.engine.lifepath import RollAgingCrisisCostCommand
+
+        engine, _ = setup_qualified_engine([[4]], pack)
+        event = engine.apply(RollAgingCrisisCostCommand())
+        assert event.changes["crisis_multiplier"] == 4
+        assert engine.state.character.credits == 0  # no state mutation
+        assert event.roll is not None and sum(event.roll.rolls) == 4
+
+    def test_crisis_cost_command_parameterizes_payment(self, pack):
+        """P3.8a's planned test, wired end-to-end (C2)."""
+        from src.engine.lifepath import ResolveInjuryCrisisCommand, RollAgingCrisisCostCommand
+
+        engine, _ = setup_qualified_engine([[4]], pack)
+        state = engine.state
+        state.character.credits = 100_000
+        state.character.characteristics["STR"] = 0
+        event = engine.apply(RollAgingCrisisCostCommand())  # consumes the [4]
+        cost = event.changes["crisis_multiplier"] * 10_000
+        resolved = engine.apply(
+            ResolveInjuryCrisisCommand(stat="STR", pay=True, crisis_cost_cr=cost)
+        )
+        assert state.character.credits == 60_000
+        assert resolved.changes["outcome"] == "paid_cr40000"
+
+    def test_batch_aging_crisis_rolls_cost(self, pack):
+        """Batch aging crisis pays 1D6 x 10k via the funnel (C2)."""
+        engine, runner = setup_qualified_engine([[2]], pack)  # cost roll = 2 -> 20k
+        state = engine.state
+        state.character.credits = 100_000
+        state.character.characteristics["END"] = 0
+        outcome = runner.auto_resolve_crisis("END", crisis_kind="aging")
+        assert outcome == "paid_cr20000"
+        assert state.character.credits == 80_000
+        kinds = [e.command_type for e in state.events]
+        assert "lifepath_aging_crisis_cost" in kinds
+
+    def test_injury_crisis_consumes_no_cost_roll(self, pack):
+        """Injury crisis stays flat 10k and never touches the cost roll (C2)."""
+        engine, runner = setup_qualified_engine([], pack)
+        state = engine.state
+        state.character.credits = 50_000
+        state.character.characteristics["STR"] = 0
+        outcome = runner.auto_resolve_crisis("STR", crisis_kind="injury")
+        assert outcome == "paid_cr10000"
+        assert state.character.credits == 40_000
+        assert "lifepath_aging_crisis_cost" not in [e.command_type for e in state.events]

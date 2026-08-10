@@ -412,3 +412,70 @@ class TestIronmanCrisisChoice:
         view = controller.apply_choice("aging_stat:STR")  # STR 7 - 7 = 0 crisis
         assert view.phase == "choose_crisis_resolution"
         assert engine.state.character.alive is True
+
+
+class TestPendingCrisisCost:
+    """C2 — aging crisis cost roll surfaces in the interactive flow (C-A5)."""
+
+    def test_scan_order(self):
+        """Cost found only when set after the crisis term_phase flag (C-A5)."""
+        from src.game.lifepath import get_pending_crisis_cost
+
+        engine = _make_engine(seed=42)
+        state = engine.state
+        assert get_pending_crisis_cost(state) is None
+        engine.apply(SetFlagCommand(key="crisis_cost", value="40000"))
+        assert get_pending_crisis_cost(state) == 40000
+        # A newer crisis term_phase buries the stale cost (injury path -> None):
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_crisis_resolution"))
+        assert get_pending_crisis_cost(state) is None
+        # Aging path sets term_phase first, then cost -> found:
+        engine.apply(SetFlagCommand(key="crisis_cost", value="20000"))
+        assert get_pending_crisis_cost(state) == 20000
+
+    def test_aging_crisis_rolls_cost_and_charges_it(self):
+        """Interactive aging crisis: 1D6 cost rolled, previewed, charged (C2)."""
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.credits = 50_000
+        state.character.pending_aging = [AgingSlot(group="physical", points=7)]
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_aging_reduction"))
+        engine._roller = ForcedRoller([[4]])  # the 1D6 crisis-cost roll -> 40k
+        controller = LifepathController(engine, load_scifi_pack())
+        controller._current_term_result = TermResult(
+            term_number=1, career_id="navy", career_name="Navy", age_before=30, age_after=34
+        )
+        controller._aging_active = True
+
+        view = controller.apply_choice("aging_stat:STR")  # STR 7 - 7 = 0 crisis
+        assert view.phase == "choose_crisis_resolution"
+        kinds = [e.command_type for e in state.events]
+        assert "lifepath_aging_crisis_cost" in kinds
+        pay = next(c for c in view.choices if c.option_id == "crisis_pay")
+        assert "40,000" in pay.label
+        assert pay.dimmed is False  # 50k affords 40k
+
+        controller.apply_choice("crisis_pay")
+        assert state.character.credits == 10_000  # charged 40k, not 10k
+        assert state.character.characteristics["STR"] == 1
+        assert state.character.alive is True
+
+    def test_injury_crisis_stays_flat_10k(self):
+        """Injury path: no cost roll consumed, flat Cr10,000 (C2)."""
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.characteristics["STR"] = 4
+        state.character.credits = 15_000
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_injury_stat"))
+        engine._roller = ForcedRoller([[1], [5, 5]])  # injury -6 PHYSICAL; reenlist
+        controller = LifepathController(engine, load_scifi_pack())
+        controller._current_term_result = TermResult(
+            term_number=1, career_id="navy", career_name="Navy", age_before=18, age_after=22
+        )
+        view = controller.apply_choice("injury_stat:STR")
+        assert view.phase == "choose_crisis_resolution"
+        assert "lifepath_aging_crisis_cost" not in [e.command_type for e in state.events]
+        pay = next(c for c in view.choices if c.option_id == "crisis_pay")
+        assert "10,000" in pay.label
+        controller.apply_choice("crisis_pay")
+        assert state.character.credits == 5_000
