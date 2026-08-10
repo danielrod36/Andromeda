@@ -1809,3 +1809,61 @@ class TestSchemaV2ProductionData:
         assert len(pending) == 1
         assert pending[0].parent == "tactics"
         assert pending[0].grant_mode == "increment"
+
+
+class TestPerCareerMusterOut:
+    """C6 — G4: per-career muster terms, per-exit counting, lifetime cash cap."""
+
+    def test_end_career_records_terms_in_career(self, pack):
+        """EndCareerCommand computes per-career terms from cumulative deltas (C6)."""
+        from src.engine.lifepath import EndCareerCommand
+
+        engine, runner = setup_qualified_engine([], pack)  # navy
+        state = engine.state
+        state.character.terms = 2
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        assert state.character.career_history[-1].terms_in_career == 2
+        state.character.career = "army"
+        state.character.terms = 5
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        assert state.character.career_history[-1].terms_in_career == 3
+        assert state.character.career_history[-1].terms == 5  # cumulative preserved
+
+    def test_muster_out_uses_per_career_terms(self, pack):
+        """Second career's muster plan uses its own terms, not lifetime (C6/G4)."""
+        from src.engine.lifepath import EndCareerCommand
+
+        engine, runner = setup_qualified_engine([], pack)  # navy
+        state = engine.state
+        state.character.terms = 2
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        state.character.career = "army"
+        state.character.terms = 5  # 3 terms in army
+        plan = runner.muster_out("army")
+        assert plan.total_rolls == 3  # not 5
+
+    def test_reconstruct_counters_per_exit_cash_cap_lifetime(self, pack):
+        """Roll counting restarts at each exit; the cash cap does not (C-A6)."""
+        from src.engine.lifepath import BenefitRollCommand, EndCareerCommand
+
+        engine, runner = setup_qualified_engine([[1], [1]], pack)
+        state = engine.state
+        state.character.terms = 2
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        navy = pack.careers["navy"]
+        engine.apply(
+            BenefitRollCommand(
+                benefit_type="cash", entries=navy.mustering_out_cash.entries.entries
+            )
+        )
+        engine.apply(
+            BenefitRollCommand(
+                benefit_type="cash", entries=navy.mustering_out_cash.entries.entries
+            )
+        )
+        assert runner.reconstruct_muster_counters(total_rolls=2) == 0
+        state.character.career = "army"
+        state.character.terms = 3
+        engine.apply(EndCareerCommand(ended_by="muster_out"))
+        assert runner.reconstruct_muster_counters(total_rolls=3) == 3
+        assert runner._count_cash_benefit_events() == 2  # lifetime

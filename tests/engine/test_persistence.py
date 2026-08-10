@@ -419,7 +419,7 @@ class TestV4ToV5Migration:
     def test_current_save_version_is_5(self):
         from src.engine.persistence import CURRENT_SAVE_VERSION
 
-        assert CURRENT_SAVE_VERSION == 6
+        assert CURRENT_SAVE_VERSION == 7
 
     def test_migrate_v4_to_v5_adds_defaults(self):
         from src.engine.persistence import migrate
@@ -549,3 +549,85 @@ class TestSaveV6:
         assert restored.character.pending_cascades[0].parent == "gun_combat"
         assert restored.character.pending_cascades[0].grant_mode == "set_zero"
         assert restored.model_dump_json() == state.model_dump_json()
+
+
+class TestSaveV7:
+    """C6 — save schema v7: CareerTermRecord.terms_in_career (C-A7)."""
+
+    def test_migrate_v6_to_v7_backfills_terms_in_career(self):
+        from src.engine.persistence import migrate
+
+        v6_data: dict[str, object] = {
+            "save_version": 6,
+            "seed": 42,
+            "campaign": {
+                "ruleset": "cepheus",
+                "theme_pack": "scifi",
+                "resolution_profile": "classic",
+                "death_mode": "narrative",
+            },
+            "character": {
+                "name": "Test",
+                "characteristics": {"STR": 7},
+                "skills": {},
+                "age": 30,
+                "terms": 5,
+                "career": "",
+                "rank": 0,
+                "alive": True,
+                "credits": 1000,
+                "inventory": [],
+                "unassigned_rolls": [],
+                "pool_rerolled": False,
+                "career_history": [
+                    {"career_id": "navy", "terms": 2, "final_rank": 1, "ended_by": "muster_out"},
+                    {"career_id": "army", "terms": 5, "final_rank": 0, "ended_by": "muster_out"},
+                ],
+                "drafted": False,
+                "background_picks_remaining": 0,
+                "basic_training_done": True,
+                "pending_aging": [],
+                "benefits_lost": False,
+                "debt_cr": 0,
+                "mustered_careers": ["navy", "army"],
+                "pending_cascades": [],
+            },
+            "rng": {"streams": {}},
+            "entities": [],
+            "events": [],
+            "narrative_log": [],
+            "active_mission": None,
+            "completed_missions": [],
+            "chapter_summaries": [],
+            "open_threads": [],
+            "mission_counter": 0,
+            "pending_freetext": None,
+            "pending_hook": None,
+        }
+        migrated = migrate(v6_data, from_version=6)
+        hist = migrated["character"]["career_history"]
+        assert hist[0]["terms_in_career"] == 2
+        assert hist[1]["terms_in_career"] == 3
+        assert migrated["save_version"] == 7
+
+    def test_migrate_v5_walks_to_v7(self):
+        """The chain migrates a v5 doc through v6 to v7 (C-A7)."""
+        from src.engine.persistence import migrate
+
+        v5_data: dict[str, object] = {
+            "save_version": 5,
+            "seed": 42,
+            "campaign": {},
+            "character": {
+                "career_history": [
+                    {"career_id": "navy", "terms": 3, "final_rank": 0, "ended_by": "mishap"}
+                ],
+            },
+            "rng": {"streams": {}},
+            "events": [],
+            "narrative_log": [],
+        }
+        migrated = migrate(v5_data, from_version=5)
+        assert migrated["save_version"] == 7
+        assert migrated["character"]["pending_cascades"] == []
+        assert migrated["character"]["career_history"][0]["terms_in_career"] == 3

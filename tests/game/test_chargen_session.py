@@ -325,3 +325,47 @@ class TestCascadeRealPack:
             )
             session.choose(pick.option_id)
         assert saw_specialization, "no cascade slot hit in a full navy lifepath — investigate"
+
+
+class TestPerCareerMusterSession:
+    """C6 — per-career muster-out at the contract surface."""
+
+    def test_two_career_muster_out_per_career(self):
+        """Two careers muster separately; history/muster tracking consistent (C6/G4)."""
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        careers_seen = 0
+        for _ in range(300):
+            choice = session.current_choice()
+            if choice.phase == "complete":
+                break
+            ids = {o.option_id for o in choice.options}
+            if choice.phase == "choose_career":
+                # First career navy; second career army.
+                pick = "career:navy" if careers_seen == 0 else "career:army"
+                if pick in ids:
+                    careers_seen += 1
+                    session.choose(pick)
+                    continue
+            if choice.phase == "re_enlist" and "reenlist_muster" in ids:
+                session.choose("reenlist_muster")
+                continue
+            if choice.phase == "choose_career_change":
+                if careers_seen < 2 and "career_change_new" in ids:
+                    session.choose("career_change_new")
+                elif "career_change_finish" in ids:
+                    session.choose("career_change_finish")
+                else:  # pre-C6 id
+                    session.choose("career_change_muster")
+                continue
+            pick = next((o for o in choice.options if not o.dimmed), None)
+            if pick is None:
+                break
+            session.choose(pick.option_id)
+        ch = session._engine.state.character
+        assert careers_seen == 2, f"expected 2 careers, drove {careers_seen}"
+        history = ch.career_history
+        assert [r.career_id for r in history] == ["navy", "army"]
+        # Per-career terms sum to lifetime terms:
+        assert sum(r.terms_in_career for r in history) == ch.terms
+        # Each career mustered separately, in order:
+        assert ch.mustered_careers == ["navy", "army"]

@@ -608,3 +608,124 @@ class TestCascadePhase:
         assert (
             engine.state.character.skills == controller2._engine.state.character.skills
         )
+
+
+class TestPerCareerMusterFlow:
+    """C6 — G4: muster phases run at every career exit (C-A6)."""
+
+    def test_mishap_ejection_musters_before_career_change(self):
+        """Mishap exit: muster THIS career's benefits, then offer career change."""
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.terms = 1
+        # survival fail [2,1]=3+1 <5 -> narrative mishap; mishap row 2 (no injury);
+        # benefit cash roll [1].
+        engine._roller = ForcedRoller([[2, 1], [2], [1]])
+        controller = LifepathController(engine, load_scifi_pack())
+        view = controller.apply_choice("begin_term")
+        assert view.phase == "mishap_roll"
+        view = controller.apply_choice("roll_mishap")
+        # C6: mishap exit musters first — NOT straight to career change.
+        assert controller.determine_phase() == "muster_out_allocate"
+        view = controller.apply_choice("claim_cash")
+        # Rolls exhausted -> career change offered (terms < 7).
+        assert controller.determine_phase() == "choose_career_change"
+        assert state.character.mustered_careers == ["navy"]
+        assert state.character.career_history[-1].terms_in_career == 1
+        assert "mustered_out=true" not in state.narrative_log
+
+    def test_voluntary_muster_offers_career_change(self):
+        """reenlist_muster no longer ends chargen (C6)."""
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.terms = 1
+        engine._roller = ForcedRoller([[1]])  # the single cash claim
+        engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
+        controller = LifepathController(engine, load_scifi_pack())
+        controller.apply_choice("reenlist_muster")
+        assert controller.determine_phase() == "muster_out_allocate"
+        controller.apply_choice("claim_cash")
+        assert controller.determine_phase() == "choose_career_change"
+        assert "mustered_out=true" not in state.narrative_log
+
+    def test_retirement_is_terminal(self):
+        """7-term character musters then completes — no career change (C-A6)."""
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.terms = 7
+        # 7 benefit rolls; cash cap allows 3 cash, rest material: queue 7 pips.
+        engine._roller = ForcedRoller([[1], [1], [1], [1], [1], [1], [1]])
+        engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
+        controller = LifepathController(engine, load_scifi_pack())
+        controller.apply_choice("reenlist_muster")
+        assert controller.determine_phase() == "muster_out_allocate"
+        for choice in ("claim_cash", "claim_cash", "claim_cash",
+                       "claim_material", "claim_material", "claim_material",
+                       "claim_material"):
+            controller.apply_choice(choice)
+        assert controller.determine_phase() == "complete"
+        assert "mustered_out=true" in state.narrative_log
+        assert state.character.mustered_careers == ["navy"]
+
+    def test_career_change_finish_ends_chargen(self):
+        """career_change_finish sets the terminal flag (C6)."""
+        engine = _make_mid_lifepath_engine()
+        engine.state.character.terms = 1
+        engine.apply(SetFlagCommand(key="term_phase", value="choose_career_change"))
+        engine.state.character.career = ""  # career already ended
+        controller = LifepathController(engine, load_scifi_pack())
+        assert controller.determine_phase() == "choose_career_change"
+        view = controller.apply_choice("career_change_finish")
+        assert "mustered_out=true" in engine.state.narrative_log
+        assert controller.determine_phase() == "complete"
+
+    def test_cash_cap_is_lifetime_across_musters(self):
+        """3 cash claims in muster #1 dim cash in muster #2 (C-A6)."""
+        from src.engine.lifepath import BenefitRollCommand
+
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        pack = load_scifi_pack()
+        navy = pack.careers["navy"]
+        # Three lifetime cash claims from a previous muster:
+        engine._roller = ForcedRoller([[1], [1], [1]])
+        for _ in range(3):
+            engine.apply(
+                BenefitRollCommand(
+                    benefit_type="cash", entries=navy.mustering_out_cash.entries.entries
+                )
+            )
+        # Second career ends; muster #2 begins.
+        state.character.career_history = [
+            CareerTermRecord(career_id="navy", terms=3, terms_in_career=3,
+                             final_rank=0, ended_by="muster_out")
+        ]
+        state.character.career = "army"
+        state.character.terms = 4  # 1 term in army
+        engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
+        controller = LifepathController(engine, pack)
+        controller.apply_choice("reenlist_muster")
+        assert controller.determine_phase() == "muster_out_allocate"
+        view = controller.get_phase_view()
+        cash = next(c for c in view.choices if c.option_id == "claim_cash")
+        assert cash.dimmed is True
+
+    def test_resume_mid_second_muster_reconstructs(self):
+        """Resume after career B's first claim: per-exit remaining (C6)."""
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.career_history = [
+            CareerTermRecord(career_id="navy", terms=2, terms_in_career=2,
+                             final_rank=0, ended_by="muster_out")
+        ]
+        state.character.career = "army"
+        state.character.terms = 4  # 2 terms in army -> 2 rolls this exit
+        engine._roller = ForcedRoller([[1]])
+        engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
+        controller = LifepathController(engine, load_scifi_pack())
+        controller.apply_choice("reenlist_muster")
+        controller.apply_choice("claim_cash")
+        # Resume: rebuild the controller on the same state.
+        resumed = LifepathController(engine, load_scifi_pack())
+        assert resumed.determine_phase() == "muster_out_allocate"
+        assert resumed._benefit_rolls_remaining == 1  # 2 per-exit rolls - 1 claim
