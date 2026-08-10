@@ -31,6 +31,7 @@ from src.engine.lifepath import (
     MishapRollCommand,
     MusteringOutResult,
     ResolveInjuryCrisisCommand,
+    RollAgingCrisisCostCommand,
     SkillGain,
     TermResult,
 )
@@ -593,11 +594,12 @@ class LifepathController:
 
         if phase == "choose_crisis_resolution":
             crisis_stat = self._find_stat_at_zero() or "a characteristic"
-            can_afford = char.credits >= 10_000
+            cost = get_pending_crisis_cost(state) or 10_000
+            can_afford = char.credits >= cost
             pay_label = (
-                f"Pay Cr10,000 (have Cr{char.credits:,})"
+                f"Pay Cr{cost:,} (have Cr{char.credits:,})"
                 if can_afford
-                else f"Pay Cr10,000 (have Cr{char.credits:,} — cannot afford)"
+                else f"Pay Cr{cost:,} (have Cr{char.credits:,} — cannot afford)"
             )
             pay_option = ChoiceOption(
                 label=pay_label,
@@ -608,9 +610,9 @@ class LifepathController:
                 pay_option = ChoiceOption(
                     label=pay_label,
                     option_id="crisis_pay",
-                    description="Cannot afford Cr10,000.",
+                    description=f"Cannot afford Cr{cost:,}.",
                     dimmed=True,
-                    requirement="Requires Cr10,000",
+                    requirement=f"Requires Cr{cost:,}",
                 )
             decline_option = (
                 ChoiceOption(
@@ -1377,14 +1379,17 @@ class LifepathController:
         if result is None:
             return self.get_phase_view()
 
-        if pay and self._engine.state.character.credits < 10_000:
+        cost = get_pending_crisis_cost(self._engine.state) or 10_000
+        if pay and self._engine.state.character.credits < cost:
             return self.get_phase_view()  # dimmed option; ignore crafted posts
 
         crisis_stat = self._find_stat_at_zero()
         if not crisis_stat:
             return self._after_crisis_resolution(result, [])
 
-        event = self._engine.apply(ResolveInjuryCrisisCommand(stat=crisis_stat, pay=pay))
+        event = self._engine.apply(
+            ResolveInjuryCrisisCommand(stat=crisis_stat, pay=pay, crisis_cost_cr=cost)
+        )
         outcome = event.changes["outcome"]
         receipts = [f"Crisis ({crisis_stat}): {outcome}"]
 
@@ -1478,6 +1483,16 @@ class LifepathController:
 
         if event.changes.get("crisis"):
             self._set_term_phase("choose_crisis_resolution")
+            # C2/C-A5: aging crisis costs 1D6 x 10k. Roll AFTER setting the
+            # term_phase flag so get_pending_crisis_cost finds the cost first.
+            cost_event = self._engine.apply(RollAgingCrisisCostCommand())
+            self._engine.apply(
+                SetFlagCommand(
+                    key="crisis_cost",
+                    value=str(cost_event.changes["crisis_multiplier"] * 10_000),
+                    origin=self._origin_stamp,
+                )
+            )
             view = self.get_phase_view()
             return PhaseView(
                 phase="choose_crisis_resolution",

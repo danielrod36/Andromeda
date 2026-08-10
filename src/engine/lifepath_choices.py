@@ -68,6 +68,16 @@ def _career(state: GameState, pack: LoadedThemePack) -> CareerData:
     return pack.careers[state.character.career]
 
 
+def _pending_crisis_cost(state: GameState) -> int:
+    """Rolled aging-crisis cost or flat 10k (engine-local copy of the C-A5 scan)."""
+    for entry in reversed(state.narrative_log):
+        if entry.startswith("crisis_cost="):
+            return int(entry.split("=", 1)[1])
+        if entry == "term_phase=choose_crisis_resolution":
+            break
+    return 10_000
+
+
 def _char_dm(ruleset: RuleSet, state: GameState, characteristic: str) -> int:
     return ruleset.characteristic_dm(state.character.characteristics.get(characteristic, 7))
 
@@ -498,7 +508,8 @@ def choice_crisis_resolution(
     (ironman = death, narrative/classic = lasting scar)."""
     char = state.character
     stat = next((s for s in _ALL if char.characteristics.get(s, 0) <= 0), "a characteristic")
-    can_afford = char.credits >= 10_000
+    cost = _pending_crisis_cost(state)
+    can_afford = char.credits >= cost
     if state.campaign.death_mode == "ironman":
         decline_label = "Accept death"
         decline_preview = ["Ironman: the crisis is fatal. The character dies."]
@@ -512,10 +523,10 @@ def choice_crisis_resolution(
         options=[
             ChoiceOptionView(
                 option_id="crisis_pay",
-                label=f"Pay Cr10,000 (have Cr{char.credits:,})",
+                label=f"Pay Cr{cost:,} (have Cr{char.credits:,})",
                 preview=[f"pay for medical care; {stat} stabilises at 1"],
                 dimmed=not can_afford,
-                requirement=None if can_afford else "Requires Cr10,000",
+                requirement=None if can_afford else f"Requires Cr{cost:,}",
             ),
             ChoiceOptionView(
                 option_id="crisis_scar",

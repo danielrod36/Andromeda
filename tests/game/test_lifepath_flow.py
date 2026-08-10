@@ -440,7 +440,7 @@ class TestPendingCrisisCost:
         state.character.credits = 50_000
         state.character.pending_aging = [AgingSlot(group="physical", points=7)]
         engine.apply(SetFlagCommand(key="term_phase", value="choose_aging_reduction"))
-        engine._roller = ForcedRoller([[4]])  # the 1D6 crisis-cost roll -> 40k
+        engine._roller = ForcedRoller([[4], [5, 5]])  # cost roll 4 -> 40k; reenlist
         controller = LifepathController(engine, load_scifi_pack())
         controller._current_term_result = TermResult(
             term_number=1, career_id="navy", career_name="Navy", age_before=30, age_after=34
