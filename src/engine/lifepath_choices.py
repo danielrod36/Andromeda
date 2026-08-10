@@ -152,13 +152,19 @@ def choice_background_skills(
     picks = char.background_picks_remaining
     if picks == -1:  # phase not started — mirror start_background_phase math
         picks = max(0, 3 + ruleset.characteristic_dm(char.characteristics.get("EDU", 7)))
+    owned = set(char.skills.keys())
+    available = [sid for sid in pack.background_skills if sid not in owned]
+    if picks > 0 and not available:
+        # Pathological small pack: everything owned but picks remain.
+        # Offer the full list rather than soft-lock (C1 fallback).
+        available = list(pack.background_skills)
     options = [
         ChoiceOptionView(
             option_id=f"bg_skill:{sid}",
             label=pack.skills[sid].name if sid in pack.skills else sid.replace("_", " ").title(),
             preview=[f"gain at level 0 ({picks} pick(s) left)"],
         )
-        for sid in pack.background_skills
+        for sid in available
     ]
     return ChoicePointView(
         choice_id="choose_background_skills",
