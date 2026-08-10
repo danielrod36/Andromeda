@@ -479,3 +479,132 @@ class TestPendingCrisisCost:
         assert "10,000" in pay.label
         controller.apply_choice("crisis_pay")
         assert state.character.credits == 5_000
+
+
+# ---------------------------------------------------------------------------
+# C3 — cascade specialization phase (controller routing).
+# ---------------------------------------------------------------------------
+
+
+def _cascade_pack():
+    """Minimal synthetic pack: one career, one declared cascade (C3)."""
+    from src.themepacks.base import validate_pack
+
+    return validate_pack(
+        {
+            "pack": {"id": "casc", "name": "CascadeTest", "description": "t"},
+            "careers": {
+                "navy": {
+                    "id": "navy",
+                    "name": "Navy",
+                    "description": "t",
+                    "qualification": {"characteristic": "INT", "target": 5},
+                    "survival": {"characteristic": "END", "target": 5},
+                    "has_hierarchy": False,
+                    "skill_tables": [
+                        {
+                            "name": "Service Skills",
+                            "entries": {
+                                "num_dice": 1,
+                                "die_size": 6,
+                                "entries": [
+                                    {"min": 1, "max": 3, "result": "mechanic"},
+                                    {"min": 4, "max": 6, "result": "cascade:gun_combat"},
+                                ],
+                            },
+                        },
+                    ],
+                    "ranks": [],
+                }
+            },
+            "skills": {
+                "mechanic": {"id": "mechanic", "name": "Mechanic"},
+                "gun_combat_slug_rifle": {
+                    "id": "gun_combat_slug_rifle",
+                    "name": "Gun Combat (Slug Rifle)",
+                },
+                "gun_combat_slug_pistol": {
+                    "id": "gun_combat_slug_pistol",
+                    "name": "Gun Combat (Slug Pistol)",
+                },
+                "gun_combat_energy_rifle": {
+                    "id": "gun_combat_energy_rifle",
+                    "name": "Gun Combat (Energy Rifle)",
+                },
+            },
+            "cascades": {
+                "gun_combat": {
+                    "id": "gun_combat",
+                    "name": "Gun Combat",
+                    "specializations": [
+                        "gun_combat_slug_rifle",
+                        "gun_combat_slug_pistol",
+                        "gun_combat_energy_rifle",
+                    ],
+                }
+            },
+            "oracle_tables": {},
+            "complication_tables": {},
+            "mission_tables": {},
+        }
+    )
+
+
+def _make_cascade_controller():
+    """Mid-lifepath controller on the synthetic cascade pack (C3)."""
+    pack = _cascade_pack()
+    engine = _make_engine(seed=42)
+    char = engine.state.character
+    char.characteristics = {"STR": 7, "DEX": 8, "END": 6, "INT": 10, "EDU": 9, "SOC": 5}
+    char.career = "navy"
+    char.background_picks_remaining = 0
+    return engine, LifepathController(engine, pack)
+
+
+class TestCascadePhase:
+    """C3: pending cascade interrupts the phase machine (C-A3)."""
+
+    def test_pending_cascade_surfaces_choice_and_applies(self):
+        from src.engine.lifepath import SkillTableRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine, controller = _make_cascade_controller()
+        assert controller.determine_phase() == "run_survival"  # baseline
+        engine.apply(
+            SkillTableRollCommand(
+                table_name="Service Skills",
+                entries=[SkillTableEntry(min=1, max=6, result="cascade:gun_combat")],
+            )
+        )
+        assert controller.determine_phase() == "choose_specialization"
+        view = controller.get_phase_view()
+        ids = {c.option_id for c in view.choices}
+        assert "spec:gun_combat_slug_rifle" in ids
+        assert "spec:gun_combat_slug_pistol" in ids
+
+        controller.apply_choice("spec:gun_combat_slug_pistol")
+        assert engine.state.character.skills["gun_combat_slug_pistol"] == 1
+        assert engine.state.character.pending_cascades == []
+        assert controller.determine_phase() == "run_survival"
+
+    def test_restore_mid_cascade_byte_identical(self):
+        """serialize/validate with a pending cascade: same phase, same bytes (C3)."""
+        import json as _json
+
+        from src.engine.state import GameState, PendingCascade
+
+        engine, controller = _make_cascade_controller()
+        engine.state.character.pending_cascades.append(
+            PendingCascade(parent="gun_combat", grant_mode="set_zero")
+        )
+        blob = engine.state.model_dump_json()
+        restored = GameState.model_validate(_json.loads(blob))
+        controller2 = LifepathController(Engine(restored), _cascade_pack())
+        assert restored.model_dump_json() == blob
+        assert controller2.determine_phase() == "choose_specialization"
+        # Same choice on both engines yields identical skill state:
+        for eng, ctrl in ((engine, controller), (controller2._engine, controller2)):
+            ctrl.apply_choice("spec:gun_combat_slug_rifle")
+        assert (
+            engine.state.character.skills == controller2._engine.state.character.skills
+        )

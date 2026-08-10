@@ -1466,3 +1466,258 @@ class TestAgingCrisisCostRoll:
         assert outcome == "paid_cr10000"
         assert state.character.credits == 40_000
         assert "lifepath_aging_crisis_cost" not in [e.command_type for e in state.events]
+
+
+# ---------------------------------------------------------------------------
+# C3 — cascade specialization engine.
+# ---------------------------------------------------------------------------
+
+
+def _cascade_pack():
+    """Minimal synthetic pack: one career, one declared cascade (C3)."""
+    from src.themepacks.base import validate_pack
+
+    return validate_pack(
+        {
+            "pack": {"id": "casc", "name": "CascadeTest", "description": "t"},
+            "careers": {
+                "navy": {
+                    "id": "navy",
+                    "name": "Navy",
+                    "description": "t",
+                    "qualification": {"characteristic": "INT", "target": 5},
+                    "survival": {"characteristic": "END", "target": 5},
+                    "has_hierarchy": False,
+                    "skill_tables": [
+                        {
+                            "name": "Service Skills",
+                            "entries": {
+                                "num_dice": 1,
+                                "die_size": 6,
+                                "entries": [
+                                    {"min": 1, "max": 3, "result": "mechanic"},
+                                    {"min": 4, "max": 6, "result": "cascade:gun_combat"},
+                                ],
+                            },
+                        },
+                    ],
+                    "ranks": [],
+                }
+            },
+            "skills": {
+                "mechanic": {"id": "mechanic", "name": "Mechanic"},
+                "gun_combat_slug_rifle": {
+                    "id": "gun_combat_slug_rifle",
+                    "name": "Gun Combat (Slug Rifle)",
+                },
+                "gun_combat_slug_pistol": {
+                    "id": "gun_combat_slug_pistol",
+                    "name": "Gun Combat (Slug Pistol)",
+                },
+                "gun_combat_energy_rifle": {
+                    "id": "gun_combat_energy_rifle",
+                    "name": "Gun Combat (Energy Rifle)",
+                },
+            },
+            "cascades": {
+                "gun_combat": {
+                    "id": "gun_combat",
+                    "name": "Gun Combat",
+                    "specializations": [
+                        "gun_combat_slug_rifle",
+                        "gun_combat_slug_pistol",
+                        "gun_combat_energy_rifle",
+                    ],
+                }
+            },
+            "oracle_tables": {},
+            "complication_tables": {},
+            "mission_tables": {},
+        }
+    )
+
+
+class TestCascadeSignal:
+    """C3: cascade table results pend a specialization choice (C-A2)."""
+
+    def test_apply_skill_result_cascade_no_mutation(self):
+        from src.engine.lifepath import apply_skill_result
+        from src.engine.state import Character
+
+        ch = Character()
+        gain_type, gain_name = apply_skill_result(ch, "cascade:gun_combat")
+        assert (gain_type, gain_name) == ("cascade", "gun_combat")
+        assert ch.skills == {}  # no direct mutation (C-A2)
+
+    def test_skill_roll_pends_cascade(self, pack):
+        from src.engine.lifepath import SkillTableRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine, _ = setup_qualified_engine([[3]], pack)
+        entries = [SkillTableEntry(min=1, max=6, result="cascade:gun_combat")]
+        event = engine.apply(SkillTableRollCommand(table_name="T", entries=entries))
+        assert event.changes["gain_type"] == "cascade"
+        assert event.changes["cascade_parent"] == "gun_combat"
+        pending = engine.state.character.pending_cascades
+        assert len(pending) == 1
+        assert pending[0].parent == "gun_combat"
+        assert pending[0].grant_mode == "increment"
+        assert engine.state.character.skills == {}
+
+    def test_non_cascade_results_unchanged(self, pack):
+        from src.engine.lifepath import SkillTableRollCommand
+        from src.rulesets.base import SkillTableEntry
+
+        engine, _ = setup_qualified_engine([[3]], pack)
+        entries = [SkillTableEntry(min=1, max=6, result="mechanic")]
+        engine.apply(SkillTableRollCommand(table_name="T", entries=entries))
+        assert engine.state.character.skills == {"mechanic": 1}
+        assert engine.state.character.pending_cascades == []
+
+
+class TestChooseSpecialization:
+    """C3: specialization choice applies the pending grant via the funnel."""
+
+    def _engine_with_pending(self, pack, grant_mode="increment"):
+        from src.engine.state import PendingCascade
+
+        engine, _ = setup_qualified_engine([], pack)
+        engine.state.character.pending_cascades.append(
+            PendingCascade(parent="gun_combat", grant_mode=grant_mode)
+        )
+        return engine
+
+    def test_increment_new_spec(self, pack):
+        from src.engine.lifepath import ChooseSpecializationCommand
+
+        engine = self._engine_with_pending(pack)
+        event = engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent="gun_combat",
+                skill_id="gun_combat_slug_rifle",
+                grant_mode="increment",
+                specializations=["gun_combat_slug_rifle", "gun_combat_slug_pistol"],
+            )
+        )
+        assert engine.state.character.skills["gun_combat_slug_rifle"] == 1
+        assert engine.state.character.pending_cascades == []
+        assert event.changes["new_level"] == 1
+
+    def test_increment_existing_spec(self, pack):
+        """Re-grant raises the owned spec (choice every grant, C-A4)."""
+        from src.engine.lifepath import ChooseSpecializationCommand
+
+        engine = self._engine_with_pending(pack)
+        engine.state.character.skills["gun_combat_slug_rifle"] = 2
+        engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent="gun_combat",
+                skill_id="gun_combat_slug_rifle",
+                grant_mode="increment",
+                specializations=["gun_combat_slug_rifle"],
+            )
+        )
+        assert engine.state.character.skills["gun_combat_slug_rifle"] == 3
+
+    def test_set_zero_never_stacks(self, pack):
+        from src.engine.lifepath import ChooseSpecializationCommand
+
+        engine = self._engine_with_pending(pack, grant_mode="set_zero")
+        engine.state.character.skills["gun_combat_slug_rifle"] = 2
+        engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent="gun_combat",
+                skill_id="gun_combat_slug_rifle",
+                grant_mode="set_zero",
+                specializations=["gun_combat_slug_rifle"],
+            )
+        )
+        assert engine.state.character.skills["gun_combat_slug_rifle"] == 2
+
+    def test_rejects_non_member(self, pack):
+        import pytest
+
+        from src.engine.lifepath import ChooseSpecializationCommand
+
+        engine = self._engine_with_pending(pack)
+        with pytest.raises(ValueError, match="not a specialization"):
+            engine.apply(
+                ChooseSpecializationCommand(
+                    cascade_parent="gun_combat",
+                    skill_id="mechanic",
+                    grant_mode="increment",
+                    specializations=["gun_combat_slug_rifle"],
+                )
+            )
+        assert len(engine.state.character.pending_cascades) == 1
+
+    def test_rejects_when_not_pending(self, pack):
+        import pytest
+
+        from src.engine.lifepath import ChooseSpecializationCommand
+
+        engine, _ = setup_qualified_engine([], pack)
+        with pytest.raises(ValueError, match="no pending cascade"):
+            engine.apply(
+                ChooseSpecializationCommand(
+                    cascade_parent="gun_combat",
+                    skill_id="gun_combat_slug_rifle",
+                    specializations=["gun_combat_slug_rifle"],
+                )
+            )
+
+    def test_pops_only_first_matching_pending(self, pack):
+        """Two queued pendings of the same parent resolve FIFO (C-A3)."""
+        from src.engine.lifepath import ChooseSpecializationCommand
+        from src.engine.state import PendingCascade
+
+        engine, _ = setup_qualified_engine([], pack)
+        engine.state.character.pending_cascades.extend(
+            [
+                PendingCascade(parent="gun_combat"),
+                PendingCascade(parent="gun_combat"),
+            ]
+        )
+        engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent="gun_combat",
+                skill_id="gun_combat_slug_rifle",
+                specializations=["gun_combat_slug_rifle", "gun_combat_slug_pistol"],
+            )
+        )
+        assert len(engine.state.character.pending_cascades) == 1
+        assert engine.state.character.skills["gun_combat_slug_rifle"] == 1
+
+
+class TestCascadeGrantSites:
+    """C3.T6 — basic training pends; batch paths auto-resolve (C-A4)."""
+
+    def test_basic_training_pends_cascade_entries(self):
+        """First-career basic training pends cascade service skills at level 0."""
+        pack = _cascade_pack()
+        engine = make_engine([])
+        runner = LifepathRunner(engine, pack)
+        engine.state.character.career = "navy"
+        runner.run_basic_training("navy")
+        ch = engine.state.character
+        assert ch.skills == {"mechanic": 0}  # flat entry granted directly
+        assert len(ch.pending_cascades) == 1
+        assert ch.pending_cascades[0].parent == "gun_combat"
+        assert ch.pending_cascades[0].grant_mode == "set_zero"
+
+    def test_run_term_auto_resolves_cascade_to_first_spec(self):
+        """Batch path auto-picks the first specialization (C-A4 batch rule)."""
+        pack = _cascade_pack()
+        # Queue: survival 2D6, then 2 skill rolls (non-hierarchy -> 2 rolls).
+        engine = make_engine([[4, 3], [4], [2]])
+        runner = LifepathRunner(engine, pack)
+        ch = engine.state.character
+        ch.characteristics = {"STR": 7, "DEX": 7, "END": 7, "INT": 7, "EDU": 7, "SOC": 7}
+        ch.career = "navy"
+        result = runner.run_term("navy", 1)
+        assert not result.died and not result.mishap
+        # First skill roll [4] -> cascade pended -> auto-resolved to first spec.
+        # Second [2] -> mechanic +1.
+        assert ch.skills.get("gun_combat_slug_rifle") == 1
+        assert ch.skills.get("mechanic") == 1
+        assert ch.pending_cascades == []

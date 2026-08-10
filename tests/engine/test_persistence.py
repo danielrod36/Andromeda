@@ -419,7 +419,7 @@ class TestV4ToV5Migration:
     def test_current_save_version_is_5(self):
         from src.engine.persistence import CURRENT_SAVE_VERSION
 
-        assert CURRENT_SAVE_VERSION == 5
+        assert CURRENT_SAVE_VERSION == 6
 
     def test_migrate_v4_to_v5_adds_defaults(self):
         from src.engine.persistence import migrate
@@ -482,3 +482,70 @@ class TestV4ToV5Migration:
         assert restored.character.benefits_lost is True
         assert restored.character.debt_cr == 10000
         assert restored.character.mustered_careers == ["navy", "scout"]
+
+
+class TestSaveV6:
+    """C3 — save schema v6: Character.pending_cascades (C-A7)."""
+
+    def test_migrate_v5_to_v6_adds_pending_cascades(self):
+        from src.engine.persistence import migrate
+
+        v5_data: dict[str, object] = {
+            "save_version": 5,
+            "seed": 42,
+            "campaign": {
+                "ruleset": "cepheus",
+                "theme_pack": "scifi",
+                "resolution_profile": "classic",
+                "death_mode": "narrative",
+            },
+            "character": {
+                "name": "Test",
+                "characteristics": {"STR": 7},
+                "skills": {},
+                "age": 22,
+                "terms": 1,
+                "career": "navy",
+                "rank": 1,
+                "alive": True,
+                "credits": 1000,
+                "inventory": [],
+                "unassigned_rolls": [],
+                "pool_rerolled": False,
+                "career_history": [],
+                "drafted": False,
+                "background_picks_remaining": -1,
+                "basic_training_done": True,
+                "pending_aging": [],
+                "benefits_lost": False,
+                "debt_cr": 0,
+                "mustered_careers": [],
+            },
+            "rng": {"streams": {}},
+            "entities": [],
+            "events": [],
+            "narrative_log": [],
+            "active_mission": None,
+            "completed_missions": [],
+            "chapter_summaries": [],
+            "open_threads": [],
+            "mission_counter": 0,
+            "pending_freetext": None,
+            "pending_hook": None,
+        }
+        migrated = migrate(v5_data, from_version=5)
+        assert migrated["save_version"] == 6
+        assert migrated["character"]["pending_cascades"] == []
+
+    def test_pending_cascades_round_trip(self):
+        """PendingCascade entries survive dump/validate byte-identically (C3)."""
+        from src.engine.state import GameState, PendingCascade
+
+        state = GameState.new(seed=42)
+        state.character.pending_cascades.append(
+            PendingCascade(parent="gun_combat", grant_mode="set_zero")
+        )
+        restored = GameState.model_validate(state.model_dump())
+        assert restored.character.pending_cascades[0].parent == "gun_combat"
+        assert restored.character.pending_cascades[0].grant_mode == "set_zero"
+        assert restored.model_dump_json() == state.model_dump_json()
