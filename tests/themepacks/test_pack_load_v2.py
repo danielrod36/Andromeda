@@ -151,3 +151,85 @@ def test_cascade_no_double_membership():
     )
     with pytest.raises(PackLoadError, match="two cascades"):
         validate_pack(bad)
+
+
+# ---------------------------------------------------------------------------
+# C5.T4 — pack-declared roles (engine de-hardcoding, C-A12).
+# ---------------------------------------------------------------------------
+
+
+def test_skill_grants_cash_dm_flag_defaults_false():
+    """SkillData gains grants_cash_dm, defaulting off (C-A12)."""
+    from src.rulesets.base import SkillData
+
+    assert SkillData(id="x", name="X").grants_cash_dm is False
+    assert SkillData(id="g", name="G", grants_cash_dm=True).grants_cash_dm is True
+
+
+def test_skill_table_role_defaults_empty():
+    """SkillTable gains role; absent means unroled (C-A12)."""
+    from src.rulesets.base import SkillTable, TableRange
+
+    table = SkillTable(
+        name="Whatever",
+        entries=TableRange(
+            num_dice=1,
+            die_size=6,
+            entries=[{"min": 1, "max": 6, "result": "x"}],
+        ),
+    )
+    assert table.role == ""
+
+
+def test_loader_infers_legacy_table_roles():
+    """Name-based role inference lives in the loader (content layer): packs that
+    don't declare roles get 'service'/'advanced_education' from the legacy CE
+    table names, so fantasy and old fixtures work unchanged (C-A10/C-A12)."""
+    from src.themepacks.fantasy import load_fantasy_pack
+
+    pack = load_fantasy_pack()
+    for career in pack.careers.values():
+        roles = {t.name: t.role for t in career.skill_tables}
+        assert roles.get("Service Skills") == "service"
+        if "Advanced Education" in roles:
+            assert roles["Advanced Education"] == "advanced_education"
+
+
+def test_loader_keeps_explicit_roles_for_custom_names():
+    """A pack may name tables anything when roles are declared (C-A12)."""
+    data = _minimal_pack_dict()
+    data["careers"] = {
+        "navy": {
+            "id": "navy",
+            "name": "Navy",
+            "description": "t",
+            "qualification": {"characteristic": "INT", "target": 5},
+            "survival": {"characteristic": "END", "target": 5},
+            "has_hierarchy": False,
+            "skill_tables": [
+                {
+                    "name": "Boot Camp",
+                    "role": "service",
+                    "entries": {
+                        "num_dice": 1,
+                        "die_size": 6,
+                        "entries": [{"min": 1, "max": 6, "result": "gun_combat_slug_rifle"}],
+                    },
+                },
+            ],
+            "ranks": [],
+        }
+    }
+    pack = validate_pack(data)
+    assert pack.careers["navy"].skill_tables[0].role == "service"
+
+
+def test_currency_units_default_and_override():
+    """Currency flavor is pack-declared; legacy default covers Cr+gold crowns (C-A12)."""
+    from src.themepacks.fantasy import load_fantasy_pack
+
+    fantasy = load_fantasy_pack()
+    assert "gold crowns" in fantasy.currency_units  # legacy default, no data change
+    data = _minimal_pack_dict()
+    data["pack"]["currency_units"] = ["credits"]
+    assert validate_pack(data).currency_units == ["credits"]

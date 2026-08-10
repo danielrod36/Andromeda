@@ -35,6 +35,7 @@ from src.engine.state import (
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import get_pack
+from tests.engine.test_lifepath_steps import setup_qualified_engine
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -1769,9 +1770,7 @@ class TestSchemaV2ProductionData:
         from src.rulesets.base import SkillTableEntry
 
         entries = [
-            SkillTableEntry(
-                min=1, max=6, result="Weapon", on_duplicate="cascade:gun_combat"
-            )
+            SkillTableEntry(min=1, max=6, result="Weapon", on_duplicate="cascade:gun_combat")
         ]
         engine, _ = setup_qualified_engine([[2]], pack)
         engine.apply(BenefitRollCommand(benefit_type="material", entries=entries))
@@ -1818,7 +1817,7 @@ class TestPerCareerMusterOut:
         """EndCareerCommand computes per-career terms from cumulative deltas (C6)."""
         from src.engine.lifepath import EndCareerCommand
 
-        engine, runner = setup_qualified_engine([], pack)  # navy
+        engine, _ = setup_qualified_engine([], pack)  # navy
         state = engine.state
         state.character.terms = 2
         engine.apply(EndCareerCommand(ended_by="muster_out"))
@@ -1852,14 +1851,10 @@ class TestPerCareerMusterOut:
         engine.apply(EndCareerCommand(ended_by="muster_out"))
         navy = pack.careers["navy"]
         engine.apply(
-            BenefitRollCommand(
-                benefit_type="cash", entries=navy.mustering_out_cash.entries.entries
-            )
+            BenefitRollCommand(benefit_type="cash", entries=navy.mustering_out_cash.entries.entries)
         )
         engine.apply(
-            BenefitRollCommand(
-                benefit_type="cash", entries=navy.mustering_out_cash.entries.entries
-            )
+            BenefitRollCommand(benefit_type="cash", entries=navy.mustering_out_cash.entries.entries)
         )
         assert runner.reconstruct_muster_counters(total_rolls=2) == 0
         state.character.career = "army"
@@ -1867,3 +1862,122 @@ class TestPerCareerMusterOut:
         engine.apply(EndCareerCommand(ended_by="muster_out"))
         assert runner.reconstruct_muster_counters(total_rolls=3) == 3
         assert runner._count_cash_benefit_events() == 2  # lifetime
+
+
+class TestPackDeclaredRoles:
+    """C5.T4 — engine reads roles/flags, never content names (C-A12)."""
+
+    def test_cash_dm_from_flag_not_skill_id(self):
+        """A pack whose gambling-equivalent skill is named differently still
+        grants the cash DM — via the flag, not the id 'gambler' (C-A12)."""
+        # Real pack: 'gambler' carries the flag (loader legacy inference).
+        real = get_pack("scifi")
+        engine, runner = setup_qualified_engine([], real)
+        engine.state.character.skills["gambler"] = 1
+        assert runner._compute_cash_dm() == 1
+        # And the synthetic pack: a flagged non-'gambler' skill must also work.
+        # (Implementation detail: _compute_cash_dm scans pack.skills for the flag.)
+        engine2 = make_engine([])
+        runner2 = LifepathRunner(engine2, _flagged_cash_pack())
+        engine2.state.character.skills["games_of_chance"] = 1
+        assert runner2._compute_cash_dm() == 1
+
+    def test_basic_training_uses_service_role_not_name(self):
+        """Basic training works on a table named 'Boot Camp' with role service."""
+        engine = make_engine([])
+        pack = _role_renamed_pack()
+        runner = LifepathRunner(engine, pack)
+        engine.state.character.career = "navy"
+        runner.run_basic_training("navy")
+        assert engine.state.character.skills.get("gun_combat_slug_rifle") == 0
+
+    def test_advanced_education_gate_uses_role_not_name(self):
+        """The EDU 8+ gate fires on role=advanced_education, any name (C-A12)."""
+        engine = make_engine([])
+        pack = _role_renamed_pack()
+        runner = LifepathRunner(engine, pack)
+        ch = engine.state.character
+        ch.characteristics = {"STR": 7, "DEX": 7, "END": 7, "INT": 7, "EDU": 7, "SOC": 7}
+        ch.career = "navy"
+        import pytest
+
+        with pytest.raises(ValueError, match="EDU 8"):
+            runner.run_skill_roll_step(
+                "navy", TermResult(1, "navy", "Navy", 18, 22), "Officer School"
+            )
+
+
+def _flagged_cash_pack():
+    """Synthetic pack whose cash-DM skill is NOT named 'gambler' (C-A12)."""
+    from src.themepacks.base import validate_pack
+
+    return validate_pack(
+        {
+            "pack": {"id": "flagged", "name": "Flagged", "description": "t"},
+            "careers": {},
+            "skills": {
+                "games_of_chance": {
+                    "id": "games_of_chance",
+                    "name": "Games of Chance",
+                    "grants_cash_dm": True,
+                }
+            },
+            "oracle_tables": {},
+            "complication_tables": {},
+            "mission_tables": {},
+        }
+    )
+
+
+def _role_renamed_pack():
+    """Synthetic pack with CE table roles under non-CE names (C-A12)."""
+    from src.themepacks.base import validate_pack
+
+    return validate_pack(
+        {
+            "pack": {"id": "roles", "name": "Roles", "description": "t"},
+            "careers": {
+                "navy": {
+                    "id": "navy",
+                    "name": "Navy",
+                    "description": "t",
+                    "qualification": {"characteristic": "INT", "target": 5},
+                    "survival": {"characteristic": "END", "target": 5},
+                    "has_hierarchy": False,
+                    "skill_tables": [
+                        {
+                            "name": "Boot Camp",
+                            "role": "service",
+                            "entries": {
+                                "num_dice": 1,
+                                "die_size": 6,
+                                "entries": [
+                                    {"min": 1, "max": 6, "result": "gun_combat_slug_rifle"}
+                                ],
+                            },
+                        },
+                        {
+                            "name": "Officer School",
+                            "role": "advanced_education",
+                            "entries": {
+                                "num_dice": 1,
+                                "die_size": 6,
+                                "entries": [{"min": 1, "max": 6, "result": "mechanic"}],
+                            },
+                        },
+                    ],
+                    "ranks": [],
+                }
+            },
+            "skills": {
+                "gun_combat_slug_rifle": {
+                    "id": "gun_combat_slug_rifle",
+                    "name": "Gun Combat (Slug Rifle)",
+                },
+                "mechanic": {"id": "mechanic", "name": "Mechanic"},
+            },
+            "oracle_tables": {},
+            "complication_tables": {},
+            "mission_tables": {},
+        }
+    )

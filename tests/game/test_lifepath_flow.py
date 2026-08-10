@@ -603,11 +603,9 @@ class TestCascadePhase:
         assert restored.model_dump_json() == blob
         assert controller2.determine_phase() == "choose_specialization"
         # Same choice on both engines yields identical skill state:
-        for eng, ctrl in ((engine, controller), (controller2._engine, controller2)):
+        for ctrl in (controller, controller2):
             ctrl.apply_choice("spec:gun_combat_slug_rifle")
-        assert (
-            engine.state.character.skills == controller2._engine.state.character.skills
-        )
+        assert engine.state.character.skills == controller2._engine.state.character.skills
 
 
 class TestPerCareerMusterFlow:
@@ -659,9 +657,15 @@ class TestPerCareerMusterFlow:
         controller = LifepathController(engine, load_scifi_pack())
         controller.apply_choice("reenlist_muster")
         assert controller.determine_phase() == "muster_out_allocate"
-        for choice in ("claim_cash", "claim_cash", "claim_cash",
-                       "claim_material", "claim_material", "claim_material",
-                       "claim_material"):
+        for choice in (
+            "claim_cash",
+            "claim_cash",
+            "claim_cash",
+            "claim_material",
+            "claim_material",
+            "claim_material",
+            "claim_material",
+        ):
             controller.apply_choice(choice)
         assert controller.determine_phase() == "complete"
         assert "mustered_out=true" in state.narrative_log
@@ -675,7 +679,7 @@ class TestPerCareerMusterFlow:
         engine.state.character.career = ""  # career already ended
         controller = LifepathController(engine, load_scifi_pack())
         assert controller.determine_phase() == "choose_career_change"
-        view = controller.apply_choice("career_change_finish")
+        controller.apply_choice("career_change_finish")
         assert "mustered_out=true" in engine.state.narrative_log
         assert controller.determine_phase() == "complete"
 
@@ -697,8 +701,9 @@ class TestPerCareerMusterFlow:
             )
         # Second career ends; muster #2 begins.
         state.character.career_history = [
-            CareerTermRecord(career_id="navy", terms=3, terms_in_career=3,
-                             final_rank=0, ended_by="muster_out")
+            CareerTermRecord(
+                career_id="navy", terms=3, terms_in_career=3, final_rank=0, ended_by="muster_out"
+            )
         ]
         state.character.career = "army"
         state.character.terms = 4  # 1 term in army
@@ -715,8 +720,9 @@ class TestPerCareerMusterFlow:
         engine = _make_mid_lifepath_engine()
         state = engine.state
         state.character.career_history = [
-            CareerTermRecord(career_id="navy", terms=2, terms_in_career=2,
-                             final_rank=0, ended_by="muster_out")
+            CareerTermRecord(
+                career_id="navy", terms=2, terms_in_career=2, final_rank=0, ended_by="muster_out"
+            )
         ]
         state.character.career = "army"
         state.character.terms = 4  # 2 terms in army -> 2 rolls this exit

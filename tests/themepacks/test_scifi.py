@@ -571,9 +571,7 @@ def test_scifi_cascades_declared(scifi_pack):
 def test_no_prespecialized_results_in_skill_tables(scifi_pack):
     """After C4, no skill-table result names a cascade member directly (C-A2)."""
     pack = scifi_pack
-    members = {
-        member for cascade in pack.cascades.values() for member in cascade.specializations
-    }
+    members = {member for cascade in pack.cascades.values() for member in cascade.specializations}
     for career in pack.careers.values():
         for table in career.skill_tables:
             for entry in table.entries.entries:
@@ -647,9 +645,7 @@ def test_rank_skills_match_srd(scifi_pack):
     for career in scifi_pack.careers.values():
         expected = SRD_RANK_SKILLS[career.id]
         actual = {
-            r.rank: [b["skill"] for b in r.bonus_skills]
-            for r in career.ranks
-            if r.bonus_skills
+            r.rank: [b["skill"] for b in r.bonus_skills] for r in career.ranks if r.bonus_skills
         }
         assert actual == {rank: [skill] for rank, skill in expected.items()}, (
             f"{career.id}: rank skills {actual} != SRD {expected}"
