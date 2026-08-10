@@ -285,3 +285,43 @@ class TestBackgroundSkillExclusion:
             assert first_skill.option_id not in {o.option_id for o in choice.options}
             with pytest.raises(ValueError, match="Invalid option"):
                 session.choose(first_skill.option_id)
+
+
+class TestCascadeRealPack:
+    """C4 — real scifi pack exercises cascades end-to-end."""
+
+    def test_scifi_cascade_end_to_end(self):
+        """Play navy preferring Service Skills; a cascade prompt must appear (C4)."""
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        saw_specialization = False
+        for _ in range(200):
+            choice = session.current_choice()
+            if choice.phase == "complete":
+                break
+            if choice.phase == "choose_specialization":
+                saw_specialization = True
+                pick = choice.options[0]
+                session.choose(pick.option_id)
+                skill_id = pick.option_id.removeprefix("spec:")
+                assert skill_id in session._engine.state.character.skills
+                continue
+            pick = next(
+                (o for o in choice.options if o.option_id == "career:navy"),
+                next(
+                    (
+                        o
+                        for o in choice.options
+                        if not o.dimmed and o.option_id == "skill_table:Service Skills"
+                    ),
+                    next(
+                        (
+                            o
+                            for o in choice.options
+                            if not o.dimmed and o.option_id == "reenlist_continue"
+                        ),
+                        next((o for o in choice.options if not o.dimmed), choice.options[0]),
+                    ),
+                ),
+            )
+            session.choose(pick.option_id)
+        assert saw_specialization, "no cascade slot hit in a full navy lifepath — investigate"

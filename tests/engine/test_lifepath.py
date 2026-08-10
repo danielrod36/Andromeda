@@ -1666,6 +1666,34 @@ class TestChooseSpecialization:
                 )
             )
 
+    def test_siblings_become_zero_level(self, pack):
+        """SRD: taking a cascade spec level zero-levels unowned siblings (C3).
+
+        CE SRD cascade rule: "Upon taking a level in a cascade skill
+        specialization, all other specializations of that skill without
+        skill levels are treated as Zero-level skills."
+        """
+        from src.engine.lifepath import ChooseSpecializationCommand
+
+        engine = self._engine_with_pending(pack)
+        engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent="gun_combat",
+                skill_id="gun_combat_slug_rifle",
+                grant_mode="increment",
+                specializations=[
+                    "gun_combat_slug_rifle",
+                    "gun_combat_slug_pistol",
+                    "gun_combat_energy_rifle",
+                ],
+            )
+        )
+        assert engine.state.character.skills == {
+            "gun_combat_slug_rifle": 1,
+            "gun_combat_slug_pistol": 0,
+            "gun_combat_energy_rifle": 0,
+        }
+
     def test_pops_only_first_matching_pending(self, pack):
         """Two queued pendings of the same parent resolve FIFO (C-A3)."""
         from src.engine.lifepath import ChooseSpecializationCommand

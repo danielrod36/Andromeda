@@ -541,3 +541,62 @@ def test_benefit_tables_have_seven_rows_with_extension(scifi_pack):
             if table is not None:
                 assert table.entries.max_extension >= 1
                 assert table.entries.entries[-1].max == 7
+
+
+# ---------------------------------------------------------------------------
+# C4 — scifi cascade declarations + skill-table conversion.
+# ---------------------------------------------------------------------------
+
+
+def test_scifi_cascades_declared(scifi_pack):
+    """Scifi declares the 8 locked cascade groups (C4)."""
+    pack = scifi_pack
+    assert set(pack.cascades.keys()) == {
+        "gun_combat",
+        "pilot",
+        "electronics",
+        "drive",
+        "melee",
+        "tactics",
+        "science",
+        "heavy_wpn",
+    }
+    for parent, cascade in pack.cascades.items():
+        assert len(cascade.specializations) >= 2
+        for member in cascade.specializations:
+            assert member in pack.skills
+            assert member.startswith(f"{parent}_")
+
+
+def test_no_prespecialized_results_in_skill_tables(scifi_pack):
+    """After C4, no skill-table result names a cascade member directly (C-A2)."""
+    pack = scifi_pack
+    members = {
+        member for cascade in pack.cascades.values() for member in cascade.specializations
+    }
+    for career in pack.careers.values():
+        for table in career.skill_tables:
+            for entry in table.entries.entries:
+                assert entry.result not in members, (
+                    f"{career.id}/{table.name}: {entry.result} should be a cascade result"
+                )
+
+
+def test_cascade_results_resolve_to_declared_parents(scifi_pack):
+    """Every cascade: result references a declared cascade parent."""
+    pack = scifi_pack
+    for career in pack.careers.values():
+        for table in career.skill_tables:
+            for entry in table.entries.entries:
+                if entry.result.startswith("cascade:"):
+                    parent = entry.result.removeprefix("cascade:")
+                    assert parent in pack.cascades, f"{career.id}/{table.name}: {entry.result}"
+
+
+def test_table_slot_counts_unchanged(scifi_pack):
+    """C4 must not change die-table shape: 4 contiguous 1D6 tables per career."""
+    pack = scifi_pack
+    for career in pack.careers.values():
+        assert len(career.skill_tables) == 4
+        for table in career.skill_tables:
+            assert table.entries.is_contiguous()
