@@ -419,7 +419,10 @@ class LifepathController:
             picks_left = (
                 char.background_picks_remaining if char.background_picks_remaining > 0 else 3
             )
-            bg_skills = list(self._pack.background_skills) if self._pack.background_skills else []
+            all_bg = list(self._pack.background_skills) if self._pack.background_skills else []
+            bg_skills = [s for s in all_bg if s not in char.skills]
+            if picks_left > 0 and not bg_skills:
+                bg_skills = all_bg  # C1 fallback: never soft-lock
             choices = [
                 ChoiceOption(label=f"{s} (level 0)", option_id=f"bg_skill:{s}") for s in bg_skills
             ]
