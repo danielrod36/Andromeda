@@ -262,3 +262,26 @@ class TestChargenParityAllDeathModes:
             else:
                 break
         pytest.fail("Did not reach re_enlist phase")
+
+
+class TestBackgroundSkillExclusion:
+    """C1 — owned background skills are never offered twice."""
+
+    def test_background_skill_duplicate_rejected(self):
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        session.choose("roll_pool")
+        for _ in range(6):
+            choice = session.current_choice()
+            assert choice.phase == "assign_characteristics"
+            first = next(o for o in choice.options if o.option_id.startswith("assign:"))
+            session.choose(first.option_id)
+        choice = session.current_choice()
+        assert choice.phase == "choose_background_skills"
+        first_skill = next(o for o in choice.options if o.option_id.startswith("bg_skill:"))
+        session.choose(first_skill.option_id)
+        choice = session.current_choice()
+        if choice.phase == "choose_background_skills":
+            # Same skill must not be offered again; choosing it is invalid.
+            assert first_skill.option_id not in {o.option_id for o in choice.options}
+            with pytest.raises(ValueError, match="Invalid option"):
+                session.choose(first_skill.option_id)

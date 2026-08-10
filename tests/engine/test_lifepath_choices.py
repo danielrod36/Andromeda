@@ -76,6 +76,28 @@ def test_background_skills_computes_picks_before_phase_start(pack, ruleset):
     )
 
 
+def test_background_skills_exclude_owned(pack, ruleset):
+    """Owned background skills are not offered again (C1)."""
+    state = _make_state()
+    state.character.skills["mechanic"] = 0
+    state.character.background_picks_remaining = 2
+    cp = choice_background_skills(state, pack, ruleset)
+    ids = {o.option_id for o in cp.options}
+    assert "bg_skill:mechanic" not in ids
+    assert "bg_skill:computers" in ids
+    assert len(cp.options) == len(pack.background_skills) - 1
+
+
+def test_background_skills_fallback_when_all_owned(pack, ruleset):
+    """Picks remain but all owned -> full list offered, no soft-lock (C1)."""
+    state = _make_state()
+    for sid in pack.background_skills:
+        state.character.skills[sid] = 0
+    state.character.background_picks_remaining = 1
+    cp = choice_background_skills(state, pack, ruleset)
+    assert len(cp.options) == len(pack.background_skills)
+
+
 def test_choose_career_lists_all_careers_sorted_with_previews(pack, ruleset):
     cp = choice_career(_make_state(), pack, ruleset)
     assert len(cp.options) == 25
