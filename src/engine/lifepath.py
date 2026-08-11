@@ -16,6 +16,8 @@ import re
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+from pydantic import Field
+
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine, RollCharacteristicCommand
 from src.engine.dice import Roller, RollResult
@@ -1074,6 +1076,64 @@ class GainSkillCommand(Command):
             command_type=self.command_type,
             description=f"Skill {self.skill_id} set to {new_level}",
             changes={"skill_id": self.skill_id, "level": new_level},
+        )
+
+
+class ChooseSpecializationCommand(Command):
+    """Resolve a pending cascade grant to a player-chosen specialization (C3).
+
+    Validate gates membership and the pending queue; mutate applies the grant
+    (``increment`` +1, ``set_zero`` level-0 max-semantics like
+    :class:`GainSkillCommand`) and pops the FIRST matching pending entry
+    (FIFO, C-A3). Carries the legal ``specializations`` on the command,
+    matching the data-on-command pattern of :class:`SkillTableRollCommand`.
+    """
+
+    command_type: ClassVar[str] = "lifepath_choose_specialization"
+    cascade_parent: str
+    skill_id: str
+    grant_mode: str = "increment"
+    specializations: list[str] = Field(default_factory=list)
+
+    def validate(self, state: GameState) -> None:
+        if not any(p.parent == self.cascade_parent for p in state.character.pending_cascades):
+            raise ValueError(
+                f"Cannot specialize {self.cascade_parent!r}: no pending cascade for it"
+            )
+        if self.skill_id not in self.specializations:
+            raise ValueError(
+                f"{self.skill_id!r} is not a specialization of "
+                f"{self.cascade_parent!r}: {sorted(self.specializations)}"
+            )
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        ch = state.character
+        current = ch.skills.get(self.skill_id)
+        if self.grant_mode == "set_zero":
+            new_level = max(current if current is not None else -1, 0)
+        else:
+            new_level = (current or 0) + 1
+        ch.skills[self.skill_id] = new_level
+        # C-A11 (SRD verbatim): taking a spec level zero-levels unowned siblings.
+        for sibling in self.specializations:
+            if sibling != self.skill_id and sibling not in ch.skills:
+                ch.skills[sibling] = 0
+        for i, pending in enumerate(ch.pending_cascades):
+            if pending.parent == self.cascade_parent:
+                del ch.pending_cascades[i]
+                break
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=(
+                f"Specialization ({self.cascade_parent}): {self.skill_id} -> level {new_level}"
+            ),
+            changes={
+                "cascade_parent": self.cascade_parent,
+                "skill_id": self.skill_id,
+                "grant_mode": self.grant_mode,
+                "new_level": new_level,
+            },
         )
 
 
