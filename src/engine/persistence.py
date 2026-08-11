@@ -18,7 +18,7 @@ from pathlib import Path
 from src.engine.state import GameState
 
 #: Current save-file version. Bump when the schema changes; add a migrator.
-CURRENT_SAVE_VERSION = 5
+CURRENT_SAVE_VERSION = 6
 
 
 def _migrate_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
@@ -65,6 +65,15 @@ def _migrate_v4_to_v5(data: dict[str, object]) -> dict[str, object]:
     return data
 
 
+def _migrate_v5_to_v6(data: dict[str, object]) -> dict[str, object]:
+    """v5→v6: add Character.pending_cascades (C3)."""
+    char = data.get("character", {})
+    char.setdefault("pending_cascades", [])
+    data["character"] = char
+    data["save_version"] = 6
+    return data
+
+
 #: Migration functions keyed by source version. Each takes raw dict data at
 #: version N and returns dict data at version N+1. ``migrate`` walks the chain.
 _MIGRATIONS: dict[int, Callable[[dict[str, object]], dict[str, object]]] = {
@@ -72,6 +81,7 @@ _MIGRATIONS: dict[int, Callable[[dict[str, object]], dict[str, object]]] = {
     2: _migrate_v2_to_v3,
     3: _migrate_v3_to_v4,
     4: _migrate_v4_to_v5,
+    5: _migrate_v5_to_v6,
 }
 
 
