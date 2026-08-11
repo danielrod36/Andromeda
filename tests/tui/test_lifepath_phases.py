@@ -831,10 +831,7 @@ class TestBackgroundSkillsPhase:
                     # C5.T2: rank-0 entry skills (bonus_skills at rank 0) are
                     # granted at level 1 during basic training; others at 0.
                     rank0_skills = {
-                        b["skill"]
-                        for r in career.ranks
-                        if r.rank == 0
-                        for b in r.bonus_skills
+                        b["skill"] for r in career.ranks if r.rank == 0 for b in r.bonus_skills
                     }
                     expected = 1 if entry.result in rank0_skills else 0
                     assert app.engine.state.character.skills.get(entry.result) == expected, (
