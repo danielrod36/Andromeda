@@ -19,7 +19,14 @@ from typing import ClassVar
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine, RollCharacteristicCommand
 from src.engine.dice import Roller, RollResult
-from src.engine.state import AgingSlot, CareerTermRecord, Character, GameState, Injury
+from src.engine.state import (
+    AgingSlot,
+    CareerTermRecord,
+    Character,
+    GameState,
+    Injury,
+    PendingCascade,
+)
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
 from src.themepacks.base import LoadedThemePack
@@ -85,14 +92,32 @@ def lookup_table_result(entries: list[SkillTableEntry], roll: int) -> SkillTable
     )
 
 
+#: Prefix marking a cascade skill-table result (C3, C-A2).
+CASCADE_PREFIX = "cascade:"
+
+
+def parse_cascade_result(result: str) -> str | None:
+    """Return the cascade parent id for ``cascade:<parent>`` results, else None."""
+    result = result.strip()
+    if result.startswith(CASCADE_PREFIX) and len(result) > len(CASCADE_PREFIX):
+        return result[len(CASCADE_PREFIX) :]
+    return None
+
+
 def apply_skill_result(character: Character, result: str) -> tuple[str, str]:
     """Apply a skill table result string to the character.
 
-    Returns (gain_type, gain_name) where gain_type is 'skill' or 'characteristic'.
-    Result strings like ``+1 STR`` increment a characteristic; everything else
-    is treated as a skill name and incremented by 1.
+    Returns (gain_type, gain_name) where gain_type is 'skill', 'characteristic',
+    or 'cascade'. Result strings like ``+1 STR`` increment a characteristic;
+    ``cascade:<parent>`` returns ``("cascade", parent)`` WITHOUT mutating skills
+    (the caller queues a :class:`PendingCascade`); everything else is treated as
+    a skill name and incremented by 1.
     """
     result = result.strip()
+    cascade_parent = parse_cascade_result(result)
+    if cascade_parent is not None:
+        # C-A2: never mutate skills for cascades — the grant pends a choice.
+        return ("cascade", cascade_parent)
     if result.startswith("+"):
         parts = result.split()
         amount = int(parts[0])
@@ -552,6 +577,10 @@ class SkillTableRollCommand(Command):
         assert roll is not None
         entry = lookup_table_result(self.entries, roll.total)
         gain_type, gain_name = apply_skill_result(state.character, entry.result)
+        if gain_type == "cascade":
+            state.character.pending_cascades.append(
+                PendingCascade(parent=gain_name, grant_mode="increment")
+            )
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
@@ -563,6 +592,7 @@ class SkillTableRollCommand(Command):
                 "result_text": entry.result,
                 "gain_type": gain_type,
                 "gain_name": gain_name,
+                "cascade_parent": gain_name if gain_type == "cascade" else None,
             },
         )
 
@@ -1573,6 +1603,7 @@ class LifepathRunner:
             result_text=sec["result_text"],
             gain_type=sec["gain_type"],
             gain_name=sec["gain_name"],
+            cascade_parent=sec.get("cascade_parent"),
         )
         result.skill_gains.append(gain)
         return gain

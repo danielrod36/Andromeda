@@ -259,6 +259,7 @@ class LifepathController:
                         result_text=sec.get("result_text", ""),
                         gain_type=sec.get("gain_type", "skill"),
                         gain_name=sec.get("gain_name", ""),
+                        cascade_parent=sec.get("cascade_parent"),
                     )
                 )
             elif event.command_type == "lifepath_aging":
