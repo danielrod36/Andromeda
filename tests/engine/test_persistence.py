@@ -367,8 +367,8 @@ class TestV2ToV3Migration:
         assert loaded.pending_freetext["check"]["skill"] == "broker"
 
     def test_current_save_version_is_5(self):
-        """CURRENT_SAVE_VERSION is 5 after P3.T4."""
-        assert current_save_version() == 5
+        """CURRENT_SAVE_VERSION is 7 after C6.T1."""
+        assert current_save_version() == 7
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +389,7 @@ class TestV3ToV4Migration:
         p = tmp_path / "v3.json"
         p.write_text(json.dumps(v3))
         loaded = load(p)
-        assert loaded.save_version == 5
+        assert loaded.save_version == 7
         assert loaded.pending_hook is None
 
     def test_v4_save_round_trips_pending_hook(self, tmp_path: Path):
@@ -407,7 +407,7 @@ class TestV3ToV4Migration:
         p = tmp_path / "v4.json"
         save(state, p)
         loaded = load(p)
-        assert loaded.save_version == 5
+        assert loaded.save_version == 7
         assert loaded.pending_hook is not None
         assert loaded.pending_hook["patron"] == "Navy"
         assert loaded.pending_hook["objective"] == "Recover cargo"
@@ -419,7 +419,7 @@ class TestV4ToV5Migration:
     def test_current_save_version_is_5(self):
         from src.engine.persistence import CURRENT_SAVE_VERSION
 
-        assert CURRENT_SAVE_VERSION == 5
+        assert CURRENT_SAVE_VERSION == 7
 
     def test_migrate_v4_to_v5_adds_defaults(self):
         from src.engine.persistence import migrate
@@ -465,7 +465,7 @@ class TestV4ToV5Migration:
             "pending_hook": None,
         }
         migrated = migrate(v4_data, from_version=4)
-        assert migrated["save_version"] == 5
+        assert migrated["save_version"] == 7
         assert migrated["character"]["benefits_lost"] is False
         assert migrated["character"]["debt_cr"] == 0
         assert migrated["character"]["mustered_careers"] == []
@@ -482,3 +482,201 @@ class TestV4ToV5Migration:
         assert restored.character.benefits_lost is True
         assert restored.character.debt_cr == 10000
         assert restored.character.mustered_careers == ["navy", "scout"]
+
+
+class TestSaveV6:
+    """C3 — save schema v6: Character.pending_cascades (C-A7)."""
+
+    def test_migrate_v5_to_v6_adds_pending_cascades(self):
+        from src.engine.persistence import migrate
+
+        v5_data: dict[str, object] = {
+            "save_version": 5,
+            "seed": 42,
+            "campaign": {
+                "ruleset": "cepheus",
+                "theme_pack": "scifi",
+                "resolution_profile": "classic",
+                "death_mode": "narrative",
+            },
+            "character": {
+                "name": "Test",
+                "characteristics": {"STR": 7},
+                "skills": {},
+                "age": 22,
+                "terms": 1,
+                "career": "navy",
+                "rank": 1,
+                "alive": True,
+                "credits": 1000,
+                "inventory": [],
+                "unassigned_rolls": [],
+                "pool_rerolled": False,
+                "career_history": [],
+                "drafted": False,
+                "background_picks_remaining": -1,
+                "basic_training_done": True,
+                "pending_aging": [],
+                "benefits_lost": False,
+                "debt_cr": 0,
+                "mustered_careers": [],
+            },
+            "rng": {"streams": {}},
+            "entities": [],
+            "events": [],
+            "narrative_log": [],
+            "active_mission": None,
+            "completed_missions": [],
+            "chapter_summaries": [],
+            "open_threads": [],
+            "mission_counter": 0,
+            "pending_freetext": None,
+            "pending_hook": None,
+        }
+        migrated = migrate(v5_data, from_version=5)
+        assert migrated["save_version"] == 7
+        assert migrated["character"]["pending_cascades"] == []
+
+    def test_pending_cascades_round_trip(self):
+        """PendingCascade entries survive dump/validate byte-identically (C3)."""
+        from src.engine.state import GameState, PendingCascade
+
+        state = GameState.new(seed=42)
+        state.character.pending_cascades.append(
+            PendingCascade(parent="gun_combat", grant_mode="set_zero")
+        )
+        restored = GameState.model_validate(state.model_dump())
+        assert restored.character.pending_cascades[0].parent == "gun_combat"
+        assert restored.character.pending_cascades[0].grant_mode == "set_zero"
+        assert restored.model_dump_json() == state.model_dump_json()
+
+
+class TestSaveV7:
+    """C6 — save schema v7: CareerTermRecord.terms_in_career (C-A7)."""
+
+    def test_migrate_v6_to_v7_backfills_terms_in_career(self):
+        from src.engine.persistence import migrate
+
+        v6_data: dict[str, object] = {
+            "save_version": 6,
+            "seed": 42,
+            "campaign": {
+                "ruleset": "cepheus",
+                "theme_pack": "scifi",
+                "resolution_profile": "classic",
+                "death_mode": "narrative",
+            },
+            "character": {
+                "name": "Test",
+                "characteristics": {"STR": 7},
+                "skills": {},
+                "age": 30,
+                "terms": 5,
+                "career": "",
+                "rank": 0,
+                "alive": True,
+                "credits": 1000,
+                "inventory": [],
+                "unassigned_rolls": [],
+                "pool_rerolled": False,
+                "career_history": [
+                    {"career_id": "navy", "terms": 2, "final_rank": 1, "ended_by": "muster_out"},
+                    {"career_id": "army", "terms": 5, "final_rank": 0, "ended_by": "muster_out"},
+                ],
+                "drafted": False,
+                "background_picks_remaining": 0,
+                "basic_training_done": True,
+                "pending_aging": [],
+                "benefits_lost": False,
+                "debt_cr": 0,
+                "mustered_careers": ["navy", "army"],
+                "pending_cascades": [],
+            },
+            "rng": {"streams": {}},
+            "entities": [],
+            "events": [],
+            "narrative_log": [],
+            "active_mission": None,
+            "completed_missions": [],
+            "chapter_summaries": [],
+            "open_threads": [],
+            "mission_counter": 0,
+            "pending_freetext": None,
+            "pending_hook": None,
+        }
+        migrated = migrate(v6_data, from_version=6)
+        hist = migrated["character"]["career_history"]
+        assert hist[0]["terms_in_career"] == 2
+        assert hist[1]["terms_in_career"] == 3
+        assert migrated["save_version"] == 7
+
+    def test_migrate_v5_walks_to_v7(self):
+        """The chain migrates a v5 doc through v6 to v7 (C-A7)."""
+        from src.engine.persistence import migrate
+
+        v5_data: dict[str, object] = {
+            "save_version": 5,
+            "seed": 42,
+            "campaign": {},
+            "character": {
+                "career_history": [
+                    {"career_id": "navy", "terms": 3, "final_rank": 0, "ended_by": "mishap"}
+                ],
+            },
+            "rng": {"streams": {}},
+            "events": [],
+            "narrative_log": [],
+        }
+        migrated = migrate(v5_data, from_version=5)
+        assert migrated["save_version"] == 7
+        assert migrated["character"]["pending_cascades"] == []
+        assert migrated["character"]["career_history"][0]["terms_in_career"] == 3
+
+    def test_v5_save_migrates_to_v7_with_playable_muster(self):
+        """A v5 fixture (pre-G4) migrates and the controller runs on it (C6/C-A7).
+
+        Builds a v5-shape document by dumping a fresh ``GameState`` and
+        stripping v6/v7 fields, walks the chain to v7, validates into
+        ``GameState``, and constructs a ``LifepathController`` to confirm
+        ``determine_phase()`` runs without error. This is the migration-
+        playability pin: any schema or reconstruction break shows up here.
+        """
+        import json
+
+        from src.engine.commands import Engine
+        from src.engine.dice import ForcedRoller
+        from src.engine.persistence import migrate
+        from src.engine.state import CareerTermRecord, GameState
+        from src.game.lifepath import LifepathController
+        from src.themepacks.cepheus_scifi import load_scifi_pack
+
+        # Build a real state with one career mustered out, then dump to dict.
+        state = GameState.new(seed=42)
+        ch = state.character
+        ch.name = "Migrant"
+        ch.characteristics = {"STR": 7, "DEX": 8, "END": 6, "INT": 9, "EDU": 8, "SOC": 6}
+        ch.age = 30
+        ch.terms = 3
+        ch.basic_training_done = True
+        ch.background_picks_remaining = 0
+        ch.career_history.append(
+            CareerTermRecord(career_id="navy", terms=3, final_rank=2, ended_by="muster_out")
+        )
+
+        v5_data = json.loads(state.model_dump_json())
+        # Strip v6/v7 fields to simulate a pre-C3 save.
+        v5_data["save_version"] = 5
+        v5_data["character"].pop("pending_cascades", None)
+        for record in v5_data["character"]["career_history"]:
+            record.pop("terms_in_career", None)
+
+        migrated = migrate(v5_data, from_version=5)
+        assert migrated["save_version"] == 7
+        restored = GameState.model_validate(migrated)
+        # Per-career terms backfilled correctly.
+        assert restored.character.career_history[0].terms_in_career == 3
+        # Controller constructs and determines a phase without error.
+        engine = Engine(restored, ForcedRoller([]))
+        controller = LifepathController(engine, load_scifi_pack())
+        phase = controller.determine_phase()
+        assert phase in {"choose_career", "choose_career_change", "complete"}

@@ -128,6 +128,13 @@ class SkillTable(BaseModel):
 
     name: str
     entries: TableRange
+    role: str = ""
+    """Pack-declared semantic role (C-A12): ``service``, ``advanced_education``,
+    ``specialist``, ``personal_development``, or ``""`` for unroled. The engine
+    reads this rather than the display ``name`` so packs can rename tables
+    freely. Legacy inference fills this in for packs that don't declare it
+    (``Service Skills`` → ``service``, ``Advanced Education`` →
+    ``advanced_education``); see ``src/themepacks/base.py``."""
 
 
 class BenefitsTable(BaseModel):
@@ -194,6 +201,9 @@ class SkillData(BaseModel):
     The ``career`` field is used for referential-integrity validation: every
     non-empty value must match a career id in the same pack. ``background``
     flags skills available during the pre-career background-skills phase (B10).
+    ``grants_cash_dm`` flags skills that grant the mustering-out cash DM
+    (C-A12, e.g. Gambling) — packs declare it so the engine never matches on a
+    skill id.
     """
 
     id: str
@@ -201,6 +211,20 @@ class SkillData(BaseModel):
     description: str = ""
     career: str = ""
     background: bool = False
+    grants_cash_dm: bool = False
+
+
+class CascadeData(BaseModel):
+    """A cascade skill group (C3, C-A1): parent id + selectable specializations.
+
+    Declared in a pack's optional ``cascades.yaml``. Members must be existing
+    skill ids starting with ``{parent}_`` (loader-validated) so check-time
+    prefix resolution in ``src/engine/skills.py`` stays aligned.
+    """
+
+    id: str
+    name: str
+    specializations: list[str]
 
 
 class OracleTable(BaseModel):

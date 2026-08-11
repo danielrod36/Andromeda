@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from src.rulesets.base import (
     CareerData,
+    CascadeData,
     ComplicationTable,
     MissionTable,
     OracleTable,
@@ -44,6 +45,59 @@ from src.rulesets.base import (
 
 class PackLoadError(Exception):
     """Raised when a theme pack fails load-time validation."""
+
+
+# ---------------------------------------------------------------------------
+# Legacy inference (C-A12): content-name knowledge lives HERE, in the loader
+# (content layer), not in the engine. These maps back-fill the v2 role/flag
+# fields for packs that pre-date the explicit declarations so fantasy and any
+# older fixture load unchanged (C-A10).
+# ---------------------------------------------------------------------------
+
+#: Legacy CE-SRD table-name → role inference. Applied only when the entry
+#: omits ``role`` so packs that declare roles explicitly are untouched.
+LEGACY_TABLE_ROLES: dict[str, str] = {
+    "Service Skills": "service",
+    "Advanced Education": "advanced_education",
+    "Personal Development": "personal_development",
+    "Specialist Skills": "specialist",
+}
+
+#: Legacy CE-SRD skill ids that grant the cash DM. Scifi declares this flag
+#: explicitly on the ``gambler`` skill; this fallback covers fantasy / fixtures
+#: that don't.
+LEGACY_CASH_DM_SKILLS: frozenset[str] = frozenset({"gambler"})
+
+#: Legacy default currency units. Packs may override via ``pack.currency_units``.
+DEFAULT_CURRENCY_UNITS: list[str] = ["Cr", "gold crowns"]
+
+
+def _apply_legacy_inference(data: dict[str, Any]) -> None:
+    """Back-fill ``role`` / ``grants_cash_dm`` for entries that omit them.
+
+    Runs BEFORE Pydantic validation so models see the inferred values as if
+    the pack had declared them. Idempotent: entries that already declare a
+    field are untouched.
+    """
+    raw_careers = data.get("careers", {})
+    if isinstance(raw_careers, dict):
+        for entry in raw_careers.values():
+            if not isinstance(entry, dict):
+                continue
+            for table in entry.get("skill_tables", []) or []:
+                if not isinstance(table, dict):
+                    continue
+                if not table.get("role"):
+                    name = table.get("name", "")
+                    if name in LEGACY_TABLE_ROLES:
+                        table["role"] = LEGACY_TABLE_ROLES[name]
+    raw_skills = data.get("skills", {})
+    if isinstance(raw_skills, dict):
+        for sid, entry in raw_skills.items():
+            if not isinstance(entry, dict):
+                continue
+            if "grants_cash_dm" not in entry and sid in LEGACY_CASH_DM_SKILLS:
+                entry["grants_cash_dm"] = True
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +217,8 @@ class LoadedThemePack:
         injury_table: TableRange | None = None,
         draft_table: list[str] | None = None,
         option_templates: OptionTemplates | None = None,
+        cascades: dict[str, CascadeData] | None = None,
+        currency_units: list[str] | None = None,
     ) -> None:
         self._id = pack_id
         self._name = name
@@ -175,6 +231,10 @@ class LoadedThemePack:
         self._injury_table = injury_table
         self._draft_table: list[str] = list(draft_table) if draft_table else []
         self._option_templates = option_templates
+        self._cascades: dict[str, CascadeData] = dict(cascades) if cascades else {}
+        self._currency_units: list[str] = (
+            list(currency_units) if currency_units else list(DEFAULT_CURRENCY_UNITS)
+        )
         # Pre-compute background skill ids (B10): skills flagged background=true.
         self._background_skills = [sid for sid, s in skills.items() if s.background]
 
@@ -199,9 +259,22 @@ class LoadedThemePack:
         return self._skills
 
     @property
+    def cascades(self) -> dict[str, CascadeData]:
+        """Cascade skill groups (C3); empty when the pack ships no cascades.yaml."""
+        return self._cascades
+
+    @property
     def background_skills(self) -> list[str]:
         """Skill ids flagged ``background: true`` (B10 background-skills phase)."""
         return list(self._background_skills)
+
+    @property
+    def currency_units(self) -> list[str]:
+        """Pack-declared currency unit tokens for parsing cash benefit strings
+        (C-A12). Defaults to ``["Cr", "gold crowns"]`` so legacy packs load
+        unchanged; packs may override via ``pack.yaml:currency_units``.
+        """
+        return list(self._currency_units)
 
     @property
     def oracle_tables(self) -> dict[str, OracleTable]:
@@ -281,6 +354,22 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
     pack_name = manifest.get("name", pack_id)
     pack_description = manifest.get("description", "")
 
+    # --- Legacy inference (C-A12) ---
+    # Back-fill role/grants_cash_dm for entries that omit them, BEFORE Pydantic
+    # validation. Content-name knowledge lives here, not in the engine.
+    _apply_legacy_inference(data)
+
+    # --- Pack-declared currency units (C-A12) ---
+    raw_units = manifest.get("currency_units")
+    if raw_units is None:
+        currency_units = list(DEFAULT_CURRENCY_UNITS)
+    elif isinstance(raw_units, list) and all(isinstance(u, str) for u in raw_units):
+        currency_units = list(raw_units)
+    else:
+        raise PackLoadError(
+            f"Pack currency_units must be a list of strings; got {type(raw_units).__name__}"
+        )
+
     # --- Parse careers ---
     careers: dict[str, CareerData] = {}
     raw_careers = data.get("careers", {})
@@ -345,6 +434,18 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
             )
         option_templates = _parse_model(OptionTemplates, raw_options, "option_templates")
 
+    # --- Parse cascades (C3, cascades.yaml) ---
+    cascades: dict[str, CascadeData] = {}
+    raw_cascades = data.get("cascades")
+    if raw_cascades is not None:
+        if not isinstance(raw_cascades, dict):
+            raise PackLoadError(
+                f"Pack cascades must be a mapping; got {type(raw_cascades).__name__}"
+            )
+        for parent_id, entry in raw_cascades.items():
+            cascade = _parse_model(CascadeData, entry, f"cascade {parent_id}")
+            cascades[cascade.id] = cascade
+
     # --- Referential integrity checks ---
     _check_referential_integrity(
         careers,
@@ -355,6 +456,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         injury_table,
         draft_table,
         option_templates,
+        cascades,
     )
 
     return LoadedThemePack(
@@ -369,6 +471,8 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         injury_table=injury_table,
         draft_table=draft_table,
         option_templates=option_templates,
+        cascades=cascades,
+        currency_units=currency_units,
     )
 
 
@@ -407,6 +511,7 @@ def _check_referential_integrity(
     injury_table: TableRange | None = None,
     draft_table: list[str] | None = None,
     option_templates: OptionTemplates | None = None,
+    cascades: dict[str, CascadeData] | None = None,
 ) -> None:
     """Run all referential-integrity checks across content sections."""
     career_ids = set(careers.keys())
@@ -502,6 +607,59 @@ def _check_referential_integrity(
             complication_table_ids=set(complication_tables.keys()),
         )
 
+    # 9. Cascades (C3, C-A1): parent must not collide with a skill id, members
+    # must exist, members must start with '{parent}_', and no member may
+    # belong to two cascades.
+    if cascades:
+        member_owners: dict[str, str] = {}
+        for parent_id, cascade in cascades.items():
+            if parent_id in skill_ids:
+                raise PackLoadError(
+                    f"Referential integrity: cascade parent '{parent_id}' collides "
+                    "with an existing skill id"
+                )
+            for member in cascade.specializations:
+                if member not in skill_ids:
+                    raise PackLoadError(
+                        f"Referential integrity: cascade '{parent_id}' member "
+                        f"'{member}' is not a known skill. "
+                        f"Known: {sorted(skill_ids)}"
+                    )
+                if not member.startswith(f"{parent_id}_"):
+                    raise PackLoadError(
+                        f"Referential integrity: cascade member '{member}' violates "
+                        f"the prefix rule (must start with '{parent_id}_')"
+                    )
+                if member in member_owners:
+                    raise PackLoadError(
+                        f"Referential integrity: skill '{member}' appears in two "
+                        f"cascades ('{member_owners[member]}' and '{parent_id}')"
+                    )
+                member_owners[member] = parent_id
+
+    # 10. Skill table entries with ``cascade:<parent>`` results must reference
+    # a known cascade parent (C-A1 referential integrity).
+    cascade_ids = set(cascades.keys())
+    for cid, career in careers.items():
+        for table in career.skill_tables:
+            for entry in table.entries.entries:
+                result = entry.result.strip()
+                if result.startswith("cascade:"):
+                    parent = result[8:]
+                    if not parent:
+                        raise PackLoadError(
+                            f"Referential integrity: career '{cid}' skill table "
+                            f"'{table.name}' has a 'cascade:' result with no "
+                            f"parent name"
+                        )
+                    if parent not in cascade_ids:
+                        raise PackLoadError(
+                            f"Referential integrity: career '{cid}' skill table "
+                            f"'{table.name}' references cascade parent "
+                            f"'{parent}' which is not declared in cascades. "
+                            f"Known cascade parents: {sorted(cascade_ids) or '(none)'}"
+                        )
+
 
 # ---------------------------------------------------------------------------
 # Directory-scan loader.
@@ -575,6 +733,7 @@ class ThemePackLoader:
         "complications.yaml",
         "missions.yaml",
         "options.yaml",
+        "cascades.yaml",
     )
 
     def __init__(self, pack_dir: str | Path) -> None:
@@ -608,6 +767,7 @@ class ThemePackLoader:
                     "complications": "complication_tables",
                     "missions": "mission_tables",
                     "options": "option_templates",
+                    "cascades": "cascades",
                 }
                 key = section_map.get(section_name, section_name)
                 with path.open("r", encoding="utf-8") as f:

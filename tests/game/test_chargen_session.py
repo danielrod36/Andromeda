@@ -193,14 +193,17 @@ class TestChargenSessionSerialize:
             ChargenSession.restore(data)
 
     def test_restore_runs_save_migrations(self):
-        """A v4 save envelope restores to v5 (migration runs)."""
+        """A v4 save envelope restores to current (migration runs)."""
         session = ChargenSession.create(seed=42)
         data = session.serialize()
         envelope = json.loads(data)
         envelope["state"]["save_version"] = 4
         data = json.dumps(envelope)
         restored = ChargenSession.restore(data)
-        assert restored._engine.state.save_version == 5
+        # v4 walks through v5 → v6 (C3); the pin tracks the current version.
+        from src.engine.persistence import CURRENT_SAVE_VERSION
+
+        assert restored._engine.state.save_version == CURRENT_SAVE_VERSION
 
     def test_restore_rejects_future_save_version(self):
         """A save version newer than CURRENT_SAVE_VERSION is rejected."""
@@ -262,3 +265,125 @@ class TestChargenParityAllDeathModes:
             else:
                 break
         pytest.fail("Did not reach re_enlist phase")
+
+
+class TestBackgroundSkillExclusion:
+    """C1 — owned background skills are never offered twice."""
+
+    def test_background_skill_duplicate_rejected(self):
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        session.choose("roll_pool")
+        for _ in range(6):
+            choice = session.current_choice()
+            assert choice.phase == "assign_characteristics"
+            first = next(o for o in choice.options if o.option_id.startswith("assign:"))
+            session.choose(first.option_id)
+        choice = session.current_choice()
+        assert choice.phase == "choose_background_skills"
+        first_skill = next(o for o in choice.options if o.option_id.startswith("bg_skill:"))
+        session.choose(first_skill.option_id)
+        choice = session.current_choice()
+        if choice.phase == "choose_background_skills":
+            # Same skill must not be offered again; choosing it is invalid.
+            assert first_skill.option_id not in {o.option_id for o in choice.options}
+            with pytest.raises(ValueError, match="Invalid option"):
+                session.choose(first_skill.option_id)
+
+
+class TestCascadeRealPack:
+    """C4 — real scifi pack exercises cascades end-to-end."""
+
+    def test_scifi_cascade_end_to_end(self):
+        """Play navy preferring Service Skills; a cascade prompt must appear (C4)."""
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        saw_specialization = False
+        for _ in range(200):
+            choice = session.current_choice()
+            if choice.phase == "complete":
+                break
+            if choice.phase == "choose_specialization":
+                saw_specialization = True
+                pick = choice.options[0]
+                session.choose(pick.option_id)
+                skill_id = pick.option_id.removeprefix("spec:")
+                assert skill_id in session._engine.state.character.skills
+                continue
+            # C6: after a career's muster, choose_career_change offers a new
+            # career or finish. This test only needs ONE career to exercise
+            # cascades — pick finish to terminate.
+            if choice.phase == "choose_career_change":
+                finish = next(
+                    (o for o in choice.options if o.option_id == "career_change_finish"),
+                    None,
+                )
+                if finish is not None:
+                    session.choose(finish.option_id)
+                    continue
+            pick = next(
+                (o for o in choice.options if o.option_id == "career:navy"),
+                next(
+                    (
+                        o
+                        for o in choice.options
+                        if not o.dimmed and o.option_id == "skill_table:Service Skills"
+                    ),
+                    next(
+                        (
+                            o
+                            for o in choice.options
+                            if not o.dimmed and o.option_id == "reenlist_continue"
+                        ),
+                        next((o for o in choice.options if not o.dimmed), choice.options[0]),
+                    ),
+                ),
+            )
+            session.choose(pick.option_id)
+        assert saw_specialization, "no cascade slot hit in a full navy lifepath — investigate"
+
+
+class TestPerCareerMusterSession:
+    """C6 — per-career muster-out at the contract surface."""
+
+    def test_two_career_muster_out_per_career(self):
+        """Two careers muster separately; history/muster tracking consistent (C6/G4)."""
+        session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
+        # Drive two careers in sequence. The career pick is gated on what's
+        # already in career_history (not on a pick counter) so a failed
+        # qualification + retry doesn't double-count.
+        for _ in range(300):
+            choice = session.current_choice()
+            if choice.phase == "complete":
+                break
+            ids = {o.option_id for o in choice.options}
+            history = session._engine.state.character.career_history
+            history_ids = [r.career_id for r in history]
+            if choice.phase == "choose_career":
+                # First career navy; second career army.
+                target = "navy" if not history_ids else "army"
+                if f"career:{target}" in ids and target not in history_ids:
+                    session.choose(f"career:{target}")
+                    continue
+            if choice.phase == "re_enlist" and "reenlist_muster" in ids:
+                session.choose("reenlist_muster")
+                continue
+            if choice.phase == "choose_career_change":
+                if len(history_ids) < 2 and "career_change_new" in ids:
+                    session.choose("career_change_new")
+                elif "career_change_finish" in ids:
+                    session.choose("career_change_finish")
+                else:  # pre-C6 id
+                    session.choose("career_change_muster")
+                continue
+            pick = next((o for o in choice.options if not o.dimmed), None)
+            if pick is None:
+                break
+            session.choose(pick.option_id)
+        ch = session._engine.state.character
+        history = ch.career_history
+        assert [r.career_id for r in history] == ["navy", "army"], (
+            f"expected [navy, army], got {[r.career_id for r in history]}"
+        )
+        # Per-career terms sum to lifetime terms:
+        assert sum(r.terms_in_career for r in history) == ch.terms
+        # Each career mustered separately, in order:
+        assert ch.mustered_careers == ["navy", "army"]

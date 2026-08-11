@@ -76,6 +76,28 @@ def test_background_skills_computes_picks_before_phase_start(pack, ruleset):
     )
 
 
+def test_background_skills_exclude_owned(pack, ruleset):
+    """Owned background skills are not offered again (C1)."""
+    state = _make_state()
+    state.character.skills["mechanic"] = 0
+    state.character.background_picks_remaining = 2
+    cp = choice_background_skills(state, pack, ruleset)
+    ids = {o.option_id for o in cp.options}
+    assert "bg_skill:mechanic" not in ids
+    assert "bg_skill:computers" in ids
+    assert len(cp.options) == len(pack.background_skills) - 1
+
+
+def test_background_skills_fallback_when_all_owned(pack, ruleset):
+    """Picks remain but all owned -> full list offered, no soft-lock (C1)."""
+    state = _make_state()
+    for sid in pack.background_skills:
+        state.character.skills[sid] = 0
+    state.character.background_picks_remaining = 1
+    cp = choice_background_skills(state, pack, ruleset)
+    assert len(cp.options) == len(pack.background_skills)
+
+
 def test_choose_career_lists_all_careers_sorted_with_previews(pack, ruleset):
     cp = choice_career(_make_state(), pack, ruleset)
     assert len(cp.options) == 25
@@ -253,7 +275,7 @@ def test_re_enlist_previews_aging_and_forced_outcomes(pack, ruleset):
     assert "aging check will apply" in cont.preview[0]
     assert "re-enlistment 2D6 vs 5" in cont.preview[1]
     muster = next(o for o in cp.options if o.option_id == "reenlist_muster")
-    assert muster.preview == ["leave service and collect mustering-out benefits"]
+    assert muster.preview == ["leave this career and collect its mustering-out benefits"]
 
 
 def test_muster_out_allocate_counts_and_cash_cap(pack, ruleset):
@@ -287,7 +309,7 @@ def test_dispatcher_covers_every_controller_phase(pack, ruleset):
     from src.engine.lifepath_choices import ALL_PHASES, choice_point_for_phase
 
     state = _rich_state()
-    assert len(ALL_PHASES) == 20  # 19 original + choose_basic_training_skill (Part 1 T7)
+    assert len(ALL_PHASES) == 21  # 20 + choose_specialization (C3)
     for phase in ALL_PHASES:
         cp = choice_point_for_phase(phase, state, pack, ruleset)
         assert isinstance(cp, ChoicePointView) and cp.phase == phase
@@ -301,9 +323,88 @@ def test_dispatcher_rejects_unknown_phase(pack, ruleset):
 
 
 def test_p3_stubs_raise_not_implemented(pack, ruleset):
-    from src.engine.lifepath_choices import choice_muster_out_per_career, choice_specialization
+    from src.engine.lifepath_choices import choice_muster_out_per_career
 
-    with pytest.raises(NotImplementedError, match="P3"):
-        choice_specialization(_rich_state(), pack, ruleset)
+    # C3 implemented choice_specialization; only the muster-out stub remains.
     with pytest.raises(NotImplementedError, match="P3"):
         choice_muster_out_per_career(_rich_state(), pack, ruleset)
+
+
+def _cascade_pack():
+    """Minimal synthetic pack with a declared cascade (C3)."""
+    from src.themepacks.base import validate_pack
+
+    return validate_pack(
+        {
+            "pack": {"id": "casc", "name": "CascadeTest", "description": "t"},
+            "careers": {},
+            "skills": {
+                "gun_combat_slug_rifle": {
+                    "id": "gun_combat_slug_rifle",
+                    "name": "Gun Combat (Slug Rifle)",
+                },
+                "gun_combat_slug_pistol": {
+                    "id": "gun_combat_slug_pistol",
+                    "name": "Gun Combat (Slug Pistol)",
+                },
+                "gun_combat_energy_rifle": {
+                    "id": "gun_combat_energy_rifle",
+                    "name": "Gun Combat (Energy Rifle)",
+                },
+            },
+            "cascades": {
+                "gun_combat": {
+                    "id": "gun_combat",
+                    "name": "Gun Combat",
+                    "specializations": [
+                        "gun_combat_slug_rifle",
+                        "gun_combat_slug_pistol",
+                        "gun_combat_energy_rifle",
+                    ],
+                }
+            },
+            "oracle_tables": {},
+            "complication_tables": {},
+            "mission_tables": {},
+        }
+    )
+
+
+def test_choose_specialization_builder(ruleset):
+    """Builder offers every member with level previews; re-grant choice (C-A4)."""
+    from src.engine.lifepath_choices import choice_point_for_phase
+    from src.engine.state import PendingCascade
+
+    pack = _cascade_pack()
+    state = _make_state()
+    state.character.pending_cascades.append(PendingCascade(parent="gun_combat"))
+    state.character.skills["gun_combat_slug_rifle"] = 1
+    cp = choice_point_for_phase("choose_specialization", state, pack, ruleset)
+    ids = {o.option_id for o in cp.options}
+    assert "spec:gun_combat_slug_rifle" in ids
+    assert "spec:gun_combat_slug_pistol" in ids
+    assert "spec:gun_combat_energy_rifle" in ids
+    owned = next(o for o in cp.options if o.option_id == "spec:gun_combat_slug_rifle")
+    assert "1" in owned.preview[0] and "2" in owned.preview[0]  # "level 1 -> 2"
+    unowned = next(o for o in cp.options if o.option_id == "spec:gun_combat_slug_pistol")
+    assert "0" in unowned.preview[0] and "1" in unowned.preview[0]
+    assert cp.allows_advisor is True
+    assert cp.allows_freetext is True
+
+
+def test_choose_specialization_builder_set_zero_mode(ruleset):
+    """Basic-training pendings preview level-0 grants, never stacking (C3)."""
+    from src.engine.lifepath_choices import choice_point_for_phase
+    from src.engine.state import PendingCascade
+
+    pack = _cascade_pack()
+    state = _make_state()
+    state.character.pending_cascades.append(
+        PendingCascade(parent="gun_combat", grant_mode="set_zero")
+    )
+    state.character.skills["gun_combat_slug_rifle"] = 2
+    cp = choice_point_for_phase("choose_specialization", state, pack, ruleset)
+    owned = next(o for o in cp.options if o.option_id == "spec:gun_combat_slug_rifle")
+    assert "stays level 2" in owned.preview[0]
+    unowned = next(o for o in cp.options if o.option_id == "spec:gun_combat_slug_pistol")
+    assert "level 0" in unowned.preview[0]

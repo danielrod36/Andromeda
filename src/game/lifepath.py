@@ -25,12 +25,15 @@ import logging
 from src.engine.commands import Engine, SetFlagCommand
 from src.engine.lifepath import (
     ApplyAgingReductionCommand,
+    ChooseSpecializationCommand,
     EndCareerCommand,
     InjuryRollCommand,
     LifepathRunner,
     MishapRollCommand,
     MusteringOutResult,
+    RecordMusteredCareerCommand,
     ResolveInjuryCrisisCommand,
+    RollAgingCrisisCostCommand,
     SkillGain,
     TermResult,
 )
@@ -59,6 +62,16 @@ TERM_PHASES = frozenset(
 
 _PHYSICAL_CHARACTERISTICS = ("STR", "DEX", "END")
 _ALL_CHARACTERISTICS = ("STR", "DEX", "END", "INT", "EDU", "SOC")
+
+
+def get_pending_crisis_cost(state: GameState) -> int | None:
+    """Rolled aging-crisis cost for the open crisis, or None (C2, C-A5)."""
+    for entry in reversed(state.narrative_log):
+        if entry.startswith("crisis_cost="):
+            return int(entry.split("=", 1)[1])
+        if entry == "term_phase=choose_crisis_resolution":
+            return None
+    return None
 
 
 class LifepathController:
@@ -248,6 +261,7 @@ class LifepathController:
                         result_text=sec.get("result_text", ""),
                         gain_type=sec.get("gain_type", "skill"),
                         gain_name=sec.get("gain_name", ""),
+                        cascade_parent=sec.get("cascade_parent"),
                     )
                 )
             elif event.command_type == "lifepath_aging":
@@ -309,6 +323,10 @@ class LifepathController:
         # Characteristics not fully assigned yet.
         if len(char.characteristics) < 6:
             return "assign_characteristics" if char.unassigned_rolls else "roll_characteristics"
+
+        # C3 (C-A3): a pending cascade grant interrupts everything else.
+        if char.pending_cascades:
+            return "choose_specialization"
 
         # No career chosen yet.
         if not char.career:
@@ -419,7 +437,10 @@ class LifepathController:
             picks_left = (
                 char.background_picks_remaining if char.background_picks_remaining > 0 else 3
             )
-            bg_skills = list(self._pack.background_skills) if self._pack.background_skills else []
+            all_bg = list(self._pack.background_skills) if self._pack.background_skills else []
+            bg_skills = [s for s in all_bg if s not in char.skills]
+            if picks_left > 0 and not bg_skills:
+                bg_skills = all_bg  # C1 fallback: never soft-lock
             choices = [
                 ChoiceOption(label=f"{s} (level 0)", option_id=f"bg_skill:{s}") for s in bg_skills
             ]
@@ -580,11 +601,14 @@ class LifepathController:
 
         if phase == "choose_crisis_resolution":
             crisis_stat = self._find_stat_at_zero() or "a characteristic"
-            can_afford = char.credits >= 10_000
+            cost = get_pending_crisis_cost(state)
+            if cost is None:
+                cost = 10_000
+            can_afford = char.credits >= cost
             pay_label = (
-                f"Pay Cr10,000 (have Cr{char.credits:,})"
+                f"Pay Cr{cost:,} (have Cr{char.credits:,})"
                 if can_afford
-                else f"Pay Cr10,000 (have Cr{char.credits:,} — cannot afford)"
+                else f"Pay Cr{cost:,} (have Cr{char.credits:,} — cannot afford)"
             )
             pay_option = ChoiceOption(
                 label=pay_label,
@@ -595,9 +619,9 @@ class LifepathController:
                 pay_option = ChoiceOption(
                     label=pay_label,
                     option_id="crisis_pay",
-                    description="Cannot afford Cr10,000.",
+                    description=f"Cannot afford Cr{cost:,}.",
                     dimmed=True,
-                    requirement="Requires Cr10,000",
+                    requirement=f"Requires Cr{cost:,}",
                 )
             decline_option = (
                 ChoiceOption(
@@ -669,9 +693,9 @@ class LifepathController:
                         description=f"Serve another 4-year term.{aging_note}",
                     ),
                     ChoiceOption(
-                        label="Muster Out and Finish Character",
+                        label="Muster Out",
                         option_id="reenlist_muster",
-                        description="Leave service and collect mustering-out benefits.",
+                        description="Leave this career and collect its mustering-out benefits.",
                     ),
                 ],
                 receipts=receipts,
@@ -686,11 +710,10 @@ class LifepathController:
                     self._muster_plan.total_rolls
                 )
                 if self._benefit_rolls_remaining <= 0:
-                    # No benefit rolls — go straight to complete.
-                    self._engine.apply(
-                        SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
-                    )
-                    return self.get_phase_view()
+                    # C6: no benefit rolls for this career — route through the
+                    # shared transition so the mustered career is recorded and
+                    # the next phase (complete or choose_career_change) is set.
+                    return self._after_muster_out_complete([])
                 self._set_term_phase("muster_out_allocate")
                 return self._view_muster_out_allocate([])
             return PhaseView(
@@ -701,6 +724,20 @@ class LifepathController:
 
         if phase == "muster_out_allocate":
             return self._view_muster_out_allocate([])
+
+        if phase == "choose_specialization":
+            pending = char.pending_cascades[0]
+            cascade = self._pack.cascades.get(pending.parent)
+            members = cascade.specializations if cascade else []
+            name = cascade.name if cascade else pending.parent.replace("_", " ").title()
+            return PhaseView(
+                phase=phase,
+                prompt=f"Choose a {name} specialization:",
+                choices=[
+                    ChoiceOption(label=sid.replace("_", " "), option_id=f"spec:{sid}")
+                    for sid in members
+                ],
+            )
 
         if phase == "complete":
             return PhaseView(
@@ -758,7 +795,12 @@ class LifepathController:
         )
 
     def _view_career_change(self) -> PhaseView:
-        """Build the career-change PhaseView."""
+        """Build the career-change PhaseView.
+
+        C6: at this point the previous career's muster has already run (per-
+        career muster-out). The "finish" option ends chargen without re-
+        rolling benefits — the mustered_out flag is the terminal gate.
+        """
         history = self._engine.state.character.career_history
         dm = -2 * len(history)
         return PhaseView(
@@ -771,9 +813,9 @@ class LifepathController:
                     description=f"Qualification at DM {dm:+d}.",
                 ),
                 ChoiceOption(
-                    label="Muster out (end character creation)",
-                    option_id="career_change_muster",
-                    description="End character creation and roll mustering-out benefits.",
+                    label="Finish character",
+                    option_id="career_change_finish",
+                    description="End character creation and begin the adventure.",
                 ),
             ],
         )
@@ -816,8 +858,8 @@ class LifepathController:
         """Build the per-roll muster-out allocation PhaseView (U3).
 
         Offers Cash table and Material table choices. Cash is dimmed when
-        the 3-roll cap is reached. Tracks remaining rolls via
-        ``plan.total_rolls - (cash_taken + material_taken)``.
+        the 3-roll lifetime cap is reached. Remaining rolls are rebuilt via
+        :meth:`reconstruct_muster_counters` (per-exit event counting, C-A6).
         """
         career_id = self._get_muster_career_id()
         plan = self._muster_plan
@@ -838,19 +880,10 @@ class LifepathController:
 
         remaining = self._benefit_rolls_remaining
         if remaining <= 0:
-            # All rolls exhausted — mark muster out and go to complete.
-            self._engine.apply(
-                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
-            )
-            char = self._engine.state.character
-            return PhaseView(
-                phase="complete",
-                prompt=(
-                    f"Lifepath complete. Character: {char.name}, "
-                    f"Career: {char.career}, Terms: {char.terms}."
-                ),
-                choices=[],
-            )
+            # C6: this career's muster is exhausted — route through the shared
+            # transition so the mustered career is recorded and the correct
+            # next phase (complete or choose_career_change) is set.
+            return self._after_muster_out_complete([])
 
         cash_taken = self._runner.cash_rolls_taken
         choices: list[ChoiceOption] = []
@@ -952,13 +985,21 @@ class LifepathController:
             self._set_term_phase("choose_career")
             return self.get_phase_view()
 
-        if option_id == "career_change_muster":
-            self._set_term_phase("mustering_out")
+        if option_id == "career_change_finish":
+            # C6: the previous career's muster already ran. Finish sets the
+            # terminal flag — choose_career_change is post-muster, not a re-
+            # muster trigger.
+            self._engine.apply(
+                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+            )
             return self.get_phase_view()
 
         # --- Term sub-phases ---
         if option_id.startswith("bt_skill:"):
             return self._do_basic_training_choice(option_id.split(":", 1)[1])
+
+        if option_id.startswith("spec:"):
+            return self._do_choose_specialization(option_id.split(":", 1)[1])
 
         if option_id == "begin_term":
             return self._do_survival_roll()
@@ -1085,6 +1126,28 @@ class LifepathController:
         self._runner.run_basic_training(career_id, chosen_skill=skill)
         self._set_term_phase("run_survival")
         return self.get_phase_view()
+
+    def _do_choose_specialization(self, skill_id: str) -> PhaseView:
+        """Apply the player's cascade specialization pick (C3)."""
+        state = self._engine.state
+        if not state.character.pending_cascades:
+            return self.get_phase_view()
+        pending = state.character.pending_cascades[0]
+        cascade = self._pack.cascades.get(pending.parent)
+        members = list(cascade.specializations) if cascade else []
+        event = self._engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent=pending.parent,
+                skill_id=skill_id,
+                grant_mode=pending.grant_mode,
+                specializations=members,
+            )
+        )
+        receipt = event.description
+        view = self.get_phase_view()
+        return PhaseView(
+            phase=view.phase, prompt=view.prompt, choices=view.choices, receipts=[receipt]
+        )
 
     def _do_fallback_draft(self) -> PhaseView:
         """Apply DraftCommand + basic training, then route to run_survival."""
@@ -1364,14 +1427,19 @@ class LifepathController:
         if result is None:
             return self.get_phase_view()
 
-        if pay and self._engine.state.character.credits < 10_000:
+        cost = get_pending_crisis_cost(self._engine.state)
+        if cost is None:
+            cost = 10_000
+        if pay and self._engine.state.character.credits < cost:
             return self.get_phase_view()  # dimmed option; ignore crafted posts
 
         crisis_stat = self._find_stat_at_zero()
         if not crisis_stat:
             return self._after_crisis_resolution(result, [])
 
-        event = self._engine.apply(ResolveInjuryCrisisCommand(stat=crisis_stat, pay=pay))
+        event = self._engine.apply(
+            ResolveInjuryCrisisCommand(stat=crisis_stat, pay=pay, crisis_cost_cr=cost)
+        )
         outcome = event.changes["outcome"]
         receipts = [f"Crisis ({crisis_stat}): {outcome}"]
 
@@ -1465,6 +1533,16 @@ class LifepathController:
 
         if event.changes.get("crisis"):
             self._set_term_phase("choose_crisis_resolution")
+            # C2/C-A5: aging crisis costs 1D6 x 10k. Roll AFTER setting the
+            # term_phase flag so get_pending_crisis_cost finds the cost first.
+            cost_event = self._engine.apply(RollAgingCrisisCostCommand())
+            self._engine.apply(
+                SetFlagCommand(
+                    key="crisis_cost",
+                    value=str(cost_event.changes["crisis_multiplier"] * 10_000),
+                    origin=self._origin_stamp,
+                )
+            )
             view = self.get_phase_view()
             return PhaseView(
                 phase="choose_crisis_resolution",
@@ -1506,19 +1584,14 @@ class LifepathController:
         if career_id:
             self._runner.finalize_term(career_id, result)
         if result.mishap:
-            # Career ended via mishap — end career, then choose or muster.
+            # C6/G4: mishap exit musters THIS career before any career change.
+            # Mishap benefits may be zero (e.g. benefits_lost); the mustering_out
+            # phase auto-routes via _after_muster_out_complete, so both the
+            # "continue with another career" and "7+ terms -> complete" cases
+            # are handled by the shared transition.
             state = self._engine.state
             if state.character.career:
                 self._engine.apply(EndCareerCommand(ended_by="mishap"))
-            if state.character.terms < 7:
-                self._set_term_phase("choose_career_change")
-                view = self.get_phase_view()
-                return PhaseView(
-                    phase="choose_career_change",
-                    prompt=view.prompt,
-                    choices=view.choices,
-                    receipts=receipts,
-                )
             self._set_term_phase("mustering_out")
             view = self.get_phase_view()
             return PhaseView(
@@ -1645,16 +1718,10 @@ class LifepathController:
         self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(plan.total_rolls)
 
         if self._benefit_rolls_remaining <= 0:
-            self._engine.apply(
-                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
-            )
-            view = self.get_phase_view()
-            return PhaseView(
-                phase=view.phase,
-                prompt=view.prompt,
-                choices=view.choices,
-                receipts=[receipt],
-            )
+            # C6: this career's muster is exhausted — route through the shared
+            # transition (records the mustered career; goes to complete only
+            # for terminal paths like 7+ terms or death).
+            return self._after_muster_out_complete([receipt])
 
         return self._view_muster_out_allocate([receipt])
 
@@ -1666,6 +1733,34 @@ class LifepathController:
         if state.character.career_history:
             return state.character.career_history[-1].career_id
         return ""
+
+    def _after_muster_out_complete(self, receipts: list[str]) -> PhaseView:
+        """Route after a career's benefit rolls are exhausted (C6, C-A6).
+
+        Records the mustered career, then:
+        - dead or 7+ lifetime terms -> terminal ``mustered_out=true``;
+        - otherwise -> ``choose_career_change`` (a new career or finish).
+
+        Mustering out of a career is NOT the end of chargen any more — the
+        player may still start another career or finish immediately. Only the
+        terminal paths (retirement, death) set ``mustered_out=true`` here.
+        """
+        state = self._engine.state
+        career_id = self._get_muster_career_id()
+        if career_id:
+            self._engine.apply(RecordMusteredCareerCommand(career_id=career_id))
+        self._muster_plan = None
+        self._benefit_rolls_remaining = 0
+        if not state.character.alive or state.character.terms >= 7:
+            self._engine.apply(
+                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+            )
+            return self.get_phase_view()
+        self._set_term_phase("choose_career_change")
+        view = self.get_phase_view()
+        return PhaseView(
+            phase=view.phase, prompt=view.prompt, choices=view.choices, receipts=receipts
+        )
 
     # ------------------------------------------------------------------
     # Receipt formatting.

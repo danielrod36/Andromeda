@@ -16,13 +16,22 @@ import re
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+from pydantic import Field
+
 from src.engine.audit import Event, EventKind
 from src.engine.commands import Command, Engine, RollCharacteristicCommand
 from src.engine.dice import Roller, RollResult
-from src.engine.state import AgingSlot, CareerTermRecord, Character, GameState, Injury
+from src.engine.state import (
+    AgingSlot,
+    CareerTermRecord,
+    Character,
+    GameState,
+    Injury,
+    PendingCascade,
+)
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
-from src.themepacks.base import LoadedThemePack
+from src.themepacks.base import DEFAULT_CURRENCY_UNITS, LoadedThemePack
 
 _CHARACTERISTICS = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 _PHYSICAL_CHARACTERISTICS = ("STR", "DEX", "END")
@@ -40,10 +49,21 @@ _AGING_TABLE: dict[int, list[tuple[str, int]]] = {
     0: [("physical", 1)],
 }
 
-#: Regex to parse cash benefit strings like "50,000 Cr" (B15/FR2).
-# Also matches fantasy "gold crowns" so fantasy cash benefits persist to
-# credits (T12 review finding — fantasy packs use "gold crowns" not "Cr").
-_CASH_RE = re.compile(r"([\d,]+)\s*(?:Cr|gold crowns)")
+#: Legacy default currency unit tokens (C-A12). Imported from the loader
+# (content layer) so the engine source carries no currency-name literals.
+# ``BenefitRollCommand`` keeps this as its field default so direct command
+# constructions (synthetic packs, tests) work without a pack; production code
+# passes ``pack.currency_units``.
+_LEGACY_CURRENCY_UNITS: list[str] = list(DEFAULT_CURRENCY_UNITS)
+
+
+def _cash_amount(result: str, currency_units: list[str]) -> int:
+    """Parse a cash benefit string like ``"50,000 Cr"`` using the pack-declared
+    currency unit tokens (C-A12). Returns 0 when the result is not a cash row.
+    """
+    units = "|".join(re.escape(u) for u in currency_units)
+    m = re.search(rf"([\d,]+)\s*(?:{units})", result)
+    return int(m.group(1).replace(",", "")) if m else 0
 
 
 def benefit_rolls_for(terms: int, rank: int) -> int:
@@ -85,14 +105,32 @@ def lookup_table_result(entries: list[SkillTableEntry], roll: int) -> SkillTable
     )
 
 
+#: Prefix marking a cascade skill-table result (C3, C-A2).
+CASCADE_PREFIX = "cascade:"
+
+
+def parse_cascade_result(result: str) -> str | None:
+    """Return the cascade parent id for ``cascade:<parent>`` results, else None."""
+    result = result.strip()
+    if result.startswith(CASCADE_PREFIX) and len(result) > len(CASCADE_PREFIX):
+        return result[len(CASCADE_PREFIX) :]
+    return None
+
+
 def apply_skill_result(character: Character, result: str) -> tuple[str, str]:
     """Apply a skill table result string to the character.
 
-    Returns (gain_type, gain_name) where gain_type is 'skill' or 'characteristic'.
-    Result strings like ``+1 STR`` increment a characteristic; everything else
-    is treated as a skill name and incremented by 1.
+    Returns (gain_type, gain_name) where gain_type is 'skill', 'characteristic',
+    or 'cascade'. Result strings like ``+1 STR`` increment a characteristic;
+    ``cascade:<parent>`` returns ``("cascade", parent)`` WITHOUT mutating skills
+    (the caller queues a :class:`PendingCascade`); everything else is treated as
+    a skill name and incremented by 1.
     """
     result = result.strip()
+    cascade_parent = parse_cascade_result(result)
+    if cascade_parent is not None:
+        # C-A2: never mutate skills for cascades — the grant pends a choice.
+        return ("cascade", cascade_parent)
     if result.startswith("+"):
         parts = result.split()
         amount = int(parts[0])
@@ -362,11 +400,13 @@ class EndCareerCommand(Command):
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         ch = state.character
+        previous_cumulative = ch.career_history[-1].terms if ch.career_history else 0
         record = CareerTermRecord(
             career_id=ch.career,
             terms=ch.terms,
             final_rank=ch.rank,
             ended_by=self.ended_by,
+            terms_in_career=ch.terms - previous_cumulative,
         )
         ch.career_history.append(record)
         ch.career = ""
@@ -376,6 +416,32 @@ class EndCareerCommand(Command):
             command_type=self.command_type,
             description=f"Career ended: {record.career_id} ({self.ended_by})",
             changes=record.model_dump(),
+        )
+
+
+class RecordMusteredCareerCommand(Command):
+    """Record one career's completed muster-out (C6/G4 tracking).
+
+    Appends the career id to ``character.mustered_careers`` so the audit log
+    can answer "which careers have already been muustered out?" without
+    re-deriving it from the event history. Pure tracking — does not change
+    any mechanical state (the terminal flag is set separately, only when
+    chargen truly ends, by :class:`SetFlagCommand`).
+    """
+
+    command_type: ClassVar[str] = "lifepath_record_mustered_career"
+    career_id: str
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.mustered_careers.append(self.career_id)
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Mustered out of {self.career_id}",
+            changes={
+                "career_id": self.career_id,
+                "mustered_careers": list(state.character.mustered_careers),
+            },
         )
 
 
@@ -552,6 +618,10 @@ class SkillTableRollCommand(Command):
         assert roll is not None
         entry = lookup_table_result(self.entries, roll.total)
         gain_type, gain_name = apply_skill_result(state.character, entry.result)
+        if gain_type == "cascade":
+            state.character.pending_cascades.append(
+                PendingCascade(parent=gain_name, grant_mode="increment")
+            )
         return Event(
             kind=EventKind.ROLL,
             command_type=self.command_type,
@@ -563,6 +633,7 @@ class SkillTableRollCommand(Command):
                 "result_text": entry.result,
                 "gain_type": gain_type,
                 "gain_name": gain_name,
+                "cascade_parent": gain_name if gain_type == "cascade" else None,
             },
         )
 
@@ -665,8 +736,10 @@ class ApplyAgingReductionCommand(Command):
 class BenefitRollCommand(Command):
     """Roll one mustering-out benefit and persist it to the character (FR2).
 
-    Cash results (e.g. "50,000 Cr" or "1,000 gold crowns") add the parsed
-    amount to ``credits``; material results append the text to ``inventory``.
+    Cash results (e.g. ``"50,000 Cr"``) add the parsed amount to ``credits``;
+    material results append the text to ``inventory``. ``currency_units``
+    carries the pack-declared unit tokens (C-A12); the legacy default keeps
+    direct (test) constructions working when no pack is attached.
     """
 
     command_type: ClassVar[str] = "lifepath_benefit"
@@ -675,6 +748,7 @@ class BenefitRollCommand(Command):
     num_dice: int = 1
     die_size: int = 6
     dm: int = 0
+    currency_units: list[str] = Field(default_factory=lambda: list(_LEGACY_CURRENCY_UNITS))
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
         first = roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
@@ -693,15 +767,21 @@ class BenefitRollCommand(Command):
         assert roll is not None
         entry = lookup_table_result(self.entries, roll.total)
         if self.benefit_type == "cash":
-            m = _CASH_RE.search(entry.result)
-            if m:
-                state.character.credits += int(m.group(1).replace(",", ""))
+            amount = _cash_amount(entry.result, self.currency_units)
+            if amount > 0:
+                state.character.credits += amount
         else:
             already_has = entry.result in state.character.inventory
             if entry.once and already_has:
                 pass  # reroll already happened in resolve; if still a dup, forfeit
             elif entry.on_duplicate and already_has:
-                if entry.on_duplicate.startswith("skill:"):
+                if entry.on_duplicate.startswith("cascade:"):
+                    # C5/G5: defer to a specialization pick (C-A2 machinery).
+                    parent = entry.on_duplicate.split(":", 1)[1]
+                    state.character.pending_cascades.append(
+                        PendingCascade(parent=parent, grant_mode="increment")
+                    )
+                elif entry.on_duplicate.startswith("skill:"):
                     skill_id = entry.on_duplicate.split(":", 1)[1]
                     current = state.character.skills.get(skill_id, 0)
                     state.character.skills[skill_id] = current + 1
@@ -849,6 +929,25 @@ class ResolveInjuryCrisisCommand(Command):
             command_type=self.command_type,
             description=f"Injury crisis ({self.stat}): {outcome}",
             changes={"stat": self.stat, "outcome": outcome},
+        )
+
+
+class RollAgingCrisisCostCommand(Command):
+    """Roll the 1D6 aging-crisis medical cost multiplier (SRD; C2, C-A5)."""
+
+    command_type: ClassVar[str] = "lifepath_aging_crisis_cost"
+
+    def resolve(self, state: GameState, roller: Roller) -> RollResult:
+        return roller.roll("lifepath", 1, 6)
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        assert roll is not None
+        return Event(
+            kind=EventKind.ROLL,
+            command_type=self.command_type,
+            description=f"Aging crisis cost: 1D6={roll.total} -> Cr{roll.total * 10_000:,}",
+            roll=roll,
+            changes={"crisis_multiplier": roll.total},
         )
 
 
@@ -1025,6 +1124,87 @@ class GainSkillCommand(Command):
             command_type=self.command_type,
             description=f"Skill {self.skill_id} set to {new_level}",
             changes={"skill_id": self.skill_id, "level": new_level},
+        )
+
+
+class ChooseSpecializationCommand(Command):
+    """Resolve a pending cascade grant to a player-chosen specialization (C3).
+
+    Validate gates membership and the pending queue; mutate applies the grant
+    (``increment`` +1, ``set_zero`` level-0 max-semantics like
+    :class:`GainSkillCommand`) and pops the FIRST matching pending entry
+    (FIFO, C-A3). Carries the legal ``specializations`` on the command,
+    matching the data-on-command pattern of :class:`SkillTableRollCommand`.
+    """
+
+    command_type: ClassVar[str] = "lifepath_choose_specialization"
+    cascade_parent: str
+    skill_id: str
+    grant_mode: str = "increment"
+    specializations: list[str] = Field(default_factory=list)
+
+    def validate(self, state: GameState) -> None:
+        if not any(p.parent == self.cascade_parent for p in state.character.pending_cascades):
+            raise ValueError(
+                f"Cannot specialize {self.cascade_parent!r}: no pending cascade for it"
+            )
+        if self.skill_id not in self.specializations:
+            raise ValueError(
+                f"{self.skill_id!r} is not a specialization of "
+                f"{self.cascade_parent!r}: {sorted(self.specializations)}"
+            )
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        ch = state.character
+        current = ch.skills.get(self.skill_id)
+        if self.grant_mode == "set_zero":
+            new_level = max(current if current is not None else -1, 0)
+        else:
+            new_level = (current or 0) + 1
+        ch.skills[self.skill_id] = new_level
+        # C-A11 (SRD verbatim): taking a spec level zero-levels unowned siblings.
+        for sibling in self.specializations:
+            if sibling != self.skill_id and sibling not in ch.skills:
+                ch.skills[sibling] = 0
+        for i, pending in enumerate(ch.pending_cascades):
+            if pending.parent == self.cascade_parent:
+                del ch.pending_cascades[i]
+                break
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=(
+                f"Specialization ({self.cascade_parent}): {self.skill_id} -> level {new_level}"
+            ),
+            changes={
+                "cascade_parent": self.cascade_parent,
+                "skill_id": self.skill_id,
+                "grant_mode": self.grant_mode,
+                "new_level": new_level,
+            },
+        )
+
+
+class RecordPendingCascadeCommand(Command):
+    """Queue a cascade grant for player specialization (C3, C-A3).
+
+    Used by grant sites that don't roll a table (basic training). Table rolls
+    queue via :class:`SkillTableRollCommand` directly.
+    """
+
+    command_type: ClassVar[str] = "lifepath_record_pending_cascade"
+    parent: str
+    grant_mode: str = "increment"
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.pending_cascades.append(
+            PendingCascade(parent=self.parent, grant_mode=self.grant_mode)
+        )
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Cascade grant pending: {self.parent} ({self.grant_mode})",
+            changes={"cascade_parent": self.parent, "grant_mode": self.grant_mode},
         )
 
 
@@ -1229,22 +1409,33 @@ class LifepathRunner:
         state = self.engine.state
         career = self._get_career(career_id)
         service = next(
-            (t for t in career.skill_tables if t.name == "Service Skills"),
+            (t for t in career.skill_tables if t.role == "service"),
             None,
         )
         if service is None:
             raise KeyError(
-                f"Career {career_id!r} has no 'Service Skills' table; "
-                f"available: {[t.name for t in career.skill_tables]}"
+                f"Career {career_id!r} has no table with role 'service'; "
+                f"available roles: {[t.role or t.name for t in career.skill_tables]}"
             )
         history = state.character.career_history
         if not history:
             if state.character.basic_training_done:
                 return
             for entry in service.entries.entries:
-                if not entry.result.startswith("+"):
+                if entry.result.startswith("+"):
+                    continue
+                parent = parse_cascade_result(entry.result)
+                if parent is not None:
+                    self.engine.apply(
+                        RecordPendingCascadeCommand(parent=parent, grant_mode="set_zero")
+                    )
+                else:
                     self.engine.apply(GainSkillCommand(skill_id=entry.result, level=0))
             self.engine.apply(SetBasicTrainingDoneCommand())
+            # C5/G1: career entry grants the SRD rank-0 skill (e.g. navy
+            # Starman → vacc_suit-1). Drifter has no rank-0 grant and
+            # re-entry early-returns above, so no double-grant is possible.
+            self._grant_rank_bonus_skills(career_id, 0)
             return
         # Later career (B11): one player-chosen Service skill at level 0.
         if career_id in {r.career_id for r in history}:
@@ -1252,7 +1443,13 @@ class LifepathRunner:
         valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
         if chosen_skill not in valid:
             raise ValueError(f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}")
-        self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
+        parent = parse_cascade_result(chosen_skill)
+        if parent is not None:
+            self.engine.apply(RecordPendingCascadeCommand(parent=parent, grant_mode="set_zero"))
+        else:
+            self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
+        # C5/G1: rank-0 entry grant applies to later careers (and draft) too.
+        self._grant_rank_bonus_skills(career_id, 0)
 
     # ------------------------------------------------------------------
     # Step 2: Qualification.
@@ -1458,6 +1655,16 @@ class LifepathRunner:
             if rank_entry.rank == new_rank and rank_entry.bonus_skills:
                 for bonus in rank_entry.bonus_skills:
                     skill_id = str(bonus["skill"])
+                    parent = parse_cascade_result(skill_id)
+                    if parent is not None:
+                        # C5/G1: cascade rank grants defer to a specialization
+                        # pick. All SRD rank grants are level 1, so ``increment``
+                        # mode is exactly right.
+                        self.engine.apply(
+                            RecordPendingCascadeCommand(parent=parent, grant_mode="increment")
+                        )
+                        grants.append(f"{parent} specialization (rank {new_rank})")
+                        continue
                     level = int(bonus.get("level", 0))
                     self.engine.apply(GainSkillCommand(skill_id=skill_id, level=level))
                     grants.append(f"{skill_id}-{level} (rank {new_rank})")
@@ -1527,11 +1734,6 @@ class LifepathRunner:
         any table on the career.  Raises ``ValueError`` for the Advanced
         Education table when EDU < 8 (B7).
         """
-        # B7: Advanced Education requires EDU 8+.
-        if table_name == "Advanced Education":
-            edu = self.engine.state.character.characteristics.get("EDU", 0)
-            if edu < 8:
-                raise ValueError("Advanced Education requires EDU 8+ (B7)")
         career = self._get_career(career_id)
         table = next(
             (t for t in career.skill_tables if t.name == table_name),
@@ -1540,6 +1742,11 @@ class LifepathRunner:
         if table is None:
             available = [t.name for t in career.skill_tables]
             raise KeyError(f"Unknown skill table {table_name!r}; available: {available}")
+        # B7: Advanced Education (role-gated, C-A12) requires EDU 8+.
+        if table.role == "advanced_education":
+            edu = self.engine.state.character.characteristics.get("EDU", 0)
+            if edu < 8:
+                raise ValueError("Advanced Education requires EDU 8+ (B7)")
         skill_cmd = SkillTableRollCommand(
             table_name=table.name,
             entries=table.entries.entries,
@@ -1554,6 +1761,7 @@ class LifepathRunner:
             result_text=sec["result_text"],
             gain_type=sec["gain_type"],
             gain_name=sec["gain_name"],
+            cascade_parent=sec.get("cascade_parent"),
         )
         result.skill_gains.append(gain)
         return gain
@@ -1654,6 +1862,7 @@ class LifepathRunner:
 
         self.run_aging_step(result)
         self._auto_apply_aging()
+        self._auto_resolve_cascades()
         self.finalize_term(career_id, result)
         return result
 
@@ -1680,11 +1889,43 @@ class LifepathRunner:
                 return record.final_rank
         return 0
 
+    def _terms_for_muster(self, career_id: str) -> int:
+        """Terms served in the career being mustered out (C6/G4).
+
+        Active career: ``terms`` minus the previous record's cumulative terms
+        (so a second career's plan reflects only its own stint). Career that
+        already ended: the matching record's ``terms_in_career``. Falls back
+        to ``terms`` when there is no history (single career, no EndCareer
+        yet) so the legacy single-career path is unchanged.
+        """
+        ch = self.engine.state.character
+        if ch.career:
+            previous = ch.career_history[-1].terms if ch.career_history else 0
+            return ch.terms - previous
+        for record in reversed(ch.career_history):
+            if record.career_id == career_id:
+                return record.terms_in_career
+        return ch.terms
+
+    def _last_end_career_index(self) -> int:
+        """Index of the most recent ``lifepath_end_career`` event, or -1 (C6).
+
+        Per-exit benefit counting looks at events AFTER this index — those
+        are the rolls claimed during the current career's muster-out.
+        """
+        for i in range(len(self.engine.state.events) - 1, -1, -1):
+            if self.engine.state.events[i].command_type == "lifepath_end_career":
+                return i
+        return -1
+
     def _compute_cash_dm(self) -> int:
-        """Cash benefit DM: +1 if Gambling skill or retired (7 terms) (G2, P3.T3)."""
+        """Cash benefit DM: +1 if a cash-DM skill (pack-flagged) or retired (C-A12)."""
         ch = self.engine.state.character
         dm = 0
-        if ch.skills.get("gambler", 0) > 0:
+        if any(
+            skill.grants_cash_dm and ch.skills.get(sid, 0) > 0
+            for sid, skill in self.pack.skills.items()
+        ):
             dm += 1
         if ch.terms >= 7:  # mandatory retirement
             dm += 1
@@ -1697,6 +1938,11 @@ class LifepathRunner:
         ``cash_dm``, and ``material_dm`` populated. The benefit lists are
         empty — the caller (TUI per-roll or batch auto-allocation) fills them
         via :meth:`claim_benefit`.
+
+        C6/G4: ``total_rolls`` reflects the per-career terms (the stint being
+        mustered), not the lifetime cumulative ``terms``. ``terms_served`` on
+        the result mirrors this — callers rendering "X terms served" should
+        show the per-career count.
         """
         ch = self.engine.state.character
         cid = (
@@ -1704,11 +1950,12 @@ class LifepathRunner:
         )
         if not cid:
             return MusteringOutResult()
+        terms = self._terms_for_muster(cid)
         # G3: mishap "Lose all benefits" zeroes all benefit rolls.
         if ch.benefits_lost:
             career = self._get_career(cid)
             return MusteringOutResult(
-                terms_served=ch.terms,
+                terms_served=terms,
                 final_rank=self._effective_muster_rank(cid),
                 career_name=career.name,
                 total_rolls=0,
@@ -1716,7 +1963,6 @@ class LifepathRunner:
                 material_dm=0,
             )
         career = self._get_career(cid)
-        terms = ch.terms
         rank = self._effective_muster_rank(cid)
         cash_dm = self._compute_cash_dm()
 
@@ -1745,16 +1991,22 @@ class LifepathRunner:
     def reconstruct_muster_counters(self, total_rolls: int) -> int:
         """Rebuild cash/material counters from the event log (resume-safe).
 
-        Syncs ``_cash_rolls_taken`` from events and counts material events,
-        then returns the number of benefit rolls remaining.
+        C6/G4 (C-A6): per-exit counting — only ``lifepath_benefit`` events
+        AFTER the most recent ``lifepath_end_career`` count toward the
+        current muster's remaining rolls. The LIFETIME cash count
+        (``_cash_rolls_taken``) is still synced from ALL events so the 3-cap
+        in :meth:`claim_benefit` is enforced across the whole lifepath.
         """
+        # Lifetime cash count drives the 3-per-lifetime cap (C-A6).
         self._cash_rolls_taken = self._count_cash_benefit_events()
-        material_taken = sum(
-            1
-            for e in self.engine.state.events
-            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-        )
-        return total_rolls - self._cash_rolls_taken - material_taken
+        # Per-exit counting: benefit events after the last career end.
+        since = [
+            e
+            for e in self.engine.state.events[self._last_end_career_index() + 1 :]
+            if e.command_type == "lifepath_benefit"
+        ]
+        per_exit_taken = len(since)
+        return total_rolls - per_exit_taken
 
     def claim_benefit(self, career_id: str, table: str, dm: int = 0) -> str:
         """Roll one mustering-out benefit and persist it (FR2, agency).
@@ -1782,6 +2034,7 @@ class LifepathRunner:
             num_dice=benefit_table.entries.num_dice,
             die_size=benefit_table.entries.die_size,
             dm=dm,
+            currency_units=list(self.pack.currency_units),
         )
         event = self.engine.apply(cmd)
         if table == "cash":
@@ -1890,15 +2143,21 @@ class LifepathRunner:
             "reductions": ic["reductions"],
         }
 
-    def auto_resolve_crisis(self, stat: str) -> str:
+    def auto_resolve_crisis(self, stat: str, *, crisis_kind: str = "injury") -> str:
         """Apply :class:`ResolveInjuryCrisisCommand` with the deterministic default.
 
         Pays Cr10,000 if the character can afford it; otherwise applies the
         death-mode fallback (ironman → death, narrative/checkpoint → scar).
         Returns the outcome string (``paid_cr10000`` | ``death`` | ``scarred``).
         """
-        can_afford = self.engine.state.character.credits >= 10_000
-        event = self.engine.apply(ResolveInjuryCrisisCommand(stat=stat, pay=can_afford))
+        cost = 10_000
+        if crisis_kind == "aging":
+            cost_event = self.engine.apply(RollAgingCrisisCostCommand())
+            cost = cost_event.changes["crisis_multiplier"] * 10_000
+        can_afford = self.engine.state.character.credits >= cost
+        event = self.engine.apply(
+            ResolveInjuryCrisisCommand(stat=stat, pay=can_afford, crisis_cost_cr=cost)
+        )
         return event.changes["outcome"]
 
     _MENTAL_CHARACTERISTICS = ("INT", "EDU", "SOC")
@@ -1927,7 +2186,28 @@ class LifepathRunner:
                 ApplyAgingReductionCommand(characteristic=stat, points=slot.points)
             )
             if event.changes.get("crisis"):
-                self.auto_resolve_crisis(stat)
+                self.auto_resolve_crisis(stat, crisis_kind="aging")
+
+    def _auto_resolve_cascades(self) -> None:
+        """Drain pending cascades deterministically — first listed spec (C-A4 batch rule).
+
+        Interactive clients surface the ``choose_specialization`` phase instead;
+        this runs only in batch paths (``run_term``/``run_lifepath``).
+        """
+        while self.engine.state.character.pending_cascades:
+            pending = self.engine.state.character.pending_cascades[0]
+            cascade = self.pack.cascades.get(pending.parent)
+            members = list(cascade.specializations) if cascade else []
+            if not members:
+                raise ValueError(f"Cascade {pending.parent!r} has no specializations")
+            self.engine.apply(
+                ChooseSpecializationCommand(
+                    cascade_parent=pending.parent,
+                    skill_id=members[0],
+                    grant_mode=pending.grant_mode,
+                    specializations=members,
+                )
+            )
 
     # ------------------------------------------------------------------
     # Full lifepath.

@@ -8,6 +8,7 @@ gambler:
   name: "Gambling"
   description: "Games of chance, betting, and reading tells."
   career: ""
+  grants_cash_dm: true  # C-A12: cash benefit DM (B15); pack-declared, not engine-hardcoded.
 
 gunnery_turrets:
   id: gunnery_turrets

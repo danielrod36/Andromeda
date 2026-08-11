@@ -37,9 +37,9 @@ navy:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -52,18 +52,18 @@ navy:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "engineer"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -71,10 +71,10 @@ navy:
         entries:
           - {min: 1, max: 1, result: "gravitics"}
           - {min: 2, max: 2, result: "jack_of_trades"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "astrogation"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -85,11 +85,12 @@ navy:
           - {min: 3, max: 3, result: "engineer"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Starman", bonus_skills: [{skill: vacc_suit, level: 1}]}
     - {rank: 1, title: "Midshipman"}
     - {rank: 2, title: "Lieutenant"}
-    - {rank: 3, title: "Lieutenant Commander"}
+    - {rank: 3, title: "Lieutenant Commander", bonus_skills: [{skill: cascade:tactics, level: 1}]}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
     - {rank: 6, title: "Commodore"}
@@ -116,11 +117,11 @@ navy:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual END 5+/surv EDU 5+/comm END 6+/adv EDU 7+/reenlist 5+
 army:
@@ -147,9 +148,9 @@ army:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -161,17 +162,17 @@ army:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
@@ -179,12 +180,12 @@ army:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -195,11 +196,12 @@ army:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Soldier", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "General"}
@@ -226,9 +228,9 @@ army:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -257,9 +259,9 @@ marines:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -272,29 +274,29 @@ marines:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "survival"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -305,11 +307,12 @@ marines:
           - {min: 3, max: 3, result: "gravitics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "tactics_military"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Marine", bonus_skills: [{skill: vacc_suit, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: cascade:tactics, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "Brigadier"}
@@ -336,11 +339,11 @@ marines:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual INT 4+/surv INT 5+/comm INT 5+/adv EDU 8+/reenlist 4+
 merchant:
@@ -367,9 +370,9 @@ merchant:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -381,19 +384,19 @@ merchant:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "vacc_suit"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "steward"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "engineer"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "broker"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -404,7 +407,7 @@ merchant:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -414,12 +417,13 @@ merchant:
           - {min: 2, max: 2, result: "engineer"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "astrogation"}
-          - {min: 5, max: 5, result: "science_physics"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:science"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Crewman", bonus_skills: [{skill: steward, level: 1}]}
     - {rank: 1, title: "Deck Cadet"}
     - {rank: 2, title: "Fourth Officer"}
-    - {rank: 3, title: "Third Officer"}
+    - {rank: 3, title: "Third Officer", bonus_skills: [{skill: cascade:pilot, level: 1}]}
     - {rank: 4, title: "Second Officer"}
     - {rank: 5, title: "First Officer"}
     - {rank: 6, title: "Captain"}
@@ -446,11 +450,11 @@ merchant:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "1D6 Ship Shares"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual INT 6+/surv END 7+/no comm/no adv/reenlist 6+
 scout:
@@ -472,9 +476,9 @@ scout:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -487,18 +491,18 @@ scout:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "jack_of_trades"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -509,7 +513,7 @@ scout:
           - {min: 3, max: 3, result: "explosives"}
           - {min: 4, max: 4, result: "astrogation"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -520,8 +524,9 @@ scout:
           - {min: 3, max: 3, result: "linguistics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "tactics_ground"}
-  ranks: []
+          - {min: 6, max: 6, result: "cascade:tactics"}
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: cascade:pilot, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -545,9 +550,9 @@ scout:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "Courier Vessel"}
         - {min: 7, max: 7, result: "Ship Share"}
 
@@ -576,9 +581,9 @@ agent:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -602,14 +607,14 @@ agent:
           - {min: 3, max: 3, result: "streetwise"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "gun_combat_slug_rifle"}
-          - {min: 2, max: 2, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "cascade:gun_combat"}
+          - {min: 2, max: 2, result: "cascade:melee"}
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "recon"}
@@ -626,6 +631,7 @@ agent:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "leadership"}
   ranks:
+    - {rank: 0, title: "Agent", bonus_skills: [{skill: streetwise, level: 1}]}
     - {rank: 1, title: "Special Agent"}
     - {rank: 2, title: "Special Agent in Charge"}
     - {rank: 3, title: "Unit Chief"}
@@ -655,11 +661,11 @@ agent:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual SOC 8+/surv SOC 4+/comm EDU 5+/adv INT 8+/reenlist 6+
 noble:
@@ -686,9 +692,9 @@ noble:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -701,7 +707,7 @@ noble:
           - {min: 3, max: 3, result: "+1 EDU"}
           - {min: 4, max: 4, result: "+1 SOC"}
           - {min: 5, max: 5, result: "carousing"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -712,7 +718,7 @@ noble:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "gambler"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -720,8 +726,8 @@ noble:
         entries:
           - {min: 1, max: 1, result: "computers"}
           - {min: 2, max: 2, result: "carousing"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "diplomat"}
           - {min: 6, max: 6, result: "animals_handling"}
     - name: "Advanced Education"
@@ -734,12 +740,13 @@ noble:
           - {min: 3, max: 3, result: "diplomat"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Noble", bonus_skills: [{skill: carousing, level: 1}]}
     - {rank: 1, title: "Knight"}
     - {rank: 2, title: "Baron"}
     - {rank: 3, title: "Marquis"}
-    - {rank: 4, title: "Count"}
+    - {rank: 4, title: "Count", bonus_skills: [{skill: advocate, level: 1}]}
     - {rank: 5, title: "Duke"}
     - {rank: 6, title: "Archduke"}
   mustering_out_cash:
@@ -767,7 +774,7 @@ noble:
         - {min: 2, max: 2, result: "+1 EDU"}
         - {min: 3, max: 3, result: "+1 INT"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "1D6 Ship Shares"}
 
@@ -792,9 +799,9 @@ drifter:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -805,7 +812,7 @@ drifter:
           - {min: 1, max: 1, result: "+1 STR"}
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "bribery"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
@@ -815,17 +822,17 @@ drifter:
         entries:
           - {min: 1, max: 1, result: "streetwise"}
           - {min: 2, max: 2, result: "mechanic"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:melee"}
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "streetwise"}
           - {min: 5, max: 5, result: "gambler"}
@@ -840,7 +847,7 @@ drifter:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "diplomat"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
@@ -865,8 +872,8 @@ drifter:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
-        - {min: 4, max: 4, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
+        - {min: 4, max: 4, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 5, max: 5, result: "Mid Passage"}
         - {min: 6, max: 6, result: "Mid Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
@@ -896,9 +903,9 @@ aerospace_defense:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -910,17 +917,17 @@ aerospace_defense:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
           - {min: 6, max: 6, result: "aircraft"}
     - name: "Specialist Skills"
@@ -928,12 +935,12 @@ aerospace_defense:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "gravitics"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -944,11 +951,12 @@ aerospace_defense:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Airman", bonus_skills: [{skill: aircraft, level: 1}]}
     - {rank: 1, title: "Flight Officer"}
     - {rank: 2, title: "Flight Lieutenant"}
-    - {rank: 3, title: "Squadron Leader"}
+    - {rank: 3, title: "Squadron Leader", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Wing Commander"}
     - {rank: 5, title: "Group Captain"}
     - {rank: 6, title: "Air Commodore"}
@@ -975,9 +983,9 @@ aerospace_defense:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -1001,9 +1009,9 @@ athlete:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1016,7 +1024,7 @@ athlete:
           - {min: 3, max: 3, result: "+1 EDU"}
           - {min: 4, max: 4, result: "+1 SOC"}
           - {min: 5, max: 5, result: "carousing"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -1027,7 +1035,7 @@ athlete:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "computers"}
           - {min: 5, max: 5, result: "gambler"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1049,8 +1057,9 @@ athlete:
           - {min: 3, max: 3, result: "diplomat"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
-  ranks: []
+          - {min: 6, max: 6, result: "cascade:science"}
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: athletics, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1074,9 +1083,9 @@ athlete:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
 
@@ -1100,9 +1109,9 @@ barbarian:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1115,15 +1124,15 @@ barbarian:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "athletics"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "survival"}
           - {min: 6, max: 6, result: "animals_handling"}
@@ -1132,12 +1141,12 @@ barbarian:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:gun_combat"}
           - {min: 2, max: 2, result: "jack_of_trades"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1147,9 +1156,10 @@ barbarian:
           - {min: 2, max: 2, result: "linguistics"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "leadership"}
-          - {min: 5, max: 5, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:tactics"}
           - {min: 6, max: 6, result: "broker"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: cascade:melee, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1173,8 +1183,8 @@ barbarian:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
-        - {min: 4, max: 4, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
+        - {min: 4, max: 4, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 5, max: 5, result: "+1 END"}
         - {min: 6, max: 6, result: "Mid Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
@@ -1199,9 +1209,9 @@ belter:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1213,19 +1223,19 @@ belter:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "vacc_suit"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "prospecting"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1233,10 +1243,10 @@ belter:
         entries:
           - {min: 1, max: 1, result: "vacc_suit"}
           - {min: 2, max: 2, result: "computers"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "prospecting"}
-          - {min: 5, max: 5, result: "science_physics"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:science"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1246,9 +1256,10 @@ belter:
           - {min: 2, max: 2, result: "engineer"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "astrogation"}
-          - {min: 5, max: 5, result: "electronics_comms"}
-          - {min: 6, max: 6, result: "tactics_ground"}
-  ranks: []
+          - {min: 5, max: 5, result: "cascade:electronics"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: vacc_suit, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1272,7 +1283,7 @@ belter:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "1D6 Ship Shares"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -1303,9 +1314,9 @@ bureaucrat:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1329,7 +1340,7 @@ bureaucrat:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1340,7 +1351,7 @@ bureaucrat:
           - {min: 3, max: 3, result: "investigate"}
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "steward"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1353,10 +1364,11 @@ bureaucrat:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "admin"}
   ranks:
+    - {rank: 0, title: "Junior Clerk", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 1, title: "Clerk"}
     - {rank: 2, title: "Supervisor"}
     - {rank: 3, title: "Manager"}
-    - {rank: 4, title: "Chief"}
+    - {rank: 4, title: "Chief", bonus_skills: [{skill: advocate, level: 1}]}
     - {rank: 5, title: "Director"}
     - {rank: 6, title: "Minister"}
   mustering_out_cash:
@@ -1413,9 +1425,9 @@ colonist:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1428,18 +1440,18 @@ colonist:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "athletics"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "animals_handling"}
-          - {min: 4, max: 4, result: "electronics_comms"}
+          - {min: 4, max: 4, result: "cascade:electronics"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1450,7 +1462,7 @@ colonist:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "engineer"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1463,9 +1475,10 @@ colonist:
           - {min: 5, max: 5, result: "admin"}
           - {min: 6, max: 6, result: "animals_handling"}
   ranks:
+    - {rank: 0, title: "Colonist", bonus_skills: [{skill: survival, level: 1}]}
     - {rank: 1, title: "District Leader"}
     - {rank: 2, title: "District Delegate"}
-    - {rank: 3, title: "Council Advisor"}
+    - {rank: 3, title: "Council Advisor", bonus_skills: [{skill: diplomat, level: 1}]}
     - {rank: 4, title: "Councilor"}
     - {rank: 5, title: "Lieutenant Governor"}
     - {rank: 6, title: "Governor"}
@@ -1492,7 +1505,7 @@ colonist:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "Mid Passage"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -1523,9 +1536,9 @@ diplomat:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1549,7 +1562,7 @@ diplomat:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "diplomat"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1560,7 +1573,7 @@ diplomat:
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "diplomat"}
           - {min: 5, max: 5, result: "steward"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1573,9 +1586,10 @@ diplomat:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "leadership"}
   ranks:
+    - {rank: 0, title: "Attache", bonus_skills: [{skill: diplomat, level: 1}]}
     - {rank: 1, title: "Third Secretary"}
     - {rank: 2, title: "Second Secretary"}
-    - {rank: 3, title: "First Secretary"}
+    - {rank: 3, title: "First Secretary", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 4, title: "Counselor"}
     - {rank: 5, title: "Minister"}
     - {rank: 6, title: "Ambassador"}
@@ -1606,7 +1620,7 @@ diplomat:
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual SOC 8+/surv INT 4+/no comm/no adv/reenlist 6+
 entertainer:
@@ -1628,9 +1642,9 @@ entertainer:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1643,7 +1657,7 @@ entertainer:
           - {min: 3, max: 3, result: "+1 EDU"}
           - {min: 4, max: 4, result: "+1 SOC"}
           - {min: 5, max: 5, result: "carousing"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -1654,7 +1668,7 @@ entertainer:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "gambler"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1676,8 +1690,9 @@ entertainer:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
-  ranks: []
+          - {min: 6, max: 6, result: "cascade:science"}
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: carousing, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1703,7 +1718,7 @@ entertainer:
         - {min: 2, max: 2, result: "+1 EDU"}
         - {min: 3, max: 3, result: "+1 SOC"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
 
@@ -1727,9 +1742,9 @@ hunter:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1742,29 +1757,29 @@ hunter:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "athletics"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "admin"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1774,9 +1789,10 @@ hunter:
           - {min: 2, max: 2, result: "linguistics"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "diplomat"}
-          - {min: 5, max: 5, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:tactics"}
           - {min: 6, max: 6, result: "animals_handling"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: survival, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1800,7 +1816,7 @@ hunter:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "1D6 Ship Shares"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -1831,9 +1847,9 @@ maritime_defense:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1845,17 +1861,17 @@ maritime_defense:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
           - {min: 6, max: 6, result: "seafarer"}
     - name: "Specialist Skills"
@@ -1863,9 +1879,9 @@ maritime_defense:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "explosives"}
           - {min: 5, max: 5, result: "recon"}
           - {min: 6, max: 6, result: "seafarer"}
@@ -1879,11 +1895,12 @@ maritime_defense:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Sailor", bonus_skills: [{skill: seafarer, level: 1}]}
     - {rank: 1, title: "Ensign"}
     - {rank: 2, title: "Lieutenant"}
-    - {rank: 3, title: "Lt Commander"}
+    - {rank: 3, title: "Lt Commander", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
     - {rank: 6, title: "Admiral"}
@@ -1910,9 +1927,9 @@ maritime_defense:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -1941,9 +1958,9 @@ mercenary:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1955,17 +1972,17 @@ mercenary:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "vacc_suit"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "mechanic"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "gambler"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
@@ -1974,11 +1991,11 @@ mercenary:
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "gravitics"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1988,12 +2005,13 @@ mercenary:
           - {min: 2, max: 2, result: "engineer"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "astrogation"}
-          - {min: 5, max: 5, result: "science_physics"}
-          - {min: 6, max: 6, result: "tactics_military"}
+          - {min: 5, max: 5, result: "cascade:science"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Mercenary", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: cascade:tactics, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "Brigadier"}
@@ -2020,7 +2038,7 @@ mercenary:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -2051,9 +2069,9 @@ physician:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2066,7 +2084,7 @@ physician:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -2077,7 +2095,7 @@ physician:
           - {min: 3, max: 3, result: "mechanic"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -2085,10 +2103,10 @@ physician:
         entries:
           - {min: 1, max: 1, result: "computers"}
           - {min: 2, max: 2, result: "carousing"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2099,12 +2117,13 @@ physician:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Intern", bonus_skills: [{skill: medic, level: 1}]}
     - {rank: 1, title: "Resident"}
     - {rank: 2, title: "Senior Resident"}
     - {rank: 3, title: "Chief Resident"}
-    - {rank: 4, title: "Attending Physician"}
+    - {rank: 4, title: "Attending Physician", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 5, title: "Service Chief"}
     - {rank: 6, title: "Hospital Administrator"}
   mustering_out_cash:
@@ -2132,7 +2151,7 @@ physician:
         - {min: 2, max: 2, result: "+1 EDU"}
         - {min: 3, max: 3, result: "+1 INT"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -2161,9 +2180,9 @@ pirate:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2174,7 +2193,7 @@ pirate:
           - {min: 1, max: 1, result: "+1 STR"}
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "bribery"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
@@ -2183,22 +2202,22 @@ pirate:
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "streetwise"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "vacc_suit"}
-          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
           - {min: 3, max: 3, result: "engineer"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2209,10 +2228,11 @@ pirate:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "advocate"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Pirate", bonus_skills: [{skill: gunnery_turrets, level: 1}]}
     - {rank: 1, title: "Corporal"}
-    - {rank: 2, title: "Lieutenant"}
+    - {rank: 2, title: "Lieutenant", bonus_skills: [{skill: cascade:pilot, level: 1}]}
     - {rank: 3, title: "Lt Commander"}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
@@ -2240,7 +2260,7 @@ pirate:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -2271,9 +2291,9 @@ rogue:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2284,7 +2304,7 @@ rogue:
           - {min: 1, max: 1, result: "+1 STR"}
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "bribery"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
@@ -2294,21 +2314,21 @@ rogue:
         entries:
           - {min: 1, max: 1, result: "streetwise"}
           - {min: 2, max: 2, result: "mechanic"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "computers"}
-          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "broker"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2319,10 +2339,11 @@ rogue:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "advocate"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Rogue", bonus_skills: [{skill: streetwise, level: 1}]}
     - {rank: 1, title: "Associate"}
-    - {rank: 2, title: "Soldier"}
+    - {rank: 2, title: "Soldier", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 3, title: "Lieutenant"}
     - {rank: 4, title: "Underboss"}
     - {rank: 5, title: "Consigliere"}
@@ -2350,9 +2371,9 @@ rogue:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -2381,9 +2402,9 @@ scientist:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2396,7 +2417,7 @@ scientist:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -2404,10 +2425,10 @@ scientist:
         entries:
           - {min: 1, max: 1, result: "admin"}
           - {min: 2, max: 2, result: "computers"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "bribery"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -2415,10 +2436,10 @@ scientist:
         entries:
           - {min: 1, max: 1, result: "astrogation"}
           - {min: 2, max: 2, result: "admin"}
-          - {min: 3, max: 3, result: "science_physics"}
-          - {min: 4, max: 4, result: "science_physics"}
+          - {min: 3, max: 3, result: "cascade:science"}
+          - {min: 4, max: 4, result: "cascade:science"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2429,11 +2450,12 @@ scientist:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Student", bonus_skills: [{skill: cascade:science, level: 1}]}
     - {rank: 1, title: "Adjunct Professor"}
     - {rank: 2, title: "Research Professor"}
-    - {rank: 3, title: "Assistant Professor"}
+    - {rank: 3, title: "Assistant Professor", bonus_skills: [{skill: computers, level: 1}]}
     - {rank: 4, title: "Associate Professor"}
     - {rank: 5, title: "Professor"}
     - {rank: 6, title: "Distinguished Professor"}
@@ -2491,9 +2513,9 @@ surface_defense:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2505,17 +2527,17 @@ surface_defense:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
@@ -2523,12 +2545,12 @@ surface_defense:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2539,11 +2561,12 @@ surface_defense:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Soldier", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "General"}
@@ -2570,9 +2593,9 @@ surface_defense:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -2601,9 +2624,9 @@ technician:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2616,7 +2639,7 @@ technician:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -2626,15 +2649,15 @@ technician:
           - {min: 2, max: 2, result: "computers"}
           - {min: 3, max: 3, result: "mechanic"}
           - {min: 4, max: 4, result: "medic"}
-          - {min: 5, max: 5, result: "electronics_comms"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 5, max: 5, result: "cascade:electronics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "computers"}
-          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
           - {min: 3, max: 3, result: "gravitics"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "engineer"}
@@ -2649,12 +2672,13 @@ technician:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Apprentice", bonus_skills: [{skill: computers, level: 1}]}
     - {rank: 1, title: "Team Lead"}
     - {rank: 2, title: "Supervisor"}
     - {rank: 3, title: "Manager"}
-    - {rank: 4, title: "Director"}
+    - {rank: 4, title: "Director", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 5, title: "Vice-President"}
     - {rank: 6, title: "Executive Officer"}
   mustering_out_cash:

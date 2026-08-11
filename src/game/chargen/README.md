@@ -34,6 +34,32 @@ the LLM — advice/proposal records are stored as event-log payloads.
 - Same seed + same option sequence produces an identical character.
 - `serialize()` + `restore()` preserves the RNG stream byte-for-byte.
 - Advisor/proposal records live in the event log and replay deterministically.
+- `pending_cascades` and per-career muster-out state round-trip through
+  `serialize()`/`restore()` identically (save v7).
+
+## Phases (v1 additions)
+
+- `choose_specialization` (C3/C4): surfaced whenever a cascade grant pends
+  (`character.pending_cascades`), including mid-term, at basic training, at
+  muster-out (duplicate Weapon benefit), and on re-grant with an owned
+  specialization (choice every grant). Options are `spec:<skill_id>`.
+- Mustering out is per-career (C6): `mustering_out`/`muster_out_allocate` run
+  at every career exit, then route to `choose_career_change` unless the
+  character is dead or at 7+ terms. The 3-cash-roll cap is lifetime across
+  all musters.
+
+CONTRACT_VERSION remains 1: C3/C6 add phases and state fields, but the
+envelope shape and method surface are unchanged.
+
+## Harness Limitations (C4/C6)
+
+- The frozen TUI never surfaces `choose_specialization`: cascade grants queue
+  in `character.pending_cascades` and the skill stays unapplied in TUI play.
+  The web shell and this headless module surface the choice normally.
+- Per-career muster-out (C6): the TUI's own screen machine still musters once
+  at chargen end using the last career. Multi-career TUI characters differ
+  from engine-correct output (earlier-career benefits never roll). Web +
+  headless module are per-career correct.
 
 ## Error Model
 

@@ -68,6 +68,16 @@ def _career(state: GameState, pack: LoadedThemePack) -> CareerData:
     return pack.careers[state.character.career]
 
 
+def _pending_crisis_cost(state: GameState) -> int:
+    """Rolled aging-crisis cost or flat 10k (engine-local copy of the C-A5 scan)."""
+    for entry in reversed(state.narrative_log):
+        if entry.startswith("crisis_cost="):
+            return int(entry.split("=", 1)[1])
+        if entry == "term_phase=choose_crisis_resolution":
+            break
+    return 10_000
+
+
 def _char_dm(ruleset: RuleSet, state: GameState, characteristic: str) -> int:
     return ruleset.characteristic_dm(state.character.characteristics.get(characteristic, 7))
 
@@ -152,13 +162,19 @@ def choice_background_skills(
     picks = char.background_picks_remaining
     if picks == -1:  # phase not started — mirror start_background_phase math
         picks = max(0, 3 + ruleset.characteristic_dm(char.characteristics.get("EDU", 7)))
+    owned = set(char.skills.keys())
+    available = [sid for sid in pack.background_skills if sid not in owned]
+    if picks > 0 and not available:
+        # Pathological small pack: everything owned but picks remain.
+        # Offer the full list rather than soft-lock (C1 fallback).
+        available = list(pack.background_skills)
     options = [
         ChoiceOptionView(
             option_id=f"bg_skill:{sid}",
             label=pack.skills[sid].name if sid in pack.skills else sid.replace("_", " ").title(),
             preview=[f"gain at level 0 ({picks} pick(s) left)"],
         )
-        for sid in pack.background_skills
+        for sid in available
     ]
     return ChoicePointView(
         choice_id="choose_background_skills",
@@ -251,7 +267,13 @@ def choice_qualification_fallback(
 def choice_career_change(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Career ended: new career at -2 per prior career, or muster out (P2.T3)."""
+    """Career ended (muster already ran): new career or finish (P2.T3, C6).
+
+    C6: at this phase, the prior career's mustering-out has already
+    happened. ``career_change_finish`` ends chargen (sets the terminal
+    flag); ``career_change_new`` attempts another career at -2 per prior
+    career.
+    """
     dm = -2 * len(state.character.career_history)
     return ChoicePointView(
         choice_id="choose_career_change",
@@ -264,9 +286,9 @@ def choice_career_change(
                 preview=[f"qualification at DM {dm:+d}"],
             ),
             ChoiceOptionView(
-                option_id="career_change_muster",
-                label="Muster out (end character creation)",
-                preview=["end character creation and roll mustering-out benefits"],
+                option_id="career_change_finish",
+                label="Finish character",
+                preview=["end character creation and begin the adventure"],
             ),
         ],
     )
@@ -375,7 +397,7 @@ def choice_skills(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) -> 
     options = []
     for table in career.skill_tables:
         results = ", ".join(e.result for e in table.entries.entries)
-        gated = table.name == "Advanced Education" and edu < 8
+        gated = table.role == "advanced_education" and edu < 8
         options.append(
             ChoiceOptionView(
                 option_id=f"skill_table:{table.name}",
@@ -492,7 +514,8 @@ def choice_crisis_resolution(
     (ironman = death, narrative/classic = lasting scar)."""
     char = state.character
     stat = next((s for s in _ALL if char.characteristics.get(s, 0) <= 0), "a characteristic")
-    can_afford = char.credits >= 10_000
+    cost = _pending_crisis_cost(state)
+    can_afford = char.credits >= cost
     if state.campaign.death_mode == "ironman":
         decline_label = "Accept death"
         decline_preview = ["Ironman: the crisis is fatal. The character dies."]
@@ -506,10 +529,10 @@ def choice_crisis_resolution(
         options=[
             ChoiceOptionView(
                 option_id="crisis_pay",
-                label=f"Pay Cr10,000 (have Cr{char.credits:,})",
+                label=f"Pay Cr{cost:,} (have Cr{char.credits:,})",
                 preview=[f"pay for medical care; {stat} stabilises at 1"],
                 dimmed=not can_afford,
-                requirement=None if can_afford else "Requires Cr10,000",
+                requirement=None if can_afford else f"Requires Cr{cost:,}",
             ),
             ChoiceOptionView(
                 option_id="crisis_scar",
@@ -553,43 +576,66 @@ def choice_re_enlist(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) 
             ),
             ChoiceOptionView(
                 option_id="reenlist_muster",
-                label="Muster Out and Finish Character",
-                preview=["leave service and collect mustering-out benefits"],
+                label="Muster Out",
+                preview=["leave this career and collect its mustering-out benefits"],
             ),
         ],
     )
 
 
 def _muster_plan(state: GameState) -> tuple[str, int, int]:
-    """(career_id, total_rolls, material_dm) without rolling (P2.T6, B15).
+    """(career_id, total_rolls, material_dm) without rolling (P2.T6, B15, C6/G4).
 
+    Per-career terms: when the career has ended, ``terms_in_career`` on the
+    last record holds the per-stint count; while active, it is computed as
+    ``terms`` minus the previous record's cumulative ``terms`` (or just
+    ``terms`` when there is no history — single career). Rank source is
     B2-safe: when the career has already ended, rank comes from the final
     CareerTermRecord (EndCareerCommand resets character.rank).
     """
     char = state.character
     if char.career:
+        previous = char.career_history[-1].terms if char.career_history else 0
+        terms = char.terms - previous
         rank = char.rank
-        return char.career, benefit_rolls_for(char.terms, rank), material_dm_for(rank)
+        return char.career, benefit_rolls_for(terms, rank), material_dm_for(rank)
     if char.career_history:
         last = char.career_history[-1]
         rank = last.final_rank
-        return last.career_id, benefit_rolls_for(char.terms, rank), material_dm_for(rank)
+        return last.career_id, benefit_rolls_for(last.terms_in_career, rank), material_dm_for(rank)
     return "", 0, 0
 
 
 def _benefit_counts(state: GameState) -> tuple[int, int]:
-    """(cash_taken, material_taken) counted from lifepath_benefit events (resume-safe)."""
-    cash = sum(
+    """(cash_taken, material_taken) for the CURRENT muster exit (C6, C-A6).
+
+    Per-exit counting: only ``lifepath_benefit`` events AFTER the most recent
+    ``lifepath_end_career`` are counted, so a second career's muster starts
+    its roll-count fresh. The cash CAP (3 per lifetime) is enforced
+    separately via :func:`_lifetime_cash_count`.
+    """
+    last_end = -1
+    for i, e in enumerate(state.events):
+        if e.command_type == "lifepath_end_career":
+            last_end = i
+    cash = material = 0
+    for e in state.events[last_end + 1 :]:
+        if e.command_type != "lifepath_benefit":
+            continue
+        if e.changes.get("benefit_type") == "cash":
+            cash += 1
+        elif e.changes.get("benefit_type") == "material":
+            material += 1
+    return cash, material
+
+
+def _lifetime_cash_count(state: GameState) -> int:
+    """Total cash benefit events across the whole lifepath (C-A6, 3-cap)."""
+    return sum(
         1
         for e in state.events
         if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "cash"
     )
-    material = sum(
-        1
-        for e in state.events
-        if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-    )
-    return cash, material
 
 
 def choice_mustering_out(
@@ -611,20 +657,22 @@ def choice_mustering_out(
 def choice_muster_out_allocate(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Per-roll cash/material allocation; cash capped at 3 (P2.T6, B15)."""
+    """Per-roll cash/material allocation; cash capped at 3 lifetime (P2.T6, B15, C-A6)."""
     career_id, total, mat_dm = _muster_plan(state)
     career = pack.careers.get(career_id)
     cash_taken, material_taken = _benefit_counts(state)
     remaining = total - cash_taken - material_taken
+    # Cash cap is LIFETIME (C-A6): a previous muster's cash claims still count.
+    lifetime_cash = _lifetime_cash_count(state)
     options = []
     if career and career.mustering_out_cash:
         options.append(
             ChoiceOptionView(
                 option_id="claim_cash",
-                label=f"Cash table ({cash_taken}/3 taken)",
+                label=f"Cash table ({lifetime_cash}/3 taken)",
                 preview=[f"roll 1D6 on the cash benefits table ({remaining} roll(s) left)"],
-                dimmed=cash_taken >= 3,
-                requirement="Cash rolls exhausted" if cash_taken >= 3 else None,
+                dimmed=lifetime_cash >= 3,
+                requirement="Cash rolls exhausted" if lifetime_cash >= 3 else None,
             )
         )
     if career and career.mustering_out_material:
@@ -662,8 +710,46 @@ def choice_complete(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) -
 def choice_specialization(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Cascade-specialization pick on skill grant — P3 (SRD: player chooses on grant)."""
-    raise NotImplementedError("P3: cascade specialization choice lands with pack schema v2")
+    """Cascade-specialization pick on skill grant (C3, C-A4: choice every grant)."""
+    if not state.character.pending_cascades:
+        # Defensive: dispatcher probes every phase with a rich state; return an
+        # empty but well-typed view when nothing is actually pending.
+        return ChoicePointView(
+            choice_id="choose_specialization",
+            phase="choose_specialization",
+            prompt="No specialization pending.",
+            options=[],
+            allows_advisor=True,
+            allows_freetext=True,
+            freetext_hint="Name the specialization, e.g. 'slug rifle'.",
+        )
+    pending = state.character.pending_cascades[0]  # FIFO
+    cascade = pack.cascades.get(pending.parent)
+    members = cascade.specializations if cascade else []
+    name = cascade.name if cascade else pending.parent.replace("_", " ").title()
+    options: list[ChoiceOptionView] = []
+    for sid in members:
+        current = state.character.skills.get(sid)
+        if pending.grant_mode == "set_zero":
+            preview = (
+                [f"already trained (stays level {current})"]
+                if current is not None
+                else ["gain at level 0 (basic training)"]
+            )
+        else:
+            new = (current or 0) + 1
+            preview = [f"level {current or 0} -> {new}"]
+        label = pack.skills[sid].name if sid in pack.skills else sid.replace("_", " ").title()
+        options.append(ChoiceOptionView(option_id=f"spec:{sid}", label=label, preview=preview))
+    return ChoicePointView(
+        choice_id="choose_specialization",
+        phase="choose_specialization",
+        prompt=f"Choose a {name} specialization:",
+        options=options,
+        allows_advisor=True,
+        allows_freetext=True,
+        freetext_hint="Name the specialization, e.g. 'slug rifle'.",
+    )
 
 
 def choice_muster_out_per_career(
@@ -684,7 +770,7 @@ def choice_basic_training_skill(
     """Later-career basic training: pick one Service Skills entry at level 0 (P2.T6, Part 1 B3)."""
     career = _career(state, pack)
     service_table = next(
-        (t for t in career.skill_tables if t.name == "Service Skills"),
+        (t for t in career.skill_tables if t.role == "service"),
         career.skill_tables[0] if career.skill_tables else None,
     )
     options: list[ChoiceOptionView] = []
@@ -725,6 +811,7 @@ _BUILDERS: dict[str, Callable[[GameState, LoadedThemePack, RuleSet], ChoicePoint
     "choose_commission": choice_commission,
     "choose_advancement": choice_advancement,
     "choose_skills": choice_skills,
+    "choose_specialization": choice_specialization,
     "choose_basic_training_skill": choice_basic_training_skill,
     "run_aging": choice_aging,
     "choose_aging_reduction": choice_aging_reduction,

@@ -162,14 +162,26 @@ def test_career_mustering_out_tables(scifi_pack):
 
 
 def test_all_career_skills_exist_in_skill_definitions(scifi_pack):
-    """Every skill referenced in career tables is defined in skills.yaml."""
-    defined_skills = set(scifi_pack.skills.keys())
-    for career_id, career in scifi_pack.careers.items():
+    """Every skill referenced in career tables is defined in skills.yaml.
+
+    ``cascade:<parent>`` results (C4) are valid when ``<parent>`` is a declared
+    cascade group; the choose-specialization phase resolves them at runtime.
+    """
+    pack = scifi_pack
+    defined_skills = set(pack.skills.keys())
+    for career_id, career in pack.careers.items():
         for table in career.skill_tables:
             for entry in table.entries.entries:
                 result = entry.result
                 # Skip characteristic increases (e.g. "+1 STR")
                 if result.startswith(("+", "-")):
+                    continue
+                # C4: cascade:<parent> is valid iff parent is declared.
+                if result.startswith("cascade:"):
+                    parent = result.removeprefix("cascade:")
+                    assert parent in pack.cascades, (
+                        f"Career '{career_id}' references unknown cascade '{result}'"
+                    )
                     continue
                 # Strip level suffixes like "Pilot-1" or "Gunnery (Turrets)"
                 skill_key = result.lower().replace(" ", "_").replace("(", "").replace(")", "")
@@ -541,3 +553,171 @@ def test_benefit_tables_have_seven_rows_with_extension(scifi_pack):
             if table is not None:
                 assert table.entries.max_extension >= 1
                 assert table.entries.entries[-1].max == 7
+
+
+# ---------------------------------------------------------------------------
+# C4 — scifi cascade declarations + skill-table conversion.
+# ---------------------------------------------------------------------------
+
+
+def test_scifi_cascades_declared(scifi_pack):
+    """Scifi declares the 8 locked cascade groups (C4)."""
+    pack = scifi_pack
+    assert set(pack.cascades.keys()) == {
+        "gun_combat",
+        "pilot",
+        "electronics",
+        "drive",
+        "melee",
+        "tactics",
+        "science",
+        "heavy_wpn",
+    }
+    for parent, cascade in pack.cascades.items():
+        assert len(cascade.specializations) >= 2
+        for member in cascade.specializations:
+            assert member in pack.skills
+            assert member.startswith(f"{parent}_")
+
+
+def test_no_prespecialized_results_in_skill_tables(scifi_pack):
+    """After C4, no skill-table result names a cascade member directly (C-A2)."""
+    pack = scifi_pack
+    members = {member for cascade in pack.cascades.values() for member in cascade.specializations}
+    for career in pack.careers.values():
+        for table in career.skill_tables:
+            for entry in table.entries.entries:
+                assert entry.result not in members, (
+                    f"{career.id}/{table.name}: {entry.result} should be a cascade result"
+                )
+
+
+def test_cascade_results_resolve_to_declared_parents(scifi_pack):
+    """Every cascade: result references a declared cascade parent."""
+    pack = scifi_pack
+    for career in pack.careers.values():
+        for table in career.skill_tables:
+            for entry in table.entries.entries:
+                if entry.result.startswith("cascade:"):
+                    parent = entry.result.removeprefix("cascade:")
+                    assert parent in pack.cascades, f"{career.id}/{table.name}: {entry.result}"
+
+
+def test_table_slot_counts_unchanged(scifi_pack):
+    """C4 must not change die-table shape: 4 contiguous 1D6 tables per career."""
+    pack = scifi_pack
+    for career in pack.careers.values():
+        assert len(career.skill_tables) == 4
+        for table in career.skill_tables:
+            assert table.entries.is_contiguous()
+
+
+# ---------------------------------------------------------------------------
+# C5 — schema-v2 data population (G1/G3/G5 data sweeps, SRD-verified).
+# ---------------------------------------------------------------------------
+
+# CE SRD rank-skill grants (orffen/cepheus-srd mdbook, book1/character-creation.md,
+# "Ranks and Skills" tables; extracted 2026-08-10). SRD skill names mapped to pack
+# ids: Zero-G -> vacc_suit, Watercraft -> seafarer, Liaison -> diplomat,
+# Medicine -> medic, Computer -> computers, Gunnery -> gunnery_turrets (sole member);
+# SRD cascades -> cascade:<parent> forms (Gun Combat/Melee Combat/Pilot/Sciences/
+# Tactics). All grants are level 1. army duplicates surface_defense (SRD: Army =
+# Surface System Defense, per pack header).
+SRD_RANK_SKILLS = {
+    "aerospace_defense": {0: "aircraft", 3: "leadership"},
+    "agent": {0: "streetwise"},
+    "army": {0: "cascade:gun_combat", 3: "leadership"},
+    "athlete": {0: "athletics"},
+    "barbarian": {0: "cascade:melee"},
+    "belter": {0: "vacc_suit"},
+    "bureaucrat": {0: "admin", 4: "advocate"},
+    "colonist": {0: "survival", 3: "diplomat"},
+    "diplomat": {0: "diplomat", 3: "admin"},
+    "drifter": {},
+    "entertainer": {0: "carousing"},
+    "hunter": {0: "survival"},
+    "marines": {0: "vacc_suit", 3: "cascade:tactics"},
+    "maritime_defense": {0: "seafarer", 3: "leadership"},
+    "mercenary": {0: "cascade:gun_combat", 3: "cascade:tactics"},
+    "merchant": {0: "steward", 3: "cascade:pilot"},
+    "navy": {0: "vacc_suit", 3: "cascade:tactics"},
+    "noble": {0: "carousing", 4: "advocate"},
+    "physician": {0: "medic", 4: "admin"},
+    "pirate": {0: "gunnery_turrets", 2: "cascade:pilot"},
+    "rogue": {0: "streetwise", 2: "cascade:gun_combat"},
+    "scientist": {0: "cascade:science", 3: "computers"},
+    "scout": {0: "cascade:pilot"},
+    "surface_defense": {0: "cascade:gun_combat", 3: "leadership"},
+    "technician": {0: "computers", 4: "admin"},
+}
+
+
+def test_rank_skills_match_srd(scifi_pack):
+    """Every career's rank bonus skills match the CE SRD exactly (C5/G1)."""
+    for career in scifi_pack.careers.values():
+        expected = SRD_RANK_SKILLS[career.id]
+        actual = {
+            r.rank: [b["skill"] for b in r.bonus_skills] for r in career.ranks if r.bonus_skills
+        }
+        assert actual == {rank: [skill] for rank, skill in expected.items()}, (
+            f"{career.id}: rank skills {actual} != SRD {expected}"
+        )
+        for rank_entry in career.ranks:
+            for bonus in rank_entry.bonus_skills:
+                assert bonus.get("level", 1) == 1, (
+                    f"{career.id} rank {rank_entry.rank}: SRD grants are level 1"
+                )
+
+
+def test_rank_bonus_skills_reference_valid(scifi_pack):
+    """Rank skills reference real skills or declared cascade parents (C5, C-A9)."""
+    for career in scifi_pack.careers.values():
+        for rank_entry in career.ranks:
+            for bonus in rank_entry.bonus_skills:
+                skill = bonus["skill"]
+                if skill.startswith("cascade:"):
+                    parent = skill.removeprefix("cascade:")
+                    assert parent in scifi_pack.cascades, f"{career.id}: {skill}"
+                else:
+                    assert skill in scifi_pack.skills, f"{career.id}: {skill}"
+
+
+def test_mishap_effects_populated(scifi_pack):
+    """Every scifi mishap row carrying debt/benefit-loss prose has effects (C5/G3)."""
+    careers_with_mishaps = 0
+    for career in scifi_pack.careers.values():
+        if career.mishap_table is None:
+            continue
+        careers_with_mishaps += 1
+        for entry in career.mishap_table.entries:
+            text = entry.result
+            if "Debt of Cr10,000" in text:
+                effects = entry.effects or []
+                assert {"type": "debt", "amount": 10000} in effects, (
+                    f"{career.id} mishap '{text[:40]}...' missing debt effect"
+                )
+            if "Lose all benefits" in text:
+                effects = entry.effects or []
+                assert {"type": "lose_benefits"} in effects, (
+                    f"{career.id} mishap '{text[:40]}...' missing lose_benefits effect"
+                )
+    assert careers_with_mishaps >= 20  # sweep really covered the pack
+
+
+def test_benefit_metadata_populated(scifi_pack):
+    """Explorers' Society is once-only; Weapon duplicates grant a cascade pick (C5/G5)."""
+    societies = weapons = 0
+    for career in scifi_pack.careers.values():
+        table = career.mustering_out_material
+        if table is None:
+            continue
+        for entry in table.entries.entries:
+            if entry.result == "Explorers' Society":
+                societies += 1
+                assert entry.once, f"{career.id}: Explorers' Society missing once"
+            if entry.result == "Weapon":
+                weapons += 1
+                assert entry.on_duplicate == "cascade:gun_combat", (
+                    f"{career.id}: Weapon on_duplicate is {entry.on_duplicate!r}"
+                )
+    assert societies >= 1 and weapons >= 5

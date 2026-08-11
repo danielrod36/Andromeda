@@ -33,6 +33,20 @@ class CareerTermRecord(BaseModel):
     terms: int = 0
     final_rank: int = 0
     ended_by: str = ""  # "mishap" | "muster_out" | "death" | "career_change"
+    # --- save schema v7 (C6) ---
+    terms_in_career: int = 0
+    """Terms served in THIS career stint (G4); ``terms`` stays cumulative-at-exit."""
+
+
+class PendingCascade(BaseModel):
+    """A cascade skill grant awaiting the player's specialization pick (C3, C-A3).
+
+    ``grant_mode``: ``"increment"`` (table/on-duplicate grants add +1) or
+    ``"set_zero"`` (basic-training grants set level 0, never stacking).
+    """
+
+    parent: str
+    grant_mode: str = "increment"
 
 
 class Character(BaseModel):
@@ -72,6 +86,9 @@ class Character(BaseModel):
     """Outstanding debt from mishap consequences (G3)."""
     mustered_careers: list[str] = Field(default_factory=list)
     """Career ids that have already been mustered out (G4 tracking)."""
+    # --- save schema v6 (C3) ---
+    pending_cascades: list[PendingCascade] = Field(default_factory=list)
+    """Cascade grants awaiting specialization choice (FIFO)."""
 
 
 class CampaignConfig(BaseModel):
@@ -146,7 +163,7 @@ class GameState(BaseModel):
     continues the exact same roll sequence.
     """
 
-    save_version: int = 5
+    save_version: int = 7
     seed: int
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     character: Character = Field(default_factory=Character)
