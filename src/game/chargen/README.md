@@ -35,6 +35,12 @@ the LLM — advice/proposal records are stored as event-log payloads.
 - `serialize()` + `restore()` preserves the RNG stream byte-for-byte.
 - Advisor/proposal records live in the event log and replay deterministically.
 
+## Harness Limitations (C4/C6)
+
+- The frozen TUI never surfaces `choose_specialization`: cascade grants queue
+  in `character.pending_cascades` and the skill stays unapplied in TUI play.
+  The web shell and this headless module surface the choice normally.
+
 ## Error Model
 
 - `ValueError`: invalid `option_id` for `choose()`.
