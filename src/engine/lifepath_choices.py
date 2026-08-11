@@ -679,8 +679,46 @@ def choice_complete(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) -
 def choice_specialization(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Cascade-specialization pick on skill grant — P3 (SRD: player chooses on grant)."""
-    raise NotImplementedError("P3: cascade specialization choice lands with pack schema v2")
+    """Cascade-specialization pick on skill grant (C3, C-A4: choice every grant)."""
+    if not state.character.pending_cascades:
+        # Defensive: dispatcher probes every phase with a rich state; return an
+        # empty but well-typed view when nothing is actually pending.
+        return ChoicePointView(
+            choice_id="choose_specialization",
+            phase="choose_specialization",
+            prompt="No specialization pending.",
+            options=[],
+            allows_advisor=True,
+            allows_freetext=True,
+            freetext_hint="Name the specialization, e.g. 'slug rifle'.",
+        )
+    pending = state.character.pending_cascades[0]  # FIFO
+    cascade = pack.cascades.get(pending.parent)
+    members = cascade.specializations if cascade else []
+    name = cascade.name if cascade else pending.parent.replace("_", " ").title()
+    options: list[ChoiceOptionView] = []
+    for sid in members:
+        current = state.character.skills.get(sid)
+        if pending.grant_mode == "set_zero":
+            preview = (
+                [f"already trained (stays level {current})"]
+                if current is not None
+                else ["gain at level 0 (basic training)"]
+            )
+        else:
+            new = (current or 0) + 1
+            preview = [f"level {current or 0} -> {new}"]
+        label = pack.skills[sid].name if sid in pack.skills else sid.replace("_", " ").title()
+        options.append(ChoiceOptionView(option_id=f"spec:{sid}", label=label, preview=preview))
+    return ChoicePointView(
+        choice_id="choose_specialization",
+        phase="choose_specialization",
+        prompt=f"Choose a {name} specialization:",
+        options=options,
+        allows_advisor=True,
+        allows_freetext=True,
+        freetext_hint="Name the specialization, e.g. 'slug rifle'.",
+    )
 
 
 def choice_muster_out_per_career(
@@ -742,6 +780,7 @@ _BUILDERS: dict[str, Callable[[GameState, LoadedThemePack, RuleSet], ChoicePoint
     "choose_commission": choice_commission,
     "choose_advancement": choice_advancement,
     "choose_skills": choice_skills,
+    "choose_specialization": choice_specialization,
     "choose_basic_training_skill": choice_basic_training_skill,
     "run_aging": choice_aging,
     "choose_aging_reduction": choice_aging_reduction,

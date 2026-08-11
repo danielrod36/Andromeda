@@ -25,6 +25,7 @@ import logging
 from src.engine.commands import Engine, SetFlagCommand
 from src.engine.lifepath import (
     ApplyAgingReductionCommand,
+    ChooseSpecializationCommand,
     EndCareerCommand,
     InjuryRollCommand,
     LifepathRunner,
@@ -321,6 +322,10 @@ class LifepathController:
         # Characteristics not fully assigned yet.
         if len(char.characteristics) < 6:
             return "assign_characteristics" if char.unassigned_rolls else "roll_characteristics"
+
+        # C3 (C-A3): a pending cascade grant interrupts everything else.
+        if char.pending_cascades:
+            return "choose_specialization"
 
         # No career chosen yet.
         if not char.career:
@@ -718,6 +723,20 @@ class LifepathController:
         if phase == "muster_out_allocate":
             return self._view_muster_out_allocate([])
 
+        if phase == "choose_specialization":
+            pending = char.pending_cascades[0]
+            cascade = self._pack.cascades.get(pending.parent)
+            members = cascade.specializations if cascade else []
+            name = cascade.name if cascade else pending.parent.replace("_", " ").title()
+            return PhaseView(
+                phase=phase,
+                prompt=f"Choose a {name} specialization:",
+                choices=[
+                    ChoiceOption(label=sid.replace("_", " "), option_id=f"spec:{sid}")
+                    for sid in members
+                ],
+            )
+
         if phase == "complete":
             return PhaseView(
                 phase="complete",
@@ -976,6 +995,9 @@ class LifepathController:
         if option_id.startswith("bt_skill:"):
             return self._do_basic_training_choice(option_id.split(":", 1)[1])
 
+        if option_id.startswith("spec:"):
+            return self._do_choose_specialization(option_id.split(":", 1)[1])
+
         if option_id == "begin_term":
             return self._do_survival_roll()
 
@@ -1101,6 +1123,28 @@ class LifepathController:
         self._runner.run_basic_training(career_id, chosen_skill=skill)
         self._set_term_phase("run_survival")
         return self.get_phase_view()
+
+    def _do_choose_specialization(self, skill_id: str) -> PhaseView:
+        """Apply the player's cascade specialization pick (C3)."""
+        state = self._engine.state
+        if not state.character.pending_cascades:
+            return self.get_phase_view()
+        pending = state.character.pending_cascades[0]
+        cascade = self._pack.cascades.get(pending.parent)
+        members = list(cascade.specializations) if cascade else []
+        event = self._engine.apply(
+            ChooseSpecializationCommand(
+                cascade_parent=pending.parent,
+                skill_id=skill_id,
+                grant_mode=pending.grant_mode,
+                specializations=members,
+            )
+        )
+        receipt = event.description
+        view = self.get_phase_view()
+        return PhaseView(
+            phase=view.phase, prompt=view.prompt, choices=view.choices, receipts=[receipt]
+        )
 
     def _do_fallback_draft(self) -> PhaseView:
         """Apply DraftCommand + basic training, then route to run_survival."""

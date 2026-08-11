@@ -323,10 +323,9 @@ def test_dispatcher_rejects_unknown_phase(pack, ruleset):
 
 
 def test_p3_stubs_raise_not_implemented(pack, ruleset):
-    from src.engine.lifepath_choices import choice_muster_out_per_career, choice_specialization
+    from src.engine.lifepath_choices import choice_muster_out_per_career
 
-    with pytest.raises(NotImplementedError, match="P3"):
-        choice_specialization(_rich_state(), pack, ruleset)
+    # C3 implemented choice_specialization; only the muster-out stub remains.
     with pytest.raises(NotImplementedError, match="P3"):
         choice_muster_out_per_career(_rich_state(), pack, ruleset)
 
