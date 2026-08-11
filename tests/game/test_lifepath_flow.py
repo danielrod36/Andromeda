@@ -738,3 +738,46 @@ class TestPerCareerMusterFlow:
         resumed = LifepathController(engine, load_scifi_pack())
         assert resumed.determine_phase() == "muster_out_allocate"
         assert resumed._benefit_rolls_remaining == 1  # 2 per-exit rolls - 1 claim
+
+    def test_resume_muster_exhausted_routes_through_after_complete(self):
+        """Rebuild with 0 remaining rolls routes through _after_muster_out_complete.
+
+        Simulates a state where phase is still ``muster_out_allocate`` but all
+        benefit rolls are exhausted (e.g. a stale phase flag after a crash or
+        migration).  Before the fix this path directly set ``mustered_out`` and
+        returned ``complete`` — skipping career-change and never recording the
+        mustered career.  After the fix it delegates to
+        ``_after_muster_out_complete`` like the other two exhaustion paths.
+        """
+        engine = _make_mid_lifepath_engine()
+        state = engine.state
+        state.character.career_history = [
+            CareerTermRecord(
+                career_id="navy", terms=2, terms_in_career=2, final_rank=0, ended_by="muster_out"
+            )
+        ]
+        state.character.career = "army"
+        state.character.terms = 4  # 2 terms in army -> 2 rolls this exit
+        engine._roller = ForcedRoller([[1], [1]])
+        engine.apply(SetFlagCommand(key="term_phase", value="re_enlist"))
+        controller = LifepathController(engine, load_scifi_pack())
+        controller.apply_choice("reenlist_muster")
+        # Claim both rolls — _do_claim_benefit routes through
+        # _after_muster_out_complete and phase becomes choose_career_change.
+        controller.apply_choice("claim_cash")
+        controller.apply_choice("claim_material")
+        assert controller.determine_phase() == "choose_career_change"
+        assert state.character.mustered_careers == ["army"]
+
+        # Simulate a stale phase flag: rewind to muster_out_allocate with 0
+        # remaining rolls and rebuild the controller.
+        engine.apply(SetFlagCommand(key="term_phase", value="muster_out_allocate"))
+        resumed = LifepathController(engine, load_scifi_pack())
+        view = resumed.get_phase_view()
+
+        # Should route to choose_career_change (terms < 7), NOT complete.
+        assert view.phase == "choose_career_change"
+        # _after_muster_out_complete re-records the career on the stale phase
+        # (defensive double-record — the method always records). The important
+        # invariant is that mustered_out is NOT set for a sub-7-term character.
+        assert "mustered_out=true" not in state.narrative_log

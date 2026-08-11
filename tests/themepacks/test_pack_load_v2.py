@@ -153,6 +153,89 @@ def test_cascade_no_double_membership():
         validate_pack(bad)
 
 
+def test_cascade_ref_in_skill_table_must_exist():
+    """A ``cascade:<parent>`` result in a skill table must reference a
+    declared cascade parent (C-A1 referential integrity).
+    """
+    bad = _minimal_pack_dict(
+        cascades={
+            "gun_combat": {
+                "id": "gun_combat",
+                "name": "Gun Combat",
+                "specializations": ["gun_combat_slug_rifle"],
+            }
+        },
+    )
+    bad["careers"] = {
+        "test_career": {
+            "id": "test_career",
+            "name": "Test Career",
+            "description": "A test career.",
+            "qualification": {"characteristic": "EDU", "target": 6},
+            "survival": {"characteristic": "END", "target": 5},
+            "advancement": {"characteristic": "EDU", "target": 6},
+            "ranks": [],
+            "skill_tables": [
+                {
+                    "name": "Service Skills",
+                    "role": "service",
+                    "entries": {
+                        "num_dice": 1,
+                        "die_size": 6,
+                        "entries": [
+                            {"min": 1, "max": 2, "result": "cascade:nonexistent"},
+                            {"min": 3, "max": 3, "result": "cascade:gun_combat"},
+                            {"min": 4, "max": 6, "result": "gun_combat_slug_rifle"},
+                        ],
+                    },
+                }
+            ],
+        }
+    }
+    with pytest.raises(PackLoadError, match="cascade parent 'nonexistent'"):
+        validate_pack(bad)
+
+
+def test_cascade_ref_in_skill_table_passes_when_valid():
+    """A ``cascade:<parent>`` result referencing a declared cascade loads OK."""
+    good = _minimal_pack_dict(
+        cascades={
+            "gun_combat": {
+                "id": "gun_combat",
+                "name": "Gun Combat",
+                "specializations": ["gun_combat_slug_rifle"],
+            }
+        },
+    )
+    good["careers"] = {
+        "test_career": {
+            "id": "test_career",
+            "name": "Test Career",
+            "description": "A test career.",
+            "qualification": {"characteristic": "EDU", "target": 6},
+            "survival": {"characteristic": "END", "target": 5},
+            "advancement": {"characteristic": "EDU", "target": 6},
+            "ranks": [],
+            "skill_tables": [
+                {
+                    "name": "Service Skills",
+                    "role": "service",
+                    "entries": {
+                        "num_dice": 1,
+                        "die_size": 6,
+                        "entries": [
+                            {"min": 1, "max": 3, "result": "cascade:gun_combat"},
+                            {"min": 4, "max": 6, "result": "gun_combat_slug_rifle"},
+                        ],
+                    },
+                }
+            ],
+        }
+    }
+    pack = validate_pack(good)
+    assert "gun_combat" in pack.cascades
+
+
 # ---------------------------------------------------------------------------
 # C5.T4 — pack-declared roles (engine de-hardcoding, C-A12).
 # ---------------------------------------------------------------------------

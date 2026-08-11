@@ -637,6 +637,29 @@ def _check_referential_integrity(
                     )
                 member_owners[member] = parent_id
 
+    # 10. Skill table entries with ``cascade:<parent>`` results must reference
+    # a known cascade parent (C-A1 referential integrity).
+    cascade_ids = set(cascades.keys())
+    for cid, career in careers.items():
+        for table in career.skill_tables:
+            for entry in table.entries.entries:
+                result = entry.result.strip()
+                if result.startswith("cascade:"):
+                    parent = result[8:]
+                    if not parent:
+                        raise PackLoadError(
+                            f"Referential integrity: career '{cid}' skill table "
+                            f"'{table.name}' has a 'cascade:' result with no "
+                            f"parent name"
+                        )
+                    if parent not in cascade_ids:
+                        raise PackLoadError(
+                            f"Referential integrity: career '{cid}' skill table "
+                            f"'{table.name}' references cascade parent "
+                            f"'{parent}' which is not declared in cascades. "
+                            f"Known cascade parents: {sorted(cascade_ids) or '(none)'}"
+                        )
+
 
 # ---------------------------------------------------------------------------
 # Directory-scan loader.

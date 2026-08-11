@@ -601,7 +601,9 @@ class LifepathController:
 
         if phase == "choose_crisis_resolution":
             crisis_stat = self._find_stat_at_zero() or "a characteristic"
-            cost = get_pending_crisis_cost(state) or 10_000
+            cost = get_pending_crisis_cost(state)
+            if cost is None:
+                cost = 10_000
             can_afford = char.credits >= cost
             pay_label = (
                 f"Pay Cr{cost:,} (have Cr{char.credits:,})"
@@ -856,8 +858,8 @@ class LifepathController:
         """Build the per-roll muster-out allocation PhaseView (U3).
 
         Offers Cash table and Material table choices. Cash is dimmed when
-        the 3-roll cap is reached. Tracks remaining rolls via
-        ``plan.total_rolls - (cash_taken + material_taken)``.
+        the 3-roll lifetime cap is reached. Remaining rolls are rebuilt via
+        :meth:`reconstruct_muster_counters` (per-exit event counting, C-A6).
         """
         career_id = self._get_muster_career_id()
         plan = self._muster_plan
@@ -878,19 +880,10 @@ class LifepathController:
 
         remaining = self._benefit_rolls_remaining
         if remaining <= 0:
-            # All rolls exhausted — mark muster out and go to complete.
-            self._engine.apply(
-                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
-            )
-            char = self._engine.state.character
-            return PhaseView(
-                phase="complete",
-                prompt=(
-                    f"Lifepath complete. Character: {char.name}, "
-                    f"Career: {char.career}, Terms: {char.terms}."
-                ),
-                choices=[],
-            )
+            # C6: this career's muster is exhausted — route through the shared
+            # transition so the mustered career is recorded and the correct
+            # next phase (complete or choose_career_change) is set.
+            return self._after_muster_out_complete([])
 
         cash_taken = self._runner.cash_rolls_taken
         choices: list[ChoiceOption] = []
@@ -1434,7 +1427,9 @@ class LifepathController:
         if result is None:
             return self.get_phase_view()
 
-        cost = get_pending_crisis_cost(self._engine.state) or 10_000
+        cost = get_pending_crisis_cost(self._engine.state)
+        if cost is None:
+            cost = 10_000
         if pay and self._engine.state.character.credits < cost:
             return self.get_phase_view()  # dimmed option; ignore crafted posts
 
