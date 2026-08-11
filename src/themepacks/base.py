@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from src.rulesets.base import (
     CareerData,
+    CascadeData,
     ComplicationTable,
     MissionTable,
     OracleTable,
@@ -163,6 +164,7 @@ class LoadedThemePack:
         injury_table: TableRange | None = None,
         draft_table: list[str] | None = None,
         option_templates: OptionTemplates | None = None,
+        cascades: dict[str, CascadeData] | None = None,
     ) -> None:
         self._id = pack_id
         self._name = name
@@ -175,6 +177,7 @@ class LoadedThemePack:
         self._injury_table = injury_table
         self._draft_table: list[str] = list(draft_table) if draft_table else []
         self._option_templates = option_templates
+        self._cascades: dict[str, CascadeData] = dict(cascades) if cascades else {}
         # Pre-compute background skill ids (B10): skills flagged background=true.
         self._background_skills = [sid for sid, s in skills.items() if s.background]
 
@@ -197,6 +200,11 @@ class LoadedThemePack:
     @property
     def skills(self) -> dict[str, SkillData]:
         return self._skills
+
+    @property
+    def cascades(self) -> dict[str, CascadeData]:
+        """Cascade skill groups (C3); empty when the pack ships no cascades.yaml."""
+        return self._cascades
 
     @property
     def background_skills(self) -> list[str]:
@@ -345,6 +353,18 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
             )
         option_templates = _parse_model(OptionTemplates, raw_options, "option_templates")
 
+    # --- Parse cascades (C3, cascades.yaml) ---
+    cascades: dict[str, CascadeData] = {}
+    raw_cascades = data.get("cascades")
+    if raw_cascades is not None:
+        if not isinstance(raw_cascades, dict):
+            raise PackLoadError(
+                f"Pack cascades must be a mapping; got {type(raw_cascades).__name__}"
+            )
+        for parent_id, entry in raw_cascades.items():
+            cascade = _parse_model(CascadeData, entry, f"cascade {parent_id}")
+            cascades[cascade.id] = cascade
+
     # --- Referential integrity checks ---
     _check_referential_integrity(
         careers,
@@ -355,6 +375,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         injury_table,
         draft_table,
         option_templates,
+        cascades,
     )
 
     return LoadedThemePack(
@@ -369,6 +390,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         injury_table=injury_table,
         draft_table=draft_table,
         option_templates=option_templates,
+        cascades=cascades,
     )
 
 
@@ -407,6 +429,7 @@ def _check_referential_integrity(
     injury_table: TableRange | None = None,
     draft_table: list[str] | None = None,
     option_templates: OptionTemplates | None = None,
+    cascades: dict[str, CascadeData] | None = None,
 ) -> None:
     """Run all referential-integrity checks across content sections."""
     career_ids = set(careers.keys())
@@ -502,6 +525,36 @@ def _check_referential_integrity(
             complication_table_ids=set(complication_tables.keys()),
         )
 
+    # 9. Cascades (C3, C-A1): parent must not collide with a skill id, members
+    # must exist, members must start with '{parent}_', and no member may
+    # belong to two cascades.
+    if cascades:
+        member_owners: dict[str, str] = {}
+        for parent_id, cascade in cascades.items():
+            if parent_id in skill_ids:
+                raise PackLoadError(
+                    f"Referential integrity: cascade parent '{parent_id}' collides "
+                    "with an existing skill id"
+                )
+            for member in cascade.specializations:
+                if member not in skill_ids:
+                    raise PackLoadError(
+                        f"Referential integrity: cascade '{parent_id}' member "
+                        f"'{member}' is not a known skill. "
+                        f"Known: {sorted(skill_ids)}"
+                    )
+                if not member.startswith(f"{parent_id}_"):
+                    raise PackLoadError(
+                        f"Referential integrity: cascade member '{member}' violates "
+                        f"the prefix rule (must start with '{parent_id}_')"
+                    )
+                if member in member_owners:
+                    raise PackLoadError(
+                        f"Referential integrity: skill '{member}' appears in two "
+                        f"cascades ('{member_owners[member]}' and '{parent_id}')"
+                    )
+                member_owners[member] = parent_id
+
 
 # ---------------------------------------------------------------------------
 # Directory-scan loader.
@@ -575,6 +628,7 @@ class ThemePackLoader:
         "complications.yaml",
         "missions.yaml",
         "options.yaml",
+        "cascades.yaml",
     )
 
     def __init__(self, pack_dir: str | Path) -> None:
@@ -608,6 +662,7 @@ class ThemePackLoader:
                     "complications": "complication_tables",
                     "missions": "mission_tables",
                     "options": "option_templates",
+                    "cascades": "cascades",
                 }
                 key = section_map.get(section_name, section_name)
                 with path.open("r", encoding="utf-8") as f:

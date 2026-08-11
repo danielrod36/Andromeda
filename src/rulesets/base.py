@@ -203,6 +203,19 @@ class SkillData(BaseModel):
     background: bool = False
 
 
+class CascadeData(BaseModel):
+    """A cascade skill group (C3, C-A1): parent id + selectable specializations.
+
+    Declared in a pack's optional ``cascades.yaml``. Members must be existing
+    skill ids starting with ``{parent}_`` (loader-validated) so check-time
+    prefix resolution in ``src/engine/skills.py`` stays aligned.
+    """
+
+    id: str
+    name: str
+    specializations: list[str]
+
+
 class OracleTable(BaseModel):
     """An oracle table for scene scaffolding / solo play prompts."""
 
