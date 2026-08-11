@@ -48,6 +48,59 @@ class PackLoadError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Legacy inference (C-A12): content-name knowledge lives HERE, in the loader
+# (content layer), not in the engine. These maps back-fill the v2 role/flag
+# fields for packs that pre-date the explicit declarations so fantasy and any
+# older fixture load unchanged (C-A10).
+# ---------------------------------------------------------------------------
+
+#: Legacy CE-SRD table-name → role inference. Applied only when the entry
+#: omits ``role`` so packs that declare roles explicitly are untouched.
+LEGACY_TABLE_ROLES: dict[str, str] = {
+    "Service Skills": "service",
+    "Advanced Education": "advanced_education",
+    "Personal Development": "personal_development",
+    "Specialist Skills": "specialist",
+}
+
+#: Legacy CE-SRD skill ids that grant the cash DM. Scifi declares this flag
+#: explicitly on the ``gambler`` skill; this fallback covers fantasy / fixtures
+#: that don't.
+LEGACY_CASH_DM_SKILLS: frozenset[str] = frozenset({"gambler"})
+
+#: Legacy default currency units. Packs may override via ``pack.currency_units``.
+DEFAULT_CURRENCY_UNITS: list[str] = ["Cr", "gold crowns"]
+
+
+def _apply_legacy_inference(data: dict[str, Any]) -> None:
+    """Back-fill ``role`` / ``grants_cash_dm`` for entries that omit them.
+
+    Runs BEFORE Pydantic validation so models see the inferred values as if
+    the pack had declared them. Idempotent: entries that already declare a
+    field are untouched.
+    """
+    raw_careers = data.get("careers", {})
+    if isinstance(raw_careers, dict):
+        for entry in raw_careers.values():
+            if not isinstance(entry, dict):
+                continue
+            for table in entry.get("skill_tables", []) or []:
+                if not isinstance(table, dict):
+                    continue
+                if not table.get("role"):
+                    name = table.get("name", "")
+                    if name in LEGACY_TABLE_ROLES:
+                        table["role"] = LEGACY_TABLE_ROLES[name]
+    raw_skills = data.get("skills", {})
+    if isinstance(raw_skills, dict):
+        for sid, entry in raw_skills.items():
+            if not isinstance(entry, dict):
+                continue
+            if "grants_cash_dm" not in entry and sid in LEGACY_CASH_DM_SKILLS:
+                entry["grants_cash_dm"] = True
+
+
+# ---------------------------------------------------------------------------
 # Option-template models (Task 17, R12/R13/AE10).
 # ---------------------------------------------------------------------------
 
@@ -165,6 +218,7 @@ class LoadedThemePack:
         draft_table: list[str] | None = None,
         option_templates: OptionTemplates | None = None,
         cascades: dict[str, CascadeData] | None = None,
+        currency_units: list[str] | None = None,
     ) -> None:
         self._id = pack_id
         self._name = name
@@ -178,6 +232,9 @@ class LoadedThemePack:
         self._draft_table: list[str] = list(draft_table) if draft_table else []
         self._option_templates = option_templates
         self._cascades: dict[str, CascadeData] = dict(cascades) if cascades else {}
+        self._currency_units: list[str] = (
+            list(currency_units) if currency_units else list(DEFAULT_CURRENCY_UNITS)
+        )
         # Pre-compute background skill ids (B10): skills flagged background=true.
         self._background_skills = [sid for sid, s in skills.items() if s.background]
 
@@ -210,6 +267,14 @@ class LoadedThemePack:
     def background_skills(self) -> list[str]:
         """Skill ids flagged ``background: true`` (B10 background-skills phase)."""
         return list(self._background_skills)
+
+    @property
+    def currency_units(self) -> list[str]:
+        """Pack-declared currency unit tokens for parsing cash benefit strings
+        (C-A12). Defaults to ``["Cr", "gold crowns"]`` so legacy packs load
+        unchanged; packs may override via ``pack.yaml:currency_units``.
+        """
+        return list(self._currency_units)
 
     @property
     def oracle_tables(self) -> dict[str, OracleTable]:
@@ -288,6 +353,22 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         raise PackLoadError("Pack manifest missing 'id'")
     pack_name = manifest.get("name", pack_id)
     pack_description = manifest.get("description", "")
+
+    # --- Legacy inference (C-A12) ---
+    # Back-fill role/grants_cash_dm for entries that omit them, BEFORE Pydantic
+    # validation. Content-name knowledge lives here, not in the engine.
+    _apply_legacy_inference(data)
+
+    # --- Pack-declared currency units (C-A12) ---
+    raw_units = manifest.get("currency_units")
+    if raw_units is None:
+        currency_units = list(DEFAULT_CURRENCY_UNITS)
+    elif isinstance(raw_units, list) and all(isinstance(u, str) for u in raw_units):
+        currency_units = list(raw_units)
+    else:
+        raise PackLoadError(
+            f"Pack currency_units must be a list of strings; got {type(raw_units).__name__}"
+        )
 
     # --- Parse careers ---
     careers: dict[str, CareerData] = {}
@@ -391,6 +472,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         draft_table=draft_table,
         option_templates=option_templates,
         cascades=cascades,
+        currency_units=currency_units,
     )
 
 

@@ -391,7 +391,7 @@ def choice_skills(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) -> 
     options = []
     for table in career.skill_tables:
         results = ", ".join(e.result for e in table.entries.entries)
-        gated = table.name == "Advanced Education" and edu < 8
+        gated = table.role == "advanced_education" and edu < 8
         options.append(
             ChoiceOptionView(
                 option_id=f"skill_table:{table.name}",
@@ -739,7 +739,7 @@ def choice_basic_training_skill(
     """Later-career basic training: pick one Service Skills entry at level 0 (P2.T6, Part 1 B3)."""
     career = _career(state, pack)
     service_table = next(
-        (t for t in career.skill_tables if t.name == "Service Skills"),
+        (t for t in career.skill_tables if t.role == "service"),
         career.skill_tables[0] if career.skill_tables else None,
     )
     options: list[ChoiceOptionView] = []

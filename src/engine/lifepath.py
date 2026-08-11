@@ -31,7 +31,7 @@ from src.engine.state import (
 )
 from src.rulesets.base import SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
-from src.themepacks.base import LoadedThemePack
+from src.themepacks.base import DEFAULT_CURRENCY_UNITS, LoadedThemePack
 
 _CHARACTERISTICS = ("STR", "DEX", "END", "INT", "EDU", "SOC")
 _PHYSICAL_CHARACTERISTICS = ("STR", "DEX", "END")
@@ -49,10 +49,21 @@ _AGING_TABLE: dict[int, list[tuple[str, int]]] = {
     0: [("physical", 1)],
 }
 
-#: Regex to parse cash benefit strings like "50,000 Cr" (B15/FR2).
-# Also matches fantasy "gold crowns" so fantasy cash benefits persist to
-# credits (T12 review finding — fantasy packs use "gold crowns" not "Cr").
-_CASH_RE = re.compile(r"([\d,]+)\s*(?:Cr|gold crowns)")
+#: Legacy default currency unit tokens (C-A12). Imported from the loader
+# (content layer) so the engine source carries no currency-name literals.
+# ``BenefitRollCommand`` keeps this as its field default so direct command
+# constructions (synthetic packs, tests) work without a pack; production code
+# passes ``pack.currency_units``.
+_LEGACY_CURRENCY_UNITS: list[str] = list(DEFAULT_CURRENCY_UNITS)
+
+
+def _cash_amount(result: str, currency_units: list[str]) -> int:
+    """Parse a cash benefit string like ``"50,000 Cr"`` using the pack-declared
+    currency unit tokens (C-A12). Returns 0 when the result is not a cash row.
+    """
+    units = "|".join(re.escape(u) for u in currency_units)
+    m = re.search(rf"([\d,]+)\s*(?:{units})", result)
+    return int(m.group(1).replace(",", "")) if m else 0
 
 
 def benefit_rolls_for(terms: int, rank: int) -> int:
@@ -697,8 +708,10 @@ class ApplyAgingReductionCommand(Command):
 class BenefitRollCommand(Command):
     """Roll one mustering-out benefit and persist it to the character (FR2).
 
-    Cash results (e.g. "50,000 Cr" or "1,000 gold crowns") add the parsed
-    amount to ``credits``; material results append the text to ``inventory``.
+    Cash results (e.g. ``"50,000 Cr"``) add the parsed amount to ``credits``;
+    material results append the text to ``inventory``. ``currency_units``
+    carries the pack-declared unit tokens (C-A12); the legacy default keeps
+    direct (test) constructions working when no pack is attached.
     """
 
     command_type: ClassVar[str] = "lifepath_benefit"
@@ -707,6 +720,7 @@ class BenefitRollCommand(Command):
     num_dice: int = 1
     die_size: int = 6
     dm: int = 0
+    currency_units: list[str] = Field(default_factory=lambda: list(_LEGACY_CURRENCY_UNITS))
 
     def resolve(self, state: GameState, roller: Roller) -> RollResult:
         first = roller.roll("lifepath", self.num_dice, self.die_size, modifiers=self.dm)
@@ -725,9 +739,9 @@ class BenefitRollCommand(Command):
         assert roll is not None
         entry = lookup_table_result(self.entries, roll.total)
         if self.benefit_type == "cash":
-            m = _CASH_RE.search(entry.result)
-            if m:
-                state.character.credits += int(m.group(1).replace(",", ""))
+            amount = _cash_amount(entry.result, self.currency_units)
+            if amount > 0:
+                state.character.credits += amount
         else:
             already_has = entry.result in state.character.inventory
             if entry.once and already_has:
@@ -1367,13 +1381,13 @@ class LifepathRunner:
         state = self.engine.state
         career = self._get_career(career_id)
         service = next(
-            (t for t in career.skill_tables if t.name == "Service Skills"),
+            (t for t in career.skill_tables if t.role == "service"),
             None,
         )
         if service is None:
             raise KeyError(
-                f"Career {career_id!r} has no 'Service Skills' table; "
-                f"available: {[t.name for t in career.skill_tables]}"
+                f"Career {career_id!r} has no table with role 'service'; "
+                f"available roles: {[t.role or t.name for t in career.skill_tables]}"
             )
         history = state.character.career_history
         if not history:
@@ -1692,11 +1706,6 @@ class LifepathRunner:
         any table on the career.  Raises ``ValueError`` for the Advanced
         Education table when EDU < 8 (B7).
         """
-        # B7: Advanced Education requires EDU 8+.
-        if table_name == "Advanced Education":
-            edu = self.engine.state.character.characteristics.get("EDU", 0)
-            if edu < 8:
-                raise ValueError("Advanced Education requires EDU 8+ (B7)")
         career = self._get_career(career_id)
         table = next(
             (t for t in career.skill_tables if t.name == table_name),
@@ -1705,6 +1714,11 @@ class LifepathRunner:
         if table is None:
             available = [t.name for t in career.skill_tables]
             raise KeyError(f"Unknown skill table {table_name!r}; available: {available}")
+        # B7: Advanced Education (role-gated, C-A12) requires EDU 8+.
+        if table.role == "advanced_education":
+            edu = self.engine.state.character.characteristics.get("EDU", 0)
+            if edu < 8:
+                raise ValueError("Advanced Education requires EDU 8+ (B7)")
         skill_cmd = SkillTableRollCommand(
             table_name=table.name,
             entries=table.entries.entries,
@@ -1848,10 +1862,13 @@ class LifepathRunner:
         return 0
 
     def _compute_cash_dm(self) -> int:
-        """Cash benefit DM: +1 if Gambling skill or retired (7 terms) (G2, P3.T3)."""
+        """Cash benefit DM: +1 if a cash-DM skill (pack-flagged) or retired (C-A12)."""
         ch = self.engine.state.character
         dm = 0
-        if ch.skills.get("gambler", 0) > 0:
+        if any(
+            skill.grants_cash_dm and ch.skills.get(sid, 0) > 0
+            for sid, skill in self.pack.skills.items()
+        ):
             dm += 1
         if ch.terms >= 7:  # mandatory retirement
             dm += 1
@@ -1949,6 +1966,7 @@ class LifepathRunner:
             num_dice=benefit_table.entries.num_dice,
             die_size=benefit_table.entries.die_size,
             dm=dm,
+            currency_units=list(self.pack.currency_units),
         )
         event = self.engine.apply(cmd)
         if table == "cash":
