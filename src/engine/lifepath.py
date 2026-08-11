@@ -1863,6 +1863,35 @@ class LifepathRunner:
                 return record.final_rank
         return 0
 
+    def _terms_for_muster(self, career_id: str) -> int:
+        """Terms served in the career being mustered out (C6/G4).
+
+        Active career: ``terms`` minus the previous record's cumulative terms
+        (so a second career's plan reflects only its own stint). Career that
+        already ended: the matching record's ``terms_in_career``. Falls back
+        to ``terms`` when there is no history (single career, no EndCareer
+        yet) so the legacy single-career path is unchanged.
+        """
+        ch = self.engine.state.character
+        if ch.career:
+            previous = ch.career_history[-1].terms if ch.career_history else 0
+            return ch.terms - previous
+        for record in reversed(ch.career_history):
+            if record.career_id == career_id:
+                return record.terms_in_career
+        return ch.terms
+
+    def _last_end_career_index(self) -> int:
+        """Index of the most recent ``lifepath_end_career`` event, or -1 (C6).
+
+        Per-exit benefit counting looks at events AFTER this index — those
+        are the rolls claimed during the current career's muster-out.
+        """
+        for i in range(len(self.engine.state.events) - 1, -1, -1):
+            if self.engine.state.events[i].command_type == "lifepath_end_career":
+                return i
+        return -1
+
     def _compute_cash_dm(self) -> int:
         """Cash benefit DM: +1 if a cash-DM skill (pack-flagged) or retired (C-A12)."""
         ch = self.engine.state.character
@@ -1883,6 +1912,11 @@ class LifepathRunner:
         ``cash_dm``, and ``material_dm`` populated. The benefit lists are
         empty — the caller (TUI per-roll or batch auto-allocation) fills them
         via :meth:`claim_benefit`.
+
+        C6/G4: ``total_rolls`` reflects the per-career terms (the stint being
+        mustered), not the lifetime cumulative ``terms``. ``terms_served`` on
+        the result mirrors this — callers rendering "X terms served" should
+        show the per-career count.
         """
         ch = self.engine.state.character
         cid = (
@@ -1890,11 +1924,12 @@ class LifepathRunner:
         )
         if not cid:
             return MusteringOutResult()
+        terms = self._terms_for_muster(cid)
         # G3: mishap "Lose all benefits" zeroes all benefit rolls.
         if ch.benefits_lost:
             career = self._get_career(cid)
             return MusteringOutResult(
-                terms_served=ch.terms,
+                terms_served=terms,
                 final_rank=self._effective_muster_rank(cid),
                 career_name=career.name,
                 total_rolls=0,
@@ -1902,7 +1937,6 @@ class LifepathRunner:
                 material_dm=0,
             )
         career = self._get_career(cid)
-        terms = ch.terms
         rank = self._effective_muster_rank(cid)
         cash_dm = self._compute_cash_dm()
 
@@ -1931,16 +1965,22 @@ class LifepathRunner:
     def reconstruct_muster_counters(self, total_rolls: int) -> int:
         """Rebuild cash/material counters from the event log (resume-safe).
 
-        Syncs ``_cash_rolls_taken`` from events and counts material events,
-        then returns the number of benefit rolls remaining.
+        C6/G4 (C-A6): per-exit counting — only ``lifepath_benefit`` events
+        AFTER the most recent ``lifepath_end_career`` count toward the
+        current muster's remaining rolls. The LIFETIME cash count
+        (``_cash_rolls_taken``) is still synced from ALL events so the 3-cap
+        in :meth:`claim_benefit` is enforced across the whole lifepath.
         """
+        # Lifetime cash count drives the 3-per-lifetime cap (C-A6).
         self._cash_rolls_taken = self._count_cash_benefit_events()
-        material_taken = sum(
-            1
-            for e in self.engine.state.events
-            if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-        )
-        return total_rolls - self._cash_rolls_taken - material_taken
+        # Per-exit counting: benefit events after the last career end.
+        since = [
+            e
+            for e in self.engine.state.events[self._last_end_career_index() + 1 :]
+            if e.command_type == "lifepath_benefit"
+        ]
+        per_exit_taken = len(since)
+        return total_rolls - per_exit_taken
 
     def claim_benefit(self, career_id: str, table: str, dm: int = 0) -> str:
         """Roll one mustering-out benefit and persist it (FR2, agency).

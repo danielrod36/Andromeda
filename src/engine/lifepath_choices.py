@@ -578,35 +578,58 @@ def choice_re_enlist(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) 
 
 
 def _muster_plan(state: GameState) -> tuple[str, int, int]:
-    """(career_id, total_rolls, material_dm) without rolling (P2.T6, B15).
+    """(career_id, total_rolls, material_dm) without rolling (P2.T6, B15, C6/G4).
 
+    Per-career terms: when the career has ended, ``terms_in_career`` on the
+    last record holds the per-stint count; while active, it is computed as
+    ``terms`` minus the previous record's cumulative ``terms`` (or just
+    ``terms`` when there is no history — single career). Rank source is
     B2-safe: when the career has already ended, rank comes from the final
     CareerTermRecord (EndCareerCommand resets character.rank).
     """
     char = state.character
     if char.career:
+        previous = char.career_history[-1].terms if char.career_history else 0
+        terms = char.terms - previous
         rank = char.rank
-        return char.career, benefit_rolls_for(char.terms, rank), material_dm_for(rank)
+        return char.career, benefit_rolls_for(terms, rank), material_dm_for(rank)
     if char.career_history:
         last = char.career_history[-1]
         rank = last.final_rank
-        return last.career_id, benefit_rolls_for(char.terms, rank), material_dm_for(rank)
+        return last.career_id, benefit_rolls_for(last.terms_in_career, rank), material_dm_for(rank)
     return "", 0, 0
 
 
 def _benefit_counts(state: GameState) -> tuple[int, int]:
-    """(cash_taken, material_taken) counted from lifepath_benefit events (resume-safe)."""
-    cash = sum(
+    """(cash_taken, material_taken) for the CURRENT muster exit (C6, C-A6).
+
+    Per-exit counting: only ``lifepath_benefit`` events AFTER the most recent
+    ``lifepath_end_career`` are counted, so a second career's muster starts
+    its roll-count fresh. The cash CAP (3 per lifetime) is enforced
+    separately via :func:`_lifetime_cash_count`.
+    """
+    last_end = -1
+    for i, e in enumerate(state.events):
+        if e.command_type == "lifepath_end_career":
+            last_end = i
+    cash = material = 0
+    for e in state.events[last_end + 1 :]:
+        if e.command_type != "lifepath_benefit":
+            continue
+        if e.changes.get("benefit_type") == "cash":
+            cash += 1
+        elif e.changes.get("benefit_type") == "material":
+            material += 1
+    return cash, material
+
+
+def _lifetime_cash_count(state: GameState) -> int:
+    """Total cash benefit events across the whole lifepath (C-A6, 3-cap)."""
+    return sum(
         1
         for e in state.events
         if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "cash"
     )
-    material = sum(
-        1
-        for e in state.events
-        if e.command_type == "lifepath_benefit" and e.changes.get("benefit_type") == "material"
-    )
-    return cash, material
 
 
 def choice_mustering_out(
@@ -628,20 +651,22 @@ def choice_mustering_out(
 def choice_muster_out_allocate(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Per-roll cash/material allocation; cash capped at 3 (P2.T6, B15)."""
+    """Per-roll cash/material allocation; cash capped at 3 lifetime (P2.T6, B15, C-A6)."""
     career_id, total, mat_dm = _muster_plan(state)
     career = pack.careers.get(career_id)
     cash_taken, material_taken = _benefit_counts(state)
     remaining = total - cash_taken - material_taken
+    # Cash cap is LIFETIME (C-A6): a previous muster's cash claims still count.
+    lifetime_cash = _lifetime_cash_count(state)
     options = []
     if career and career.mustering_out_cash:
         options.append(
             ChoiceOptionView(
                 option_id="claim_cash",
-                label=f"Cash table ({cash_taken}/3 taken)",
+                label=f"Cash table ({lifetime_cash}/3 taken)",
                 preview=[f"roll 1D6 on the cash benefits table ({remaining} roll(s) left)"],
-                dimmed=cash_taken >= 3,
-                requirement="Cash rolls exhausted" if cash_taken >= 3 else None,
+                dimmed=lifetime_cash >= 3,
+                requirement="Cash rolls exhausted" if lifetime_cash >= 3 else None,
             )
         )
     if career and career.mustering_out_material:
