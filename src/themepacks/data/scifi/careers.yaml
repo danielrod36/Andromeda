@@ -87,9 +87,10 @@ navy:
           - {min: 5, max: 5, result: "astrogation"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Starman", bonus_skills: [{skill: vacc_suit, level: 1}]}
     - {rank: 1, title: "Midshipman"}
     - {rank: 2, title: "Lieutenant"}
-    - {rank: 3, title: "Lieutenant Commander"}
+    - {rank: 3, title: "Lieutenant Commander", bonus_skills: [{skill: cascade:tactics, level: 1}]}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
     - {rank: 6, title: "Commodore"}
@@ -197,9 +198,10 @@ army:
           - {min: 5, max: 5, result: "leadership"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Soldier", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "General"}
@@ -307,9 +309,10 @@ marines:
           - {min: 5, max: 5, result: "astrogation"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Marine", bonus_skills: [{skill: vacc_suit, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: cascade:tactics, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "Brigadier"}
@@ -417,9 +420,10 @@ merchant:
           - {min: 5, max: 5, result: "cascade:science"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Crewman", bonus_skills: [{skill: steward, level: 1}]}
     - {rank: 1, title: "Deck Cadet"}
     - {rank: 2, title: "Fourth Officer"}
-    - {rank: 3, title: "Third Officer"}
+    - {rank: 3, title: "Third Officer", bonus_skills: [{skill: cascade:pilot, level: 1}]}
     - {rank: 4, title: "Second Officer"}
     - {rank: 5, title: "First Officer"}
     - {rank: 6, title: "Captain"}
@@ -521,7 +525,8 @@ scout:
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
           - {min: 6, max: 6, result: "cascade:tactics"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: cascade:pilot, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -626,6 +631,7 @@ agent:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "leadership"}
   ranks:
+    - {rank: 0, title: "Agent", bonus_skills: [{skill: streetwise, level: 1}]}
     - {rank: 1, title: "Special Agent"}
     - {rank: 2, title: "Special Agent in Charge"}
     - {rank: 3, title: "Unit Chief"}
@@ -736,10 +742,11 @@ noble:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Noble", bonus_skills: [{skill: carousing, level: 1}]}
     - {rank: 1, title: "Knight"}
     - {rank: 2, title: "Baron"}
     - {rank: 3, title: "Marquis"}
-    - {rank: 4, title: "Count"}
+    - {rank: 4, title: "Count", bonus_skills: [{skill: advocate, level: 1}]}
     - {rank: 5, title: "Duke"}
     - {rank: 6, title: "Archduke"}
   mustering_out_cash:
@@ -946,9 +953,10 @@ aerospace_defense:
           - {min: 5, max: 5, result: "leadership"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Airman", bonus_skills: [{skill: aircraft, level: 1}]}
     - {rank: 1, title: "Flight Officer"}
     - {rank: 2, title: "Flight Lieutenant"}
-    - {rank: 3, title: "Squadron Leader"}
+    - {rank: 3, title: "Squadron Leader", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Wing Commander"}
     - {rank: 5, title: "Group Captain"}
     - {rank: 6, title: "Air Commodore"}
@@ -1050,7 +1058,8 @@ athlete:
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "cascade:science"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: athletics, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1149,7 +1158,8 @@ barbarian:
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "cascade:tactics"}
           - {min: 6, max: 6, result: "broker"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: cascade:melee, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1248,7 +1258,8 @@ belter:
           - {min: 4, max: 4, result: "astrogation"}
           - {min: 5, max: 5, result: "cascade:electronics"}
           - {min: 6, max: 6, result: "cascade:tactics"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: vacc_suit, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1353,10 +1364,11 @@ bureaucrat:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "admin"}
   ranks:
+    - {rank: 0, title: "Junior Clerk", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 1, title: "Clerk"}
     - {rank: 2, title: "Supervisor"}
     - {rank: 3, title: "Manager"}
-    - {rank: 4, title: "Chief"}
+    - {rank: 4, title: "Chief", bonus_skills: [{skill: advocate, level: 1}]}
     - {rank: 5, title: "Director"}
     - {rank: 6, title: "Minister"}
   mustering_out_cash:
@@ -1463,9 +1475,10 @@ colonist:
           - {min: 5, max: 5, result: "admin"}
           - {min: 6, max: 6, result: "animals_handling"}
   ranks:
+    - {rank: 0, title: "Colonist", bonus_skills: [{skill: survival, level: 1}]}
     - {rank: 1, title: "District Leader"}
     - {rank: 2, title: "District Delegate"}
-    - {rank: 3, title: "Council Advisor"}
+    - {rank: 3, title: "Council Advisor", bonus_skills: [{skill: diplomat, level: 1}]}
     - {rank: 4, title: "Councilor"}
     - {rank: 5, title: "Lieutenant Governor"}
     - {rank: 6, title: "Governor"}
@@ -1573,9 +1586,10 @@ diplomat:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "leadership"}
   ranks:
+    - {rank: 0, title: "Attache", bonus_skills: [{skill: diplomat, level: 1}]}
     - {rank: 1, title: "Third Secretary"}
     - {rank: 2, title: "Second Secretary"}
-    - {rank: 3, title: "First Secretary"}
+    - {rank: 3, title: "First Secretary", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 4, title: "Counselor"}
     - {rank: 5, title: "Minister"}
     - {rank: 6, title: "Ambassador"}
@@ -1677,7 +1691,8 @@ entertainer:
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "cascade:science"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: carousing, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1776,7 +1791,8 @@ hunter:
           - {min: 4, max: 4, result: "diplomat"}
           - {min: 5, max: 5, result: "cascade:tactics"}
           - {min: 6, max: 6, result: "animals_handling"}
-  ranks: []
+  ranks:
+    - {rank: 0, title: "", bonus_skills: [{skill: survival, level: 1}]}
   mustering_out_cash:
     name: "Cash Benefits"
     entries:
@@ -1881,9 +1897,10 @@ maritime_defense:
           - {min: 5, max: 5, result: "leadership"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Sailor", bonus_skills: [{skill: seafarer, level: 1}]}
     - {rank: 1, title: "Ensign"}
     - {rank: 2, title: "Lieutenant"}
-    - {rank: 3, title: "Lt Commander"}
+    - {rank: 3, title: "Lt Commander", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
     - {rank: 6, title: "Admiral"}
@@ -1991,9 +2008,10 @@ mercenary:
           - {min: 5, max: 5, result: "cascade:science"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Mercenary", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: cascade:tactics, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "Brigadier"}
@@ -2101,10 +2119,11 @@ physician:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Intern", bonus_skills: [{skill: medic, level: 1}]}
     - {rank: 1, title: "Resident"}
     - {rank: 2, title: "Senior Resident"}
     - {rank: 3, title: "Chief Resident"}
-    - {rank: 4, title: "Attending Physician"}
+    - {rank: 4, title: "Attending Physician", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 5, title: "Service Chief"}
     - {rank: 6, title: "Hospital Administrator"}
   mustering_out_cash:
@@ -2211,8 +2230,9 @@ pirate:
           - {min: 5, max: 5, result: "advocate"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Pirate", bonus_skills: [{skill: gunnery_turrets, level: 1}]}
     - {rank: 1, title: "Corporal"}
-    - {rank: 2, title: "Lieutenant"}
+    - {rank: 2, title: "Lieutenant", bonus_skills: [{skill: cascade:pilot, level: 1}]}
     - {rank: 3, title: "Lt Commander"}
     - {rank: 4, title: "Commander"}
     - {rank: 5, title: "Captain"}
@@ -2321,8 +2341,9 @@ rogue:
           - {min: 5, max: 5, result: "advocate"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Rogue", bonus_skills: [{skill: streetwise, level: 1}]}
     - {rank: 1, title: "Associate"}
-    - {rank: 2, title: "Soldier"}
+    - {rank: 2, title: "Soldier", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 3, title: "Lieutenant"}
     - {rank: 4, title: "Underboss"}
     - {rank: 5, title: "Consigliere"}
@@ -2431,9 +2452,10 @@ scientist:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Student", bonus_skills: [{skill: cascade:science, level: 1}]}
     - {rank: 1, title: "Adjunct Professor"}
     - {rank: 2, title: "Research Professor"}
-    - {rank: 3, title: "Assistant Professor"}
+    - {rank: 3, title: "Assistant Professor", bonus_skills: [{skill: computers, level: 1}]}
     - {rank: 4, title: "Associate Professor"}
     - {rank: 5, title: "Professor"}
     - {rank: 6, title: "Distinguished Professor"}
@@ -2541,9 +2563,10 @@ surface_defense:
           - {min: 5, max: 5, result: "leadership"}
           - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
+    - {rank: 0, title: "Soldier", bonus_skills: [{skill: cascade:gun_combat, level: 1}]}
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
-    - {rank: 3, title: "Major"}
+    - {rank: 3, title: "Major", bonus_skills: [{skill: leadership, level: 1}]}
     - {rank: 4, title: "Lt Colonel"}
     - {rank: 5, title: "Colonel"}
     - {rank: 6, title: "General"}
@@ -2651,10 +2674,11 @@ technician:
           - {min: 5, max: 5, result: "medic"}
           - {min: 6, max: 6, result: "cascade:science"}
   ranks:
+    - {rank: 0, title: "Apprentice", bonus_skills: [{skill: computers, level: 1}]}
     - {rank: 1, title: "Team Lead"}
     - {rank: 2, title: "Supervisor"}
     - {rank: 3, title: "Manager"}
-    - {rank: 4, title: "Director"}
+    - {rank: 4, title: "Director", bonus_skills: [{skill: admin, level: 1}]}
     - {rank: 5, title: "Vice-President"}
     - {rank: 6, title: "Executive Officer"}
   mustering_out_cash:

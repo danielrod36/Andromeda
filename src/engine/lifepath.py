@@ -1384,6 +1384,10 @@ class LifepathRunner:
                 else:
                     self.engine.apply(GainSkillCommand(skill_id=entry.result, level=0))
             self.engine.apply(SetBasicTrainingDoneCommand())
+            # C5/G1: career entry grants the SRD rank-0 skill (e.g. navy
+            # Starman → vacc_suit-1). Drifter has no rank-0 grant and
+            # re-entry early-returns above, so no double-grant is possible.
+            self._grant_rank_bonus_skills(career_id, 0)
             return
         # Later career (B11): one player-chosen Service skill at level 0.
         if career_id in {r.career_id for r in history}:
@@ -1396,6 +1400,8 @@ class LifepathRunner:
             self.engine.apply(RecordPendingCascadeCommand(parent=parent, grant_mode="set_zero"))
         else:
             self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
+        # C5/G1: rank-0 entry grant applies to later careers (and draft) too.
+        self._grant_rank_bonus_skills(career_id, 0)
 
     # ------------------------------------------------------------------
     # Step 2: Qualification.
@@ -1601,6 +1607,16 @@ class LifepathRunner:
             if rank_entry.rank == new_rank and rank_entry.bonus_skills:
                 for bonus in rank_entry.bonus_skills:
                     skill_id = str(bonus["skill"])
+                    parent = parse_cascade_result(skill_id)
+                    if parent is not None:
+                        # C5/G1: cascade rank grants defer to a specialization
+                        # pick. All SRD rank grants are level 1, so ``increment``
+                        # mode is exactly right.
+                        self.engine.apply(
+                            RecordPendingCascadeCommand(parent=parent, grant_mode="increment")
+                        )
+                        grants.append(f"{parent} specialization (rank {new_rank})")
+                        continue
                     level = int(bonus.get("level", 0))
                     self.engine.apply(GainSkillCommand(skill_id=skill_id, level=level))
                     grants.append(f"{skill_id}-{level} (rank {new_rank})")
