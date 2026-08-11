@@ -101,6 +101,7 @@ _DISPATCH_PREFIXES: tuple[str, ...] = (
     "skill_table:",
     "aging_stat:",
     "injury_stat:",
+    "spec:",
 )
 
 
