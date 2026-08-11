@@ -1137,6 +1137,29 @@ class ChooseSpecializationCommand(Command):
         )
 
 
+class RecordPendingCascadeCommand(Command):
+    """Queue a cascade grant for player specialization (C3, C-A3).
+
+    Used by grant sites that don't roll a table (basic training). Table rolls
+    queue via :class:`SkillTableRollCommand` directly.
+    """
+
+    command_type: ClassVar[str] = "lifepath_record_pending_cascade"
+    parent: str
+    grant_mode: str = "increment"
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.pending_cascades.append(
+            PendingCascade(parent=self.parent, grant_mode=self.grant_mode)
+        )
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Cascade grant pending: {self.parent} ({self.grant_mode})",
+            changes={"cascade_parent": self.parent, "grant_mode": self.grant_mode},
+        )
+
+
 class SetBackgroundPicksCommand(Command):
     """Set ``background_picks_remaining`` (Task 9 funnel command, no dice)."""
 
@@ -1351,7 +1374,14 @@ class LifepathRunner:
             if state.character.basic_training_done:
                 return
             for entry in service.entries.entries:
-                if not entry.result.startswith("+"):
+                if entry.result.startswith("+"):
+                    continue
+                parent = parse_cascade_result(entry.result)
+                if parent is not None:
+                    self.engine.apply(
+                        RecordPendingCascadeCommand(parent=parent, grant_mode="set_zero")
+                    )
+                else:
                     self.engine.apply(GainSkillCommand(skill_id=entry.result, level=0))
             self.engine.apply(SetBasicTrainingDoneCommand())
             return
@@ -1361,7 +1391,11 @@ class LifepathRunner:
         valid = {e.result for e in service.entries.entries if not e.result.startswith("+")}
         if chosen_skill not in valid:
             raise ValueError(f"Choose one Service skill from {sorted(valid)}; got {chosen_skill!r}")
-        self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
+        parent = parse_cascade_result(chosen_skill)
+        if parent is not None:
+            self.engine.apply(RecordPendingCascadeCommand(parent=parent, grant_mode="set_zero"))
+        else:
+            self.engine.apply(GainSkillCommand(skill_id=chosen_skill, level=0))
 
     # ------------------------------------------------------------------
     # Step 2: Qualification.
@@ -1764,6 +1798,7 @@ class LifepathRunner:
 
         self.run_aging_step(result)
         self._auto_apply_aging()
+        self._auto_resolve_cascades()
         self.finalize_term(career_id, result)
         return result
 
@@ -2044,6 +2079,27 @@ class LifepathRunner:
             )
             if event.changes.get("crisis"):
                 self.auto_resolve_crisis(stat, crisis_kind="aging")
+
+    def _auto_resolve_cascades(self) -> None:
+        """Drain pending cascades deterministically — first listed spec (C-A4 batch rule).
+
+        Interactive clients surface the ``choose_specialization`` phase instead;
+        this runs only in batch paths (``run_term``/``run_lifepath``).
+        """
+        while self.engine.state.character.pending_cascades:
+            pending = self.engine.state.character.pending_cascades[0]
+            cascade = self.pack.cascades.get(pending.parent)
+            members = list(cascade.specializations) if cascade else []
+            if not members:
+                raise ValueError(f"Cascade {pending.parent!r} has no specializations")
+            self.engine.apply(
+                ChooseSpecializationCommand(
+                    cascade_parent=pending.parent,
+                    skill_id=members[0],
+                    grant_mode=pending.grant_mode,
+                    specializations=members,
+                )
+            )
 
     # ------------------------------------------------------------------
     # Full lifepath.
