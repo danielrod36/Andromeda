@@ -400,11 +400,13 @@ class EndCareerCommand(Command):
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         ch = state.character
+        previous_cumulative = ch.career_history[-1].terms if ch.career_history else 0
         record = CareerTermRecord(
             career_id=ch.career,
             terms=ch.terms,
             final_rank=ch.rank,
             ended_by=self.ended_by,
+            terms_in_career=ch.terms - previous_cumulative,
         )
         ch.career_history.append(record)
         ch.career = ""

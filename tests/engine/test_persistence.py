@@ -367,8 +367,8 @@ class TestV2ToV3Migration:
         assert loaded.pending_freetext["check"]["skill"] == "broker"
 
     def test_current_save_version_is_5(self):
-        """CURRENT_SAVE_VERSION is 6 after C3.T2."""
-        assert current_save_version() == 6
+        """CURRENT_SAVE_VERSION is 7 after C6.T1."""
+        assert current_save_version() == 7
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +389,7 @@ class TestV3ToV4Migration:
         p = tmp_path / "v3.json"
         p.write_text(json.dumps(v3))
         loaded = load(p)
-        assert loaded.save_version == 6
+        assert loaded.save_version == 7
         assert loaded.pending_hook is None
 
     def test_v4_save_round_trips_pending_hook(self, tmp_path: Path):
@@ -407,7 +407,7 @@ class TestV3ToV4Migration:
         p = tmp_path / "v4.json"
         save(state, p)
         loaded = load(p)
-        assert loaded.save_version == 6
+        assert loaded.save_version == 7
         assert loaded.pending_hook is not None
         assert loaded.pending_hook["patron"] == "Navy"
         assert loaded.pending_hook["objective"] == "Recover cargo"
@@ -465,7 +465,7 @@ class TestV4ToV5Migration:
             "pending_hook": None,
         }
         migrated = migrate(v4_data, from_version=4)
-        assert migrated["save_version"] == 6
+        assert migrated["save_version"] == 7
         assert migrated["character"]["benefits_lost"] is False
         assert migrated["character"]["debt_cr"] == 0
         assert migrated["character"]["mustered_careers"] == []
@@ -534,7 +534,7 @@ class TestSaveV6:
             "pending_hook": None,
         }
         migrated = migrate(v5_data, from_version=5)
-        assert migrated["save_version"] == 6
+        assert migrated["save_version"] == 7
         assert migrated["character"]["pending_cascades"] == []
 
     def test_pending_cascades_round_trip(self):

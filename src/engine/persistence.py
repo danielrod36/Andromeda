@@ -18,7 +18,7 @@ from pathlib import Path
 from src.engine.state import GameState
 
 #: Current save-file version. Bump when the schema changes; add a migrator.
-CURRENT_SAVE_VERSION = 6
+CURRENT_SAVE_VERSION = 7
 
 
 def _migrate_v1_to_v2(data: dict[str, object]) -> dict[str, object]:
@@ -74,6 +74,27 @@ def _migrate_v5_to_v6(data: dict[str, object]) -> dict[str, object]:
     return data
 
 
+def _migrate_v6_to_v7(data: dict[str, object]) -> dict[str, object]:
+    """v6→v7: add CareerTermRecord.terms_in_career, delta-backfilled (C6, G4).
+
+    ``terms_in_career`` is the number of terms served in THIS career stint.
+    Older saves stored only ``terms`` (cumulative across all careers at the
+    time of exit); we recover per-career terms by differencing successive
+    records' cumulative values. The first record's per-career terms equals
+    its cumulative terms.
+    """
+    char = data.get("character", {})
+    history = char.get("career_history", [])
+    previous_cumulative = 0
+    for record in history:
+        cumulative = record.get("terms", 0)
+        record.setdefault("terms_in_career", cumulative - previous_cumulative)
+        previous_cumulative = cumulative
+    data["character"] = char
+    data["save_version"] = 7
+    return data
+
+
 #: Migration functions keyed by source version. Each takes raw dict data at
 #: version N and returns dict data at version N+1. ``migrate`` walks the chain.
 _MIGRATIONS: dict[int, Callable[[dict[str, object]], dict[str, object]]] = {
@@ -82,6 +103,7 @@ _MIGRATIONS: dict[int, Callable[[dict[str, object]], dict[str, object]]] = {
     3: _migrate_v3_to_v4,
     4: _migrate_v4_to_v5,
     5: _migrate_v5_to_v6,
+    6: _migrate_v6_to_v7,
 }
 
 

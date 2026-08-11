@@ -33,6 +33,9 @@ class CareerTermRecord(BaseModel):
     terms: int = 0
     final_rank: int = 0
     ended_by: str = ""  # "mishap" | "muster_out" | "death" | "career_change"
+    # --- save schema v7 (C6) ---
+    terms_in_career: int = 0
+    """Terms served in THIS career stint (G4); ``terms`` stays cumulative-at-exit."""
 
 
 class PendingCascade(BaseModel):
@@ -160,7 +163,7 @@ class GameState(BaseModel):
     continues the exact same roll sequence.
     """
 
-    save_version: int = 6
+    save_version: int = 7
     seed: int
     campaign: CampaignConfig = Field(default_factory=CampaignConfig)
     character: Character = Field(default_factory=Character)
