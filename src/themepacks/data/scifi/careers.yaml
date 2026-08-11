@@ -37,9 +37,9 @@ navy:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -147,9 +147,9 @@ army:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -257,9 +257,9 @@ marines:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -367,9 +367,9 @@ merchant:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -472,9 +472,9 @@ scout:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -576,9 +576,9 @@ agent:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -686,9 +686,9 @@ noble:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -792,9 +792,9 @@ drifter:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -896,9 +896,9 @@ aerospace_defense:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1001,9 +1001,9 @@ athlete:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1100,9 +1100,9 @@ barbarian:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1199,9 +1199,9 @@ belter:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1303,9 +1303,9 @@ bureaucrat:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1413,9 +1413,9 @@ colonist:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1523,9 +1523,9 @@ diplomat:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1628,9 +1628,9 @@ entertainer:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1727,9 +1727,9 @@ hunter:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1831,9 +1831,9 @@ maritime_defense:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -1941,9 +1941,9 @@ mercenary:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2051,9 +2051,9 @@ physician:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2161,9 +2161,9 @@ pirate:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2271,9 +2271,9 @@ rogue:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2381,9 +2381,9 @@ scientist:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2491,9 +2491,9 @@ surface_defense:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
@@ -2601,9 +2601,9 @@ technician:
     entries:
       - {min: 1, max: 1, result: "Injured in action. Roll on the Injury table."}
       - {min: 2, max: 2, result: "Honorably discharged from the service."}
-      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000."}
-      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits."}
-      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits."}
+      - {min: 3, max: 3, result: "Honorably discharged after a legal battle. Debt of Cr10,000.", effects: [{type: debt, amount: 10000}]}
+      - {min: 4, max: 4, result: "Dishonorably discharged. Lose all benefits.", effects: [{type: lose_benefits}]}
+      - {min: 5, max: 5, result: "Dishonorably discharged after prison. Lose all benefits.", effects: [{type: lose_benefits}]}
       - {min: 6, max: 6, result: "Medically discharged. Roll on the Injury table."}
   skill_tables:
     - name: "Personal Development"
