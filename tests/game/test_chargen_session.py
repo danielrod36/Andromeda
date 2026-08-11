@@ -193,14 +193,17 @@ class TestChargenSessionSerialize:
             ChargenSession.restore(data)
 
     def test_restore_runs_save_migrations(self):
-        """A v4 save envelope restores to v5 (migration runs)."""
+        """A v4 save envelope restores to current (migration runs)."""
         session = ChargenSession.create(seed=42)
         data = session.serialize()
         envelope = json.loads(data)
         envelope["state"]["save_version"] = 4
         data = json.dumps(envelope)
         restored = ChargenSession.restore(data)
-        assert restored._engine.state.save_version == 5
+        # v4 walks through v5 → v6 (C3); the pin tracks the current version.
+        from src.engine.persistence import CURRENT_SAVE_VERSION
+
+        assert restored._engine.state.save_version == CURRENT_SAVE_VERSION
 
     def test_restore_rejects_future_save_version(self):
         """A save version newer than CURRENT_SAVE_VERSION is rejected."""
