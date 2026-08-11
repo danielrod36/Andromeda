@@ -40,6 +40,10 @@ the LLM — advice/proposal records are stored as event-log payloads.
 - The frozen TUI never surfaces `choose_specialization`: cascade grants queue
   in `character.pending_cascades` and the skill stays unapplied in TUI play.
   The web shell and this headless module surface the choice normally.
+- Per-career muster-out (C6): the TUI's own screen machine still musters once
+  at chargen end using the last career. Multi-career TUI characters differ
+  from engine-correct output (earlier-career benefits never roll). Web +
+  headless module are per-career correct.
 
 ## Error Model
 
