@@ -1,0 +1,36 @@
+# Open Game Content (Cepheus Engine SRD-derived). Licensed under OGL 1.0a — see LICENSE.OGL.
+# Cascade skill groups (C4): when a table grants a cascade, the player chooses
+# one specialization on every grant (C-A4). Parent ids are the shared id
+# prefixes — the loader enforces the prefix rule (C-A1).
+gun_combat:
+  id: gun_combat
+  name: "Gun Combat"
+  specializations: [gun_combat_slug_pistol, gun_combat_slug_rifle, gun_combat_energy_rifle]
+pilot:
+  id: pilot
+  name: "Pilot"
+  specializations: [pilot_small_craft, pilot_capital_ship]
+electronics:
+  id: electronics
+  name: "Electronics"
+  specializations: [electronics_comms, electronics_sensors, electronics_remote_ops]
+drive:
+  id: drive
+  name: "Drive"
+  specializations: [drive_ground_vehicle, drive_hovercraft]
+melee:
+  id: melee
+  name: "Melee"
+  specializations: [melee_blade, melee_unarmed]
+tactics:
+  id: tactics
+  name: "Tactics"
+  specializations: [tactics_ground, tactics_military, tactics_naval]
+science:
+  id: science
+  name: "Science"
+  specializations: [science_history, science_physics, science_planetology, science_xenobiology]
+heavy_wpn:
+  id: heavy_wpn
+  name: "Heavy Weapons"
+  specializations: [heavy_wpn_man_portable, heavy_wpn_vehicle]
