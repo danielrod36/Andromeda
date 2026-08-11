@@ -347,24 +347,27 @@ class TestPerCareerMusterSession:
     def test_two_career_muster_out_per_career(self):
         """Two careers muster separately; history/muster tracking consistent (C6/G4)."""
         session = ChargenSession.create(seed=42, pack_id="scifi", death_mode="narrative")
-        careers_seen = 0
+        # Drive two careers in sequence. The career pick is gated on what's
+        # already in career_history (not on a pick counter) so a failed
+        # qualification + retry doesn't double-count.
         for _ in range(300):
             choice = session.current_choice()
             if choice.phase == "complete":
                 break
             ids = {o.option_id for o in choice.options}
+            history = session._engine.state.character.career_history
+            history_ids = [r.career_id for r in history]
             if choice.phase == "choose_career":
                 # First career navy; second career army.
-                pick = "career:navy" if careers_seen == 0 else "career:army"
-                if pick in ids:
-                    careers_seen += 1
-                    session.choose(pick)
+                target = "navy" if not history_ids else "army"
+                if f"career:{target}" in ids and target not in history_ids:
+                    session.choose(f"career:{target}")
                     continue
             if choice.phase == "re_enlist" and "reenlist_muster" in ids:
                 session.choose("reenlist_muster")
                 continue
             if choice.phase == "choose_career_change":
-                if careers_seen < 2 and "career_change_new" in ids:
+                if len(history_ids) < 2 and "career_change_new" in ids:
                     session.choose("career_change_new")
                 elif "career_change_finish" in ids:
                     session.choose("career_change_finish")
@@ -376,9 +379,10 @@ class TestPerCareerMusterSession:
                 break
             session.choose(pick.option_id)
         ch = session._engine.state.character
-        assert careers_seen == 2, f"expected 2 careers, drove {careers_seen}"
         history = ch.career_history
-        assert [r.career_id for r in history] == ["navy", "army"]
+        assert [r.career_id for r in history] == ["navy", "army"], (
+            f"expected [navy, army], got {[r.career_id for r in history]}"
+        )
         # Per-career terms sum to lifetime terms:
         assert sum(r.terms_in_career for r in history) == ch.terms
         # Each career mustered separately, in order:
