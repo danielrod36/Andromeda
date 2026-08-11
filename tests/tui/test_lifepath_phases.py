@@ -814,8 +814,20 @@ class TestBackgroundSkillsPhase:
             chosen = app.engine.state.character.career
             career = app.pack.careers[chosen]
             service = next(t for t in career.skill_tables if t.name == "Service Skills")
+            # C4: flat Service skills land at 0; cascade entries pend at
+            # set_zero because the frozen TUI never surfaces
+            # choose_specialization (harness limitation, documented in
+            # src/game/chargen/README.md).
+            pending_parents = {p.parent for p in app.engine.state.character.pending_cascades}
             for entry in service.entries.entries:
-                if not entry.result.startswith("+"):
+                if entry.result.startswith("+"):
+                    continue
+                if entry.result.startswith("cascade:"):
+                    parent = entry.result.removeprefix("cascade:")
+                    assert parent in pending_parents, (
+                        f"cascade {parent} not pending after basic training"
+                    )
+                else:
                     assert app.engine.state.character.skills.get(entry.result) == 0
 
 

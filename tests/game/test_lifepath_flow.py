@@ -336,8 +336,10 @@ class TestLaterCareerBasicTraining:
         view = controller.apply_choice("career:navy")
         assert view.phase == "choose_basic_training_skill"
         option_ids = [c.option_id for c in view.choices]
+        # Flat Service skills appear directly.
         assert "bt_skill:engineer" in option_ids
-        assert "bt_skill:electronics_comms" in option_ids
+        # C4: cascade skills appear as cascade options (player picks a spec).
+        assert "bt_skill:cascade:electronics" in option_ids
 
     def test_basic_training_choice_grants_skill_and_starts_term(self):
         engine = self._make_career_change_engine()

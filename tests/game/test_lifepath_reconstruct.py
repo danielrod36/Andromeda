@@ -112,8 +112,12 @@ class TestReconstruction:
             "Reconstruction consumed extra RNG rolls"
         )
 
-        # The fresh controller should be in choose_skills phase.
-        assert ctrl2.determine_phase() == "choose_skills"
+        # C4: the skill roll hit a cascade slot (drifter Personal Development
+        # slot 4 = cascade:melee), so a specialization choice interrupts
+        # choose_skills. The fresh controller must reconstruct the same
+        # interrupt — the pending cascade, not choose_skills.
+        assert ctrl2.determine_phase() == "choose_specialization"
+        assert ctrl2._current_term_result is not None
 
     def test_reconstruct_non_hierarchy_advancement_guard(self):
         """The advancement=None guard doesn't crash for non-hierarchy careers.

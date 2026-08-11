@@ -79,6 +79,23 @@ def _navy_one_term_rolls() -> list[list[int]]:
 _SKILL_TABLES = ["Personal Development", "Service Skills", "Specialist Skills"]
 
 
+def _drain_cascades(ctrl: LifepathController) -> None:
+    """Resolve any pending cascade specializations (C4).
+
+    The web controller interrupts with ``choose_specialization`` whenever a
+    skill-table roll hits a cascade slot. The batch path (``run_term``)
+    auto-resolves them at the end of the term via the same deterministic
+    first-spec rule (C-A4); this helper mirrors that between interactive
+    skill rolls so both paths produce identical final state.
+
+    Dice alignment is preserved: ``ChooseSpecializationCommand`` never rolls.
+    """
+    while ctrl.determine_phase() == "choose_specialization":
+        view = ctrl.get_phase_view()
+        spec_option = next(c.option_id for c in view.choices if c.option_id.startswith("spec:"))
+        ctrl.apply_choice(spec_option)
+
+
 class TestLifepathParity:
     """AE1: web controller matches engine batch path for the same seed + choices."""
 
@@ -101,6 +118,7 @@ class TestLifepathParity:
         web_ctrl.apply_choice("advancement_attempt")
         for table in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{table}")
+            _drain_cascades(web_ctrl)
         # After last skill roll, reenlistment auto-resolves (may_continue).
         web_ctrl.apply_choice("reenlist_continue")
 
@@ -143,6 +161,7 @@ class TestLifepathParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_continue")
 
         web_types = [e.command_type for e in web_state.events if e.command_type != "set_flag"]
@@ -157,8 +176,14 @@ class TestLifepathParity:
 
         batch_types = [e.command_type for e in batch_state.events if e.command_type != "set_flag"]
 
-        assert web_types == batch_types, (
-            f"Event type mismatch:\n  web:   {web_types}\n  batch: {batch_types}"
+        # C4: the web controller resolves cascades interactively between skill
+        # rolls, while ``run_term`` auto-resolves them at the end of the term.
+        # Both paths perform the same operations — only the position of
+        # ``lifepath_choose_specialization`` differs — so compare as multisets.
+        assert sorted(web_types) == sorted(batch_types), (
+            f"Event type multiset mismatch:\n"
+            f"  web:   {sorted(web_types)}\n"
+            f"  batch: {sorted(batch_types)}"
         )
 
     def test_reenlistment_event_present(self):
@@ -172,6 +197,7 @@ class TestLifepathParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         # Reenlistment auto-resolves after the last skill roll.
 
         event_types = [e.command_type for e in web_state.events]
@@ -192,6 +218,7 @@ class TestLifepathParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_continue")
         web_remaining = web_roller.remaining
 
@@ -231,6 +258,7 @@ class TestMusterOutParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_muster")
 
         # Now in mustering_out → muster_out_allocate.
@@ -264,6 +292,7 @@ class TestMusterOutParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_muster")
         # Claim one cash benefit.
         web_ctrl.apply_choice("claim_cash")
@@ -316,6 +345,7 @@ class TestMusterOutParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_muster")
 
         plan = web_ctrl._muster_plan
@@ -365,6 +395,7 @@ class TestMusterOutParity:
         web_ctrl.apply_choice("advancement_attempt")
         for t in _SKILL_TABLES:
             web_ctrl.apply_choice(f"skill_table:{t}")
+            _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_muster")
         # Plan total_rolls for 1 term, rank 2 = 1.
         plan = web_ctrl._muster_plan

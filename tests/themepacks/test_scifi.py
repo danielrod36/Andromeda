@@ -162,14 +162,26 @@ def test_career_mustering_out_tables(scifi_pack):
 
 
 def test_all_career_skills_exist_in_skill_definitions(scifi_pack):
-    """Every skill referenced in career tables is defined in skills.yaml."""
-    defined_skills = set(scifi_pack.skills.keys())
-    for career_id, career in scifi_pack.careers.items():
+    """Every skill referenced in career tables is defined in skills.yaml.
+
+    ``cascade:<parent>`` results (C4) are valid when ``<parent>`` is a declared
+    cascade group; the choose-specialization phase resolves them at runtime.
+    """
+    pack = scifi_pack
+    defined_skills = set(pack.skills.keys())
+    for career_id, career in pack.careers.items():
         for table in career.skill_tables:
             for entry in table.entries.entries:
                 result = entry.result
                 # Skip characteristic increases (e.g. "+1 STR")
                 if result.startswith(("+", "-")):
+                    continue
+                # C4: cascade:<parent> is valid iff parent is declared.
+                if result.startswith("cascade:"):
+                    parent = result.removeprefix("cascade:")
+                    assert parent in pack.cascades, (
+                        f"Career '{career_id}' references unknown cascade '{result}'"
+                    )
                     continue
                 # Strip level suffixes like "Pilot-1" or "Gunnery (Turrets)"
                 skill_key = result.lower().replace(" ", "_").replace("(", "").replace(")", "")

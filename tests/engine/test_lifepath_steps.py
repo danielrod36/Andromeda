@@ -102,6 +102,12 @@ class TestStepEquivalence:
             runner_a.run_skill_roll_step("navy", result_a, table_name)
         runner_a.run_aging_step(result_a)
         runner_a.finalize_term("navy", result_a)
+        # C4: step path is interactive — it leaves cascade grants pending for
+        # the player to choose.  Batch ``run_term`` auto-resolves them with
+        # the same deterministic first-spec rule (C-A4); apply that here so
+        # the state comparison tests step/batch equivalence, not the
+        # intentional interactive/batch divergence.
+        runner_a._auto_resolve_cascades()
 
         # Run via legacy run_term.
         engine_b, runner_b = setup_qualified_engine(list(term_queue), pack)
@@ -786,12 +792,26 @@ class TestBasicTraining:
     """
 
     def test_basic_training_first_career_grants_all_service_skills(self, engine_and_pack):
+        """C4: flat Service skills land at 0; cascade entries pend at set_zero (C-A4)."""
         engine, pack = engine_and_pack
         runner = LifepathRunner(engine, pack)
         runner.run_basic_training("navy")
         service = next(t for t in pack.careers["navy"].skill_tables if t.name == "Service Skills")
+        pending_parents = {p.parent for p in engine.state.character.pending_cascades}
         for entry in service.entries.entries:
-            if not entry.result.startswith("+"):
+            if entry.result.startswith("+"):
+                continue
+            if entry.result.startswith("cascade:"):
+                # C4: cascade entries pend a choice at set_zero (basic training).
+                parent = entry.result.removeprefix("cascade:")
+                assert parent in pending_parents, f"cascade {parent} not pending"
+                pending = next(
+                    p for p in engine.state.character.pending_cascades if p.parent == parent
+                )
+                assert pending.grant_mode == "set_zero", (
+                    f"cascade {parent} grant_mode={pending.grant_mode}"
+                )
+            else:
                 assert engine.state.character.skills.get(entry.result) == 0
         assert engine.state.character.basic_training_done is True
 

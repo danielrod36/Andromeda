@@ -135,6 +135,28 @@ class TestLifepathScreen:
 # ---------------------------------------------------------------------------
 
 
+def _drain_specializations(client: TestClient, save_name: str = "TestHero") -> None:
+    """Resolve any pending cascade specializations by picking the first option.
+
+    C4: basic training and skill-table rolls on cascade slots pend a
+    ``choose_specialization`` phase. The web shell surfaces it; this helper
+    drives the new phase to completion so downstream term phases are
+    reachable. Deterministic — always picks the first listed spec.
+    """
+    import re
+
+    for _ in range(20):  # bounded — at most a few cascades per term
+        response = client.get(f"/play/{save_name}")
+        match = re.search(r"spec:(\w[\w_]*)", response.text)
+        if not match:
+            break
+        client.post(
+            f"/play/{save_name}/action",
+            data={"choice": f"spec:{match.group(1)}"},
+            headers=_ORIGIN,
+        )
+
+
 def _setup_character_for_term(client: TestClient, save_name: str = "TestHero") -> None:
     """Drive through pool, assignment, background skills, and career choice.
 
@@ -170,6 +192,9 @@ def _setup_character_for_term(client: TestClient, save_name: str = "TestHero") -
         data={"choice": "career:navy"},
         headers=_ORIGIN,
     )
+    # C4: basic training pends cascade specializations — drain them so the
+    # character is ready for begin_term.
+    _drain_specializations(client, save_name)
 
 
 class TestInteractiveTermPhases:
