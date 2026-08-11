@@ -631,3 +631,52 @@ class TestSaveV7:
         assert migrated["save_version"] == 7
         assert migrated["character"]["pending_cascades"] == []
         assert migrated["character"]["career_history"][0]["terms_in_career"] == 3
+
+    def test_v5_save_migrates_to_v7_with_playable_muster(self):
+        """A v5 fixture (pre-G4) migrates and the controller runs on it (C6/C-A7).
+
+        Builds a v5-shape document by dumping a fresh ``GameState`` and
+        stripping v6/v7 fields, walks the chain to v7, validates into
+        ``GameState``, and constructs a ``LifepathController`` to confirm
+        ``determine_phase()`` runs without error. This is the migration-
+        playability pin: any schema or reconstruction break shows up here.
+        """
+        import json
+
+        from src.engine.commands import Engine
+        from src.engine.dice import ForcedRoller
+        from src.engine.persistence import migrate
+        from src.engine.state import CareerTermRecord, GameState
+        from src.game.lifepath import LifepathController
+        from src.themepacks.cepheus_scifi import load_scifi_pack
+
+        # Build a real state with one career mustered out, then dump to dict.
+        state = GameState.new(seed=42)
+        ch = state.character
+        ch.name = "Migrant"
+        ch.characteristics = {"STR": 7, "DEX": 8, "END": 6, "INT": 9, "EDU": 8, "SOC": 6}
+        ch.age = 30
+        ch.terms = 3
+        ch.basic_training_done = True
+        ch.background_picks_remaining = 0
+        ch.career_history.append(
+            CareerTermRecord(career_id="navy", terms=3, final_rank=2, ended_by="muster_out")
+        )
+
+        v5_data = json.loads(state.model_dump_json())
+        # Strip v6/v7 fields to simulate a pre-C3 save.
+        v5_data["save_version"] = 5
+        v5_data["character"].pop("pending_cascades", None)
+        for record in v5_data["character"]["career_history"]:
+            record.pop("terms_in_career", None)
+
+        migrated = migrate(v5_data, from_version=5)
+        assert migrated["save_version"] == 7
+        restored = GameState.model_validate(migrated)
+        # Per-career terms backfilled correctly.
+        assert restored.character.career_history[0].terms_in_career == 3
+        # Controller constructs and determines a phase without error.
+        engine = Engine(restored, ForcedRoller([]))
+        controller = LifepathController(engine, load_scifi_pack())
+        phase = controller.determine_phase()
+        assert phase in {"choose_career", "choose_career_change", "complete"}
