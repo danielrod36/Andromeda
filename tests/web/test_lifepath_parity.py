@@ -326,11 +326,11 @@ class TestMusterOutParity:
             )
 
     def test_all_rolls_consumed_completes_muster_out(self):
-        """Claiming the single available roll completes muster out.
+        """Claiming the single available roll completes the career's muster.
 
-        A 1-term character with rank 2 has exactly 1 benefit roll.
-        After claiming it, the controller reaches ``complete`` and sets
-        ``mustered_out=true``.
+        C6: a single career's muster exhausting routes to choose_career_change
+        (not terminal). Driving career_change_finish then sets the terminal
+        ``mustered_out=true`` flag and reaches ``complete``.
         """
         term_rolls = _navy_one_term_rolls()
         all_rolls = [*term_rolls, [3]]
@@ -350,9 +350,13 @@ class TestMusterOutParity:
 
         plan = web_ctrl._muster_plan
         assert plan is not None
-        # Claim the one available roll.
+        # Claim the one available roll — exhausts THIS career's muster.
         view = web_ctrl.apply_choice("claim_cash")
-        # Should now be at complete (all rolls consumed).
+        # C6: routes to choose_career_change (terms < 7, alive).
+        assert view.phase == "choose_career_change"
+        assert "mustered_out=true" not in web_state.narrative_log
+        # Finish ends chargen.
+        view = web_ctrl.apply_choice("career_change_finish")
         assert view.phase == "complete"
         assert "mustered_out=true" in web_state.narrative_log
 
@@ -387,6 +391,10 @@ class TestMusterOutParity:
         # First controller: drive through term + claim 1 cash benefit.
         web_state = _make_state(seed=99)
         _setup_char(web_state)
+        # C6: ensure total_rolls > 1 so a single claim leaves us mid-muster
+        # (per-career terms = 3 -> 3 rolls at rank 2). Pre-set terms=2 so
+        # survival bumps to 3.
+        web_state.character.terms = 2
         web_engine = Engine(web_state, ForcedRoller(all_rolls))
         web_ctrl = LifepathController(web_engine, load_scifi_pack())
 
@@ -397,17 +405,15 @@ class TestMusterOutParity:
             web_ctrl.apply_choice(f"skill_table:{t}")
             _drain_cascades(web_ctrl)
         web_ctrl.apply_choice("reenlist_muster")
-        # Plan total_rolls for 1 term, rank 2 = 1.
+        # Plan total_rolls for 1 term in this stint (terms went 2->3), rank 2.
         plan = web_ctrl._muster_plan
         assert plan is not None
         total = plan.total_rolls
+        assert total > 1  # need > 1 to test resume mid-muster
 
-        # Claim one benefit if there are rolls available.
-        if total > 0:
-            web_ctrl.apply_choice("claim_cash")
-            claimed = 1
-        else:
-            claimed = 0
+        # Claim one benefit — rolls still remain, so we stay mid-muster.
+        web_ctrl.apply_choice("claim_cash")
+        claimed = 1
 
         # Now build a fresh controller from the same state.
         fresh_engine = Engine(web_state, ForcedRoller([]))

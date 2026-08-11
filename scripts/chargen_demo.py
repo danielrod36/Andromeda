@@ -100,8 +100,15 @@ def run_demo(seed: int = 42, death_mode: str = "narrative") -> None:
             continue
         elif raw.isdigit():
             idx = int(raw)
-            if 0 <= idx < len(choice.options):
-                result = session.choose(choice.options[idx].option_id)
+            # C6: skip dimmed options when indexing so the demo driver (and
+            # piped-input smoke test) doesn't try to qualify for an already-
+            # left career at choose_career. Visible options are indexed 0..N
+            # in display order; dimmed options are still listed but skipped
+            # by numeric input.
+            visible = [o for o in choice.options if not o.dimmed]
+            pool = visible if visible else choice.options
+            if 0 <= idx < len(pool):
+                result = session.choose(pool[idx].option_id)
                 for r in result.receipts:
                     print(f"  » {r}")
                 continue

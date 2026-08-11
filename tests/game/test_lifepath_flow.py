@@ -617,9 +617,10 @@ class TestPerCareerMusterFlow:
         """Mishap exit: muster THIS career's benefits, then offer career change."""
         engine = _make_mid_lifepath_engine()
         state = engine.state
-        state.character.terms = 1
+        state.character.terms = 0  # entering first term; survival bumps to 1
         # survival fail [2,1]=3+1 <5 -> narrative mishap; mishap row 2 (no injury);
-        # benefit cash roll [1].
+        # benefit cash roll [1]. (C6 changelog: was terms=1 which made the
+        # 1-pip benefit queue under-count; survival always bumps terms.)
         engine._roller = ForcedRoller([[2, 1], [2], [1]])
         controller = LifepathController(engine, load_scifi_pack())
         view = controller.apply_choice("begin_term")

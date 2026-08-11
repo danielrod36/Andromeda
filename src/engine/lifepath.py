@@ -419,6 +419,32 @@ class EndCareerCommand(Command):
         )
 
 
+class RecordMusteredCareerCommand(Command):
+    """Record one career's completed muster-out (C6/G4 tracking).
+
+    Appends the career id to ``character.mustered_careers`` so the audit log
+    can answer "which careers have already been muustered out?" without
+    re-deriving it from the event history. Pure tracking — does not change
+    any mechanical state (the terminal flag is set separately, only when
+    chargen truly ends, by :class:`SetFlagCommand`).
+    """
+
+    command_type: ClassVar[str] = "lifepath_record_mustered_career"
+    career_id: str
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.character.mustered_careers.append(self.career_id)
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"Mustered out of {self.career_id}",
+            changes={
+                "career_id": self.career_id,
+                "mustered_careers": list(state.character.mustered_careers),
+            },
+        )
+
+
 class SurvivalCommand(Command):
     """Roll survival check. Ironman death -> alive=False; other modes -> mishap."""
 

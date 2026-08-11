@@ -308,6 +308,17 @@ class TestCascadeRealPack:
                 skill_id = pick.option_id.removeprefix("spec:")
                 assert skill_id in session._engine.state.character.skills
                 continue
+            # C6: after a career's muster, choose_career_change offers a new
+            # career or finish. This test only needs ONE career to exercise
+            # cascades — pick finish to terminate.
+            if choice.phase == "choose_career_change":
+                finish = next(
+                    (o for o in choice.options if o.option_id == "career_change_finish"),
+                    None,
+                )
+                if finish is not None:
+                    session.choose(finish.option_id)
+                    continue
             pick = next(
                 (o for o in choice.options if o.option_id == "career:navy"),
                 next(

@@ -73,7 +73,7 @@ _STATIC_DISPATCH_IDS: frozenset[str] = frozenset(
         "fallback_draft",
         "fallback_drifter",
         "career_change_new",
-        "career_change_muster",
+        "career_change_finish",
         "begin_term",
         "commission_attempt",
         "commission_decline",

@@ -267,7 +267,13 @@ def choice_qualification_fallback(
 def choice_career_change(
     state: GameState, pack: LoadedThemePack, ruleset: RuleSet
 ) -> ChoicePointView:
-    """Career ended: new career at -2 per prior career, or muster out (P2.T3)."""
+    """Career ended (muster already ran): new career or finish (P2.T3, C6).
+
+    C6: at this phase, the prior career's mustering-out has already
+    happened. ``career_change_finish`` ends chargen (sets the terminal
+    flag); ``career_change_new`` attempts another career at -2 per prior
+    career.
+    """
     dm = -2 * len(state.character.career_history)
     return ChoicePointView(
         choice_id="choose_career_change",
@@ -280,9 +286,9 @@ def choice_career_change(
                 preview=[f"qualification at DM {dm:+d}"],
             ),
             ChoiceOptionView(
-                option_id="career_change_muster",
-                label="Muster out (end character creation)",
-                preview=["end character creation and roll mustering-out benefits"],
+                option_id="career_change_finish",
+                label="Finish character",
+                preview=["end character creation and begin the adventure"],
             ),
         ],
     )
@@ -570,8 +576,8 @@ def choice_re_enlist(state: GameState, pack: LoadedThemePack, ruleset: RuleSet) 
             ),
             ChoiceOptionView(
                 option_id="reenlist_muster",
-                label="Muster Out and Finish Character",
-                preview=["leave service and collect mustering-out benefits"],
+                label="Muster Out",
+                preview=["leave this career and collect its mustering-out benefits"],
             ),
         ],
     )

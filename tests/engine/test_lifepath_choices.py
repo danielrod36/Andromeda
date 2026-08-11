@@ -275,7 +275,7 @@ def test_re_enlist_previews_aging_and_forced_outcomes(pack, ruleset):
     assert "aging check will apply" in cont.preview[0]
     assert "re-enlistment 2D6 vs 5" in cont.preview[1]
     muster = next(o for o in cp.options if o.option_id == "reenlist_muster")
-    assert muster.preview == ["leave service and collect mustering-out benefits"]
+    assert muster.preview == ["leave this career and collect its mustering-out benefits"]
 
 
 def test_muster_out_allocate_counts_and_cash_cap(pack, ruleset):

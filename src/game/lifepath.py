@@ -31,6 +31,7 @@ from src.engine.lifepath import (
     LifepathRunner,
     MishapRollCommand,
     MusteringOutResult,
+    RecordMusteredCareerCommand,
     ResolveInjuryCrisisCommand,
     RollAgingCrisisCostCommand,
     SkillGain,
@@ -690,9 +691,9 @@ class LifepathController:
                         description=f"Serve another 4-year term.{aging_note}",
                     ),
                     ChoiceOption(
-                        label="Muster Out and Finish Character",
+                        label="Muster Out",
                         option_id="reenlist_muster",
-                        description="Leave service and collect mustering-out benefits.",
+                        description="Leave this career and collect its mustering-out benefits.",
                     ),
                 ],
                 receipts=receipts,
@@ -707,11 +708,10 @@ class LifepathController:
                     self._muster_plan.total_rolls
                 )
                 if self._benefit_rolls_remaining <= 0:
-                    # No benefit rolls — go straight to complete.
-                    self._engine.apply(
-                        SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
-                    )
-                    return self.get_phase_view()
+                    # C6: no benefit rolls for this career — route through the
+                    # shared transition so the mustered career is recorded and
+                    # the next phase (complete or choose_career_change) is set.
+                    return self._after_muster_out_complete([])
                 self._set_term_phase("muster_out_allocate")
                 return self._view_muster_out_allocate([])
             return PhaseView(
@@ -793,7 +793,12 @@ class LifepathController:
         )
 
     def _view_career_change(self) -> PhaseView:
-        """Build the career-change PhaseView."""
+        """Build the career-change PhaseView.
+
+        C6: at this point the previous career's muster has already run (per-
+        career muster-out). The "finish" option ends chargen without re-
+        rolling benefits — the mustered_out flag is the terminal gate.
+        """
         history = self._engine.state.character.career_history
         dm = -2 * len(history)
         return PhaseView(
@@ -806,9 +811,9 @@ class LifepathController:
                     description=f"Qualification at DM {dm:+d}.",
                 ),
                 ChoiceOption(
-                    label="Muster out (end character creation)",
-                    option_id="career_change_muster",
-                    description="End character creation and roll mustering-out benefits.",
+                    label="Finish character",
+                    option_id="career_change_finish",
+                    description="End character creation and begin the adventure.",
                 ),
             ],
         )
@@ -987,8 +992,13 @@ class LifepathController:
             self._set_term_phase("choose_career")
             return self.get_phase_view()
 
-        if option_id == "career_change_muster":
-            self._set_term_phase("mustering_out")
+        if option_id == "career_change_finish":
+            # C6: the previous career's muster already ran. Finish sets the
+            # terminal flag — choose_career_change is post-muster, not a re-
+            # muster trigger.
+            self._engine.apply(
+                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+            )
             return self.get_phase_view()
 
         # --- Term sub-phases ---
@@ -1579,19 +1589,14 @@ class LifepathController:
         if career_id:
             self._runner.finalize_term(career_id, result)
         if result.mishap:
-            # Career ended via mishap — end career, then choose or muster.
+            # C6/G4: mishap exit musters THIS career before any career change.
+            # Mishap benefits may be zero (e.g. benefits_lost); the mustering_out
+            # phase auto-routes via _after_muster_out_complete, so both the
+            # "continue with another career" and "7+ terms -> complete" cases
+            # are handled by the shared transition.
             state = self._engine.state
             if state.character.career:
                 self._engine.apply(EndCareerCommand(ended_by="mishap"))
-            if state.character.terms < 7:
-                self._set_term_phase("choose_career_change")
-                view = self.get_phase_view()
-                return PhaseView(
-                    phase="choose_career_change",
-                    prompt=view.prompt,
-                    choices=view.choices,
-                    receipts=receipts,
-                )
             self._set_term_phase("mustering_out")
             view = self.get_phase_view()
             return PhaseView(
@@ -1718,16 +1723,10 @@ class LifepathController:
         self._benefit_rolls_remaining = self._runner.reconstruct_muster_counters(plan.total_rolls)
 
         if self._benefit_rolls_remaining <= 0:
-            self._engine.apply(
-                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
-            )
-            view = self.get_phase_view()
-            return PhaseView(
-                phase=view.phase,
-                prompt=view.prompt,
-                choices=view.choices,
-                receipts=[receipt],
-            )
+            # C6: this career's muster is exhausted — route through the shared
+            # transition (records the mustered career; goes to complete only
+            # for terminal paths like 7+ terms or death).
+            return self._after_muster_out_complete([receipt])
 
         return self._view_muster_out_allocate([receipt])
 
@@ -1739,6 +1738,34 @@ class LifepathController:
         if state.character.career_history:
             return state.character.career_history[-1].career_id
         return ""
+
+    def _after_muster_out_complete(self, receipts: list[str]) -> PhaseView:
+        """Route after a career's benefit rolls are exhausted (C6, C-A6).
+
+        Records the mustered career, then:
+        - dead or 7+ lifetime terms -> terminal ``mustered_out=true``;
+        - otherwise -> ``choose_career_change`` (a new career or finish).
+
+        Mustering out of a career is NOT the end of chargen any more — the
+        player may still start another career or finish immediately. Only the
+        terminal paths (retirement, death) set ``mustered_out=true`` here.
+        """
+        state = self._engine.state
+        career_id = self._get_muster_career_id()
+        if career_id:
+            self._engine.apply(RecordMusteredCareerCommand(career_id=career_id))
+        self._muster_plan = None
+        self._benefit_rolls_remaining = 0
+        if not state.character.alive or state.character.terms >= 7:
+            self._engine.apply(
+                SetFlagCommand(key="mustered_out", value="true", origin=self._origin_stamp)
+            )
+            return self.get_phase_view()
+        self._set_term_phase("choose_career_change")
+        view = self.get_phase_view()
+        return PhaseView(
+            phase=view.phase, prompt=view.prompt, choices=view.choices, receipts=receipts
+        )
 
     # ------------------------------------------------------------------
     # Receipt formatting.

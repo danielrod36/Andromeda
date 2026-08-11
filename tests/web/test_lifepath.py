@@ -455,7 +455,8 @@ class TestMusterOutBenefits:
         _create_save(saves_dir)
         with _get_client(saves_dir) as client:
             _setup_character_for_muster_out(client)
-            # Claim benefits until complete or no more claim options.
+            # C6: post-muster routes to choose_career_change before complete.
+            # Drive claim choices, then career_change_finish to terminate.
             for _ in range(10):
                 response = client.get("/play/TestHero")
                 if "complete" in response.text.lower() and "Begin Adventure" in response.text:
@@ -470,6 +471,12 @@ class TestMusterOutBenefits:
                     response = client.post(
                         "/play/TestHero/action",
                         data={"choice": "claim_material"},
+                        headers=_ORIGIN,
+                    )
+                elif "career_change_finish" in response.text:
+                    response = client.post(
+                        "/play/TestHero/action",
+                        data={"choice": "career_change_finish"},
                         headers=_ORIGIN,
                     )
                 else:
@@ -499,9 +506,13 @@ class TestMusterOutBenefits:
             # Check that the cash option is dimmed or muster-out is complete.
             response = client.get("/play/TestHero")
         text = response.text
-        # Either the cap is hit (dimmed) or all rolls are consumed (complete).
+        # Either the cap is hit (dimmed), all rolls are consumed (complete or
+        # career_change_finish per C6), or material rolls remain.
         assert (
-            "Cash rolls exhausted" in text or "complete" in text.lower() or "claim_material" in text
+            "Cash rolls exhausted" in text
+            or "complete" in text.lower()
+            or "claim_material" in text
+            or "career_change_finish" in text  # C6: post-muster career change
         )
 
     def test_handoff_link_to_adventure(self, tmp_path: Path):
@@ -510,7 +521,8 @@ class TestMusterOutBenefits:
         _create_save(saves_dir)
         with _get_client(saves_dir) as client:
             _setup_character_for_muster_out(client)
-            # Claim benefits until complete.
+            # C6: post-muster routes to choose_career_change before complete.
+            # Drive claim choices, then career_change_finish to terminate.
             for _ in range(10):
                 response = client.get("/play/TestHero")
                 if "complete" in response.text.lower() and "Begin Adventure" in response.text:
@@ -525,6 +537,12 @@ class TestMusterOutBenefits:
                     client.post(
                         "/play/TestHero/action",
                         data={"choice": "claim_material"},
+                        headers=_ORIGIN,
+                    )
+                elif "career_change_finish" in response.text:
+                    client.post(
+                        "/play/TestHero/action",
+                        data={"choice": "career_change_finish"},
                         headers=_ORIGIN,
                     )
                 else:
@@ -542,7 +560,8 @@ class TestMusterOutBenefits:
         _create_save(saves_dir)
         with _get_client(saves_dir) as client:
             _setup_character_for_muster_out(client)
-            # Claim benefits until complete.
+            # C6: post-muster routes to choose_career_change before complete.
+            # Drive claim choices, then career_change_finish to terminate.
             for _ in range(10):
                 response = client.get("/play/TestHero")
                 if "complete" in response.text.lower() and "Begin Adventure" in response.text:
@@ -557,6 +576,12 @@ class TestMusterOutBenefits:
                     client.post(
                         "/play/TestHero/action",
                         data={"choice": "claim_material"},
+                        headers=_ORIGIN,
+                    )
+                elif "career_change_finish" in response.text:
+                    client.post(
+                        "/play/TestHero/action",
+                        data={"choice": "career_change_finish"},
                         headers=_ORIGIN,
                     )
                 else:
@@ -601,7 +626,13 @@ class TestMusterOutBenefits:
         char.age = 22
         # Career history simulates having served one term in navy.
         char.career_history.append(
-            CareerTermRecord(career_id="navy", terms=1, final_rank=0, ended_by="muster_out")
+            CareerTermRecord(
+                career_id="navy",
+                terms=1,
+                final_rank=0,
+                ended_by="muster_out",
+                terms_in_career=1,  # C6: per-career terms drives benefit_rolls
+            )
         )
         # Set the term_phase flag so the controller sees muster_out_allocate on load.
         state.narrative_log.append("term_phase=muster_out_allocate")
