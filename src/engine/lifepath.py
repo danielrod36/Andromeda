@@ -733,7 +733,13 @@ class BenefitRollCommand(Command):
             if entry.once and already_has:
                 pass  # reroll already happened in resolve; if still a dup, forfeit
             elif entry.on_duplicate and already_has:
-                if entry.on_duplicate.startswith("skill:"):
+                if entry.on_duplicate.startswith("cascade:"):
+                    # C5/G5: defer to a specialization pick (C-A2 machinery).
+                    parent = entry.on_duplicate.split(":", 1)[1]
+                    state.character.pending_cascades.append(
+                        PendingCascade(parent=parent, grant_mode="increment")
+                    )
+                elif entry.on_duplicate.startswith("skill:"):
                     skill_id = entry.on_duplicate.split(":", 1)[1]
                     current = state.character.skills.get(skill_id, 0)
                     state.character.skills[skill_id] = current + 1

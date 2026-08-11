@@ -117,11 +117,11 @@ navy:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual END 5+/surv EDU 5+/comm END 6+/adv EDU 7+/reenlist 5+
 army:
@@ -228,9 +228,9 @@ army:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -339,11 +339,11 @@ marines:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual INT 4+/surv INT 5+/comm INT 5+/adv EDU 8+/reenlist 4+
 merchant:
@@ -450,11 +450,11 @@ merchant:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "1D6 Ship Shares"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual INT 6+/surv END 7+/no comm/no adv/reenlist 6+
 scout:
@@ -550,9 +550,9 @@ scout:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "Courier Vessel"}
         - {min: 7, max: 7, result: "Ship Share"}
 
@@ -661,11 +661,11 @@ agent:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual SOC 8+/surv SOC 4+/comm EDU 5+/adv INT 8+/reenlist 6+
 noble:
@@ -774,7 +774,7 @@ noble:
         - {min: 2, max: 2, result: "+1 EDU"}
         - {min: 3, max: 3, result: "+1 INT"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "1D6 Ship Shares"}
 
@@ -872,8 +872,8 @@ drifter:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
-        - {min: 4, max: 4, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
+        - {min: 4, max: 4, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 5, max: 5, result: "Mid Passage"}
         - {min: 6, max: 6, result: "Mid Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
@@ -983,9 +983,9 @@ aerospace_defense:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -1083,9 +1083,9 @@ athlete:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
 
@@ -1183,8 +1183,8 @@ barbarian:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
-        - {min: 4, max: 4, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
+        - {min: 4, max: 4, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 5, max: 5, result: "+1 END"}
         - {min: 6, max: 6, result: "Mid Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
@@ -1283,7 +1283,7 @@ belter:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "1D6 Ship Shares"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -1505,7 +1505,7 @@ colonist:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
         - {min: 5, max: 5, result: "Mid Passage"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -1620,7 +1620,7 @@ diplomat:
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
-        - {min: 7, max: 7, result: "Explorers' Society"}
+        - {min: 7, max: 7, result: "Explorers' Society", once: true}
 
 # SRD-verified 2026-07-31: qual SOC 8+/surv INT 4+/no comm/no adv/reenlist 6+
 entertainer:
@@ -1718,7 +1718,7 @@ entertainer:
         - {min: 2, max: 2, result: "+1 EDU"}
         - {min: 3, max: 3, result: "+1 SOC"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "Ship Share"}
 
@@ -1816,7 +1816,7 @@ hunter:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "1D6 Ship Shares"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -1927,9 +1927,9 @@ maritime_defense:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 EDU"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -2038,7 +2038,7 @@ mercenary:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -2151,7 +2151,7 @@ physician:
         - {min: 2, max: 2, result: "+1 EDU"}
         - {min: 3, max: 3, result: "+1 INT"}
         - {min: 4, max: 4, result: "High Passage"}
-        - {min: 5, max: 5, result: "Explorers' Society"}
+        - {min: 5, max: 5, result: "Explorers' Society", once: true}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -2260,7 +2260,7 @@ pirate:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "High Passage"}
         - {min: 5, max: 5, result: "+1 SOC"}
         - {min: 6, max: 6, result: "High Passage"}
@@ -2371,9 +2371,9 @@ rogue:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
@@ -2593,9 +2593,9 @@ surface_defense:
       entries:
         - {min: 1, max: 1, result: "Low Passage"}
         - {min: 2, max: 2, result: "+1 INT"}
-        - {min: 3, max: 3, result: "Weapon"}
+        - {min: 3, max: 3, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 4, max: 4, result: "Mid Passage"}
-        - {min: 5, max: 5, result: "Weapon"}
+        - {min: 5, max: 5, result: "Weapon", on_duplicate: "cascade:gun_combat"}
         - {min: 6, max: 6, result: "High Passage"}
         - {min: 7, max: 7, result: "+1 SOC"}
 
