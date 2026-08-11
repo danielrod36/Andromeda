@@ -52,18 +52,18 @@ navy:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "engineer"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -71,10 +71,10 @@ navy:
         entries:
           - {min: 1, max: 1, result: "gravitics"}
           - {min: 2, max: 2, result: "jack_of_trades"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "astrogation"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -85,7 +85,7 @@ navy:
           - {min: 3, max: 3, result: "engineer"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Midshipman"}
     - {rank: 2, title: "Lieutenant"}
@@ -161,17 +161,17 @@ army:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
@@ -179,12 +179,12 @@ army:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -195,7 +195,7 @@ army:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
@@ -272,29 +272,29 @@ marines:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "survival"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -305,7 +305,7 @@ marines:
           - {min: 3, max: 3, result: "gravitics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "tactics_military"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
@@ -381,19 +381,19 @@ merchant:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "vacc_suit"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "steward"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "engineer"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "broker"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -404,7 +404,7 @@ merchant:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -414,8 +414,8 @@ merchant:
           - {min: 2, max: 2, result: "engineer"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "astrogation"}
-          - {min: 5, max: 5, result: "science_physics"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:science"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Deck Cadet"}
     - {rank: 2, title: "Fourth Officer"}
@@ -487,18 +487,18 @@ scout:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "jack_of_trades"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -509,7 +509,7 @@ scout:
           - {min: 3, max: 3, result: "explosives"}
           - {min: 4, max: 4, result: "astrogation"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -520,7 +520,7 @@ scout:
           - {min: 3, max: 3, result: "linguistics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
@@ -602,14 +602,14 @@ agent:
           - {min: 3, max: 3, result: "streetwise"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "gun_combat_slug_rifle"}
-          - {min: 2, max: 2, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "cascade:gun_combat"}
+          - {min: 2, max: 2, result: "cascade:melee"}
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "recon"}
@@ -701,7 +701,7 @@ noble:
           - {min: 3, max: 3, result: "+1 EDU"}
           - {min: 4, max: 4, result: "+1 SOC"}
           - {min: 5, max: 5, result: "carousing"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -712,7 +712,7 @@ noble:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "gambler"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -720,8 +720,8 @@ noble:
         entries:
           - {min: 1, max: 1, result: "computers"}
           - {min: 2, max: 2, result: "carousing"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "diplomat"}
           - {min: 6, max: 6, result: "animals_handling"}
     - name: "Advanced Education"
@@ -734,7 +734,7 @@ noble:
           - {min: 3, max: 3, result: "diplomat"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
     - {rank: 1, title: "Knight"}
     - {rank: 2, title: "Baron"}
@@ -805,7 +805,7 @@ drifter:
           - {min: 1, max: 1, result: "+1 STR"}
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "bribery"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
@@ -815,17 +815,17 @@ drifter:
         entries:
           - {min: 1, max: 1, result: "streetwise"}
           - {min: 2, max: 2, result: "mechanic"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "melee_unarmed"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:melee"}
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "streetwise"}
           - {min: 5, max: 5, result: "gambler"}
@@ -840,7 +840,7 @@ drifter:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "diplomat"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
@@ -910,17 +910,17 @@ aerospace_defense:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
           - {min: 6, max: 6, result: "aircraft"}
     - name: "Specialist Skills"
@@ -928,12 +928,12 @@ aerospace_defense:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "gravitics"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -944,7 +944,7 @@ aerospace_defense:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Flight Officer"}
     - {rank: 2, title: "Flight Lieutenant"}
@@ -1016,7 +1016,7 @@ athlete:
           - {min: 3, max: 3, result: "+1 EDU"}
           - {min: 4, max: 4, result: "+1 SOC"}
           - {min: 5, max: 5, result: "carousing"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -1027,7 +1027,7 @@ athlete:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "computers"}
           - {min: 5, max: 5, result: "gambler"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1049,7 +1049,7 @@ athlete:
           - {min: 3, max: 3, result: "diplomat"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
@@ -1115,15 +1115,15 @@ barbarian:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "athletics"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "survival"}
           - {min: 6, max: 6, result: "animals_handling"}
@@ -1132,12 +1132,12 @@ barbarian:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:gun_combat"}
           - {min: 2, max: 2, result: "jack_of_trades"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1147,7 +1147,7 @@ barbarian:
           - {min: 2, max: 2, result: "linguistics"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "leadership"}
-          - {min: 5, max: 5, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:tactics"}
           - {min: 6, max: 6, result: "broker"}
   ranks: []
   mustering_out_cash:
@@ -1213,19 +1213,19 @@ belter:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "vacc_suit"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "prospecting"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1233,10 +1233,10 @@ belter:
         entries:
           - {min: 1, max: 1, result: "vacc_suit"}
           - {min: 2, max: 2, result: "computers"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "prospecting"}
-          - {min: 5, max: 5, result: "science_physics"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:science"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1246,8 +1246,8 @@ belter:
           - {min: 2, max: 2, result: "engineer"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "astrogation"}
-          - {min: 5, max: 5, result: "electronics_comms"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:electronics"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
@@ -1329,7 +1329,7 @@ bureaucrat:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1340,7 +1340,7 @@ bureaucrat:
           - {min: 3, max: 3, result: "investigate"}
           - {min: 4, max: 4, result: "leadership"}
           - {min: 5, max: 5, result: "steward"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1428,18 +1428,18 @@ colonist:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "athletics"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "animals_handling"}
-          - {min: 4, max: 4, result: "electronics_comms"}
+          - {min: 4, max: 4, result: "cascade:electronics"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1450,7 +1450,7 @@ colonist:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "engineer"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1549,7 +1549,7 @@ diplomat:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "diplomat"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1560,7 +1560,7 @@ diplomat:
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "diplomat"}
           - {min: 5, max: 5, result: "steward"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1643,7 +1643,7 @@ entertainer:
           - {min: 3, max: 3, result: "+1 EDU"}
           - {min: 4, max: 4, result: "+1 SOC"}
           - {min: 5, max: 5, result: "carousing"}
-          - {min: 6, max: 6, result: "melee_unarmed"}
+          - {min: 6, max: 6, result: "cascade:melee"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -1654,7 +1654,7 @@ entertainer:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "bribery"}
           - {min: 5, max: 5, result: "gambler"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -1676,7 +1676,7 @@ entertainer:
           - {min: 3, max: 3, result: "carousing"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks: []
   mustering_out_cash:
     name: "Cash Benefits"
@@ -1742,29 +1742,29 @@ hunter:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "athletics"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
-          - {min: 3, max: 3, result: "melee_unarmed"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
+          - {min: 3, max: 3, result: "cascade:melee"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "admin"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "recon"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1774,7 +1774,7 @@ hunter:
           - {min: 2, max: 2, result: "linguistics"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "diplomat"}
-          - {min: 5, max: 5, result: "tactics_ground"}
+          - {min: 5, max: 5, result: "cascade:tactics"}
           - {min: 6, max: 6, result: "animals_handling"}
   ranks: []
   mustering_out_cash:
@@ -1845,17 +1845,17 @@ maritime_defense:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
           - {min: 6, max: 6, result: "seafarer"}
     - name: "Specialist Skills"
@@ -1863,9 +1863,9 @@ maritime_defense:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
           - {min: 4, max: 4, result: "explosives"}
           - {min: 5, max: 5, result: "recon"}
           - {min: 6, max: 6, result: "seafarer"}
@@ -1879,7 +1879,7 @@ maritime_defense:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Ensign"}
     - {rank: 2, title: "Lieutenant"}
@@ -1955,17 +1955,17 @@ mercenary:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "vacc_suit"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
+          - {min: 5, max: 5, result: "cascade:melee"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "mechanic"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "gambler"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
@@ -1974,11 +1974,11 @@ mercenary:
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "gravitics"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -1988,8 +1988,8 @@ mercenary:
           - {min: 2, max: 2, result: "engineer"}
           - {min: 3, max: 3, result: "medic"}
           - {min: 4, max: 4, result: "astrogation"}
-          - {min: 5, max: 5, result: "science_physics"}
-          - {min: 6, max: 6, result: "tactics_military"}
+          - {min: 5, max: 5, result: "cascade:science"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
@@ -2066,7 +2066,7 @@ physician:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -2077,7 +2077,7 @@ physician:
           - {min: 3, max: 3, result: "mechanic"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -2085,10 +2085,10 @@ physician:
         entries:
           - {min: 1, max: 1, result: "computers"}
           - {min: 2, max: 2, result: "carousing"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2099,7 +2099,7 @@ physician:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
     - {rank: 1, title: "Resident"}
     - {rank: 2, title: "Senior Resident"}
@@ -2174,7 +2174,7 @@ pirate:
           - {min: 1, max: 1, result: "+1 STR"}
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "bribery"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
@@ -2183,22 +2183,22 @@ pirate:
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "streetwise"}
-          - {min: 2, max: 2, result: "electronics_comms"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "vacc_suit"}
-          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
           - {min: 3, max: 3, result: "engineer"}
           - {min: 4, max: 4, result: "gunnery_turrets"}
           - {min: 5, max: 5, result: "astrogation"}
-          - {min: 6, max: 6, result: "pilot_small_craft"}
+          - {min: 6, max: 6, result: "cascade:pilot"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2209,7 +2209,7 @@ pirate:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "advocate"}
-          - {min: 6, max: 6, result: "tactics_naval"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Corporal"}
     - {rank: 2, title: "Lieutenant"}
@@ -2284,7 +2284,7 @@ rogue:
           - {min: 1, max: 1, result: "+1 STR"}
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "bribery"}
           - {min: 6, max: 6, result: "gambler"}
     - name: "Service Skills"
@@ -2294,21 +2294,21 @@ rogue:
         entries:
           - {min: 1, max: 1, result: "streetwise"}
           - {min: 2, max: 2, result: "mechanic"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "computers"}
-          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
           - {min: 3, max: 3, result: "bribery"}
           - {min: 4, max: 4, result: "broker"}
           - {min: 5, max: 5, result: "recon"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2319,7 +2319,7 @@ rogue:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "advocate"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Associate"}
     - {rank: 2, title: "Soldier"}
@@ -2396,7 +2396,7 @@ scientist:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -2404,10 +2404,10 @@ scientist:
         entries:
           - {min: 1, max: 1, result: "admin"}
           - {min: 2, max: 2, result: "computers"}
-          - {min: 3, max: 3, result: "electronics_comms"}
+          - {min: 3, max: 3, result: "cascade:electronics"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "bribery"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
@@ -2415,10 +2415,10 @@ scientist:
         entries:
           - {min: 1, max: 1, result: "astrogation"}
           - {min: 2, max: 2, result: "admin"}
-          - {min: 3, max: 3, result: "science_physics"}
-          - {min: 4, max: 4, result: "science_physics"}
+          - {min: 3, max: 3, result: "cascade:science"}
+          - {min: 4, max: 4, result: "cascade:science"}
           - {min: 5, max: 5, result: "animals_handling"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2429,7 +2429,7 @@ scientist:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
     - {rank: 1, title: "Adjunct Professor"}
     - {rank: 2, title: "Research Professor"}
@@ -2505,17 +2505,17 @@ surface_defense:
           - {min: 2, max: 2, result: "+1 DEX"}
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "athletics"}
-          - {min: 5, max: 5, result: "melee_unarmed"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 5, max: 5, result: "cascade:melee"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Service Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "mechanic"}
-          - {min: 2, max: 2, result: "gun_combat_slug_rifle"}
+          - {min: 2, max: 2, result: "cascade:gun_combat"}
           - {min: 3, max: 3, result: "gunnery_turrets"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "recon"}
           - {min: 6, max: 6, result: "battle_dress"}
     - name: "Specialist Skills"
@@ -2523,12 +2523,12 @@ surface_defense:
         num_dice: 1
         die_size: 6
         entries:
-          - {min: 1, max: 1, result: "electronics_comms"}
+          - {min: 1, max: 1, result: "cascade:electronics"}
           - {min: 2, max: 2, result: "explosives"}
-          - {min: 3, max: 3, result: "gun_combat_slug_rifle"}
-          - {min: 4, max: 4, result: "melee_unarmed"}
+          - {min: 3, max: 3, result: "cascade:gun_combat"}
+          - {min: 4, max: 4, result: "cascade:melee"}
           - {min: 5, max: 5, result: "survival"}
-          - {min: 6, max: 6, result: "drive_ground_vehicle"}
+          - {min: 6, max: 6, result: "cascade:drive"}
     - name: "Advanced Education"
       entries:
         num_dice: 1
@@ -2539,7 +2539,7 @@ surface_defense:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "medic"}
           - {min: 5, max: 5, result: "leadership"}
-          - {min: 6, max: 6, result: "tactics_ground"}
+          - {min: 6, max: 6, result: "cascade:tactics"}
   ranks:
     - {rank: 1, title: "Lieutenant"}
     - {rank: 2, title: "Captain"}
@@ -2616,7 +2616,7 @@ technician:
           - {min: 3, max: 3, result: "+1 END"}
           - {min: 4, max: 4, result: "+1 INT"}
           - {min: 5, max: 5, result: "+1 EDU"}
-          - {min: 6, max: 6, result: "gun_combat_slug_rifle"}
+          - {min: 6, max: 6, result: "cascade:gun_combat"}
     - name: "Service Skills"
       entries:
         num_dice: 1
@@ -2626,15 +2626,15 @@ technician:
           - {min: 2, max: 2, result: "computers"}
           - {min: 3, max: 3, result: "mechanic"}
           - {min: 4, max: 4, result: "medic"}
-          - {min: 5, max: 5, result: "electronics_comms"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 5, max: 5, result: "cascade:electronics"}
+          - {min: 6, max: 6, result: "cascade:science"}
     - name: "Specialist Skills"
       entries:
         num_dice: 1
         die_size: 6
         entries:
           - {min: 1, max: 1, result: "computers"}
-          - {min: 2, max: 2, result: "electronics_comms"}
+          - {min: 2, max: 2, result: "cascade:electronics"}
           - {min: 3, max: 3, result: "gravitics"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "engineer"}
@@ -2649,7 +2649,7 @@ technician:
           - {min: 3, max: 3, result: "jack_of_trades"}
           - {min: 4, max: 4, result: "linguistics"}
           - {min: 5, max: 5, result: "medic"}
-          - {min: 6, max: 6, result: "science_physics"}
+          - {min: 6, max: 6, result: "cascade:science"}
   ranks:
     - {rank: 1, title: "Team Lead"}
     - {rank: 2, title: "Supervisor"}
