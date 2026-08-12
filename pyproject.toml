@@ -13,24 +13,13 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "jinja2>=3.1",
-    "markdown-it-py>=4.0",
     "pydantic>=2.7",
     "pydantic-ai>=0.0.1",
-    "textual>=0.80",
-    "uvicorn>=0.34",
     "pyyaml>=6.0",
 ]
 
-[project.scripts]
-andromeda = "src.tui.__main__:main"
-andromeda-web = "src.web.__main__:main"
-
 [tool.setuptools.packages.find]
-# The package is literally named ``src`` (entry point: src.tui.__main__:main).
-# Without this, setuptools installs zero packages and the console script
-# documented in the README fails with ModuleNotFoundError outside the repo.
+# The package is literally named ``src``.
 where = ["."]
 include = ["src*"]
 

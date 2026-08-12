@@ -7,7 +7,6 @@ Godot client (or any UI) can drive without touching engine internals.
 ## Quick Start
 
 ```bash
-uv run python scripts/chargen_demo.py           # interactive demo
 uv run pytest tests/game/test_chargen_session.py -q  # headless tests
 ```
 
@@ -50,16 +49,6 @@ the LLM — advice/proposal records are stored as event-log payloads.
 
 CONTRACT_VERSION remains 1: C3/C6 add phases and state fields, but the
 envelope shape and method surface are unchanged.
-
-## Harness Limitations (C4/C6)
-
-- The frozen TUI never surfaces `choose_specialization`: cascade grants queue
-  in `character.pending_cascades` and the skill stays unapplied in TUI play.
-  The web shell and this headless module surface the choice normally.
-- Per-career muster-out (C6): the TUI's own screen machine still musters once
-  at chargen end using the last career. Multi-career TUI characters differ
-  from engine-correct output (earlier-career benefits never roll). Web +
-  headless module are per-career correct.
 
 ## Error Model
 

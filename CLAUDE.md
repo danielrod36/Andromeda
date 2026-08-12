@@ -11,17 +11,14 @@ Andromeda — a single-player CYOA RPG where a **deterministic rules engine** ow
 This project uses **uv** (not pip/venv directly), despite the README's pip instructions. A `uv.lock` and `.venv` are committed-ish; use `uv run` so the environment stays in sync.
 
 ```bash
-uv run pytest tests/ -q              # full suite (~596 tests)
+uv run pytest tests/ -q              # full suite
 uv run pytest tests/engine/test_dice.py -q          # one file
 uv run pytest tests/engine/test_dice.py::test_name  # single test
 uv run pytest -k "lifepath" -q       # by keyword
 uv run pytest -m "not slow"          # skip slow markers
-
-uv run python -m src.tui             # play the game (Textual TUI)
-uv run andromeda                     # equivalent (installed console script)
 ```
 
-Tests run sync + async (`asyncio_mode = "auto"`); `pythonpath = ["."]` is set in pyproject, so imports are `from src.engine...`. The package is literally named `src` — pyproject's `[tool.setuptools.packages.find]` is configured for this; don't rename it without updating the entry point.
+Tests run sync + async (`asyncio_mode = "auto"`); `pythonpath = ["."]` is set in pyproject, so imports are `from src.engine...`. The package is literally named `src` — pyproject's `[tool.setuptools.packages.find]` is configured for this; don't rename it without updating the setuptools config.
 
 ## Quality gate (lint + pre-push hook + CI)
 
@@ -80,19 +77,15 @@ The adapter is the single integration point with the LLM (Pydantic AI). It enfor
 
 Single JSON documents, atomic writes (temp file + `os.replace`). Schema versioning via `save_version` + a stepwise migration chain (`_MIGRATIONS`). No pickle, no SQLite.
 
-### TUI (`src/tui/`)
+### Game controller (`src/game/`)
 
-A Textual client over the engine. Screen flow: `MainMenu → CampaignConfig → Lifepath → Adventure`. The TUI calls `engine.apply(cmd)` through a `LifepathRunner` and auto-saves after every lifepath step. The engine package has **zero TUI imports** — keep it that way.
-
-### Web shell (`src/web/`)
-
-A FastAPI + Jinja + htmx + SSE web client over the engine (in development — U4+). Screen flow mirrors the TUI but renders HTML server-side. The web shell is single-player localhost (`127.0.0.1`); a same-origin guard middleware rejects cross-origin POSTs. Start with `uv run andromeda-web`. The engine package has **zero web imports** — keep it that way.
+Headless controller layer over the engine. `LifepathController` drives chargen phases, `GameSession` manages the adventure loop. Client surfaces (TUI, web) have been removed; the controller is the API that future client surfaces will build on. The engine package has **zero game imports** — keep it that way.
 
 ## Key Invariants (don't break these)
 
 1. **All mutations go through `Engine.apply`.** Direct `GameState` field writes break determinism, audit, and replay.
 2. **All randomness goes through a `Roller` on a named stream** — never `random` at module level.
-3. **The engine has no TUI, web, or LLM imports** — it's a plain sync package. The TUI, web shell, and LLM adapter are clients.
+3. **The engine has no game or LLM imports** — it's a plain sync package. The game controller and LLM adapter are clients.
 4. **The LLM only narrates** — its only state influence is through tool calls that route Commands through the funnel.
 5. **`GameState` must stay JSON-serializable** — every field round-trips through `model_dump_json` (note: RNG live instances are `PrivateAttr`, rebuilt from snapshots on load).
 

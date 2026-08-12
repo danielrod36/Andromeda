@@ -11,24 +11,16 @@ uv sync
 uv run pytest tests/ -v
 ```
 
-## Play
+## Status
 
-```bash
-# Terminal (TUI):
-uv run andromeda
-
-# Web shell (in development):
-uv run andromeda-web
-# then open http://127.0.0.1:8000
-```
+Client surfaces (TUI, web) have been removed. The headless game controller (`src/game/`) is the API that future client surfaces will build on.
 
 ## Architecture
 
 - **Engine** (`src/engine/`) — deterministic command funnel, append-only event log, seeded RNG, Pydantic state models, JSON persistence
 - **Rule-sets** (`src/rulesets/`) — pluggable resolution mechanics behind a Protocol interface
 - **Theme packs** (`src/themepacks/`) — YAML content data (careers, skills, oracle tables)
-- **TUI** (`src/tui/`) — Textual rich terminal shell over the engine library
-- **Web** (`src/web/`) — FastAPI + Jinja + htmx + SSE web shell (in development)
+- **Game controller** (`src/game/`) — headless controller layer (`LifepathController`, `GameSession`) over the engine
 - **LLM** (`src/llm/`) — Pydantic AI adapter for narration with tool-call-only mutations
 
 ## Design Principle
