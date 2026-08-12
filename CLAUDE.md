@@ -18,7 +18,7 @@ uv run pytest -k "lifepath" -q       # by keyword
 uv run pytest -m "not slow"          # skip slow markers
 ```
 
-Tests run sync + async (`asyncio_mode = "auto"`); `pythonpath = ["."]` is set in pyproject, so imports are `from src.engine...`. The package is literally named `src` — pyproject's `[tool.setuptools.packages.find]` is configured for this; don't rename it without updating the entry point.
+Tests run sync + async (`asyncio_mode = "auto"`); `pythonpath = ["."]` is set in pyproject, so imports are `from src.engine...`. The package is literally named `src` — pyproject's `[tool.setuptools.packages.find]` is configured for this; don't rename it without updating the setuptools config.
 
 ## Quality gate (lint + pre-push hook + CI)
 
