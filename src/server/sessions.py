@@ -115,7 +115,12 @@ class SessionRegistry:
 
     def create_adventure(self, *, name: str) -> SessionRecord:
         """Open an adventure session over an existing save (M0.6)."""
-        state = load(self._main_path(name))
+        path = self._autosave_path(name)
+        if not path.exists():
+            path = self._main_path(name)
+        if not path.exists():
+            raise ApiError(404, "save_not_found", f"No save named '{name}'")
+        state = load(path)
         return self._open(name, state, kind="adventure")
 
     def resume(self, *, name: str) -> SessionRecord:
@@ -128,6 +133,8 @@ class SessionRegistry:
         path = self._autosave_path(name)
         if not path.exists():
             path = self._main_path(name)
+        if not path.exists():
+            raise ApiError(404, "save_not_found", f"No save named '{name}'")
         state = load(path)
         route = determine_resume_route(state)
         kind = "chargen" if route == "lifepath" else "adventure"
