@@ -86,6 +86,10 @@ async def duplicate_save(name: str, req: DuplicateSaveRequest, request: Request)
     if not files:
         raise ApiError(404, "save_not_found", f"No save named '{name}'")
     target_base = resolve_save_path(saves_dir, req.new_name)
+    if req.new_name.lower().endswith(AUTOSAVE_SUFFIX):
+        raise ApiError(
+            422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
+        )
     if _files_for(saves_dir, req.new_name):
         raise ApiError(409, "save_conflict", f"A save named '{req.new_name}' already exists")
     created: list[str] = []
@@ -120,6 +124,10 @@ async def import_save(req: ImportSaveRequest, request: Request) -> dict:
     except Exception as exc:
         raise ApiError(422, "invalid_save", f"Not a valid save document: {exc}") from exc
     target = resolve_save_path(request.app.state.saves_dir, req.name)
+    if req.name.lower().endswith(AUTOSAVE_SUFFIX):
+        raise ApiError(
+            422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
+        )
     if target.exists() or _files_for(request.app.state.saves_dir, req.name):
         raise ApiError(409, "save_conflict", f"A save named '{req.name}' already exists")
     save(state, target)

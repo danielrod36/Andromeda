@@ -81,7 +81,7 @@ class SessionRegistry:
         death_mode: str,
     ) -> SessionRecord:
         """Start a new chronicle in chargen (M0.6)."""
-        if name.endswith(AUTOSAVE_SUFFIX):
+        if name.lower().endswith(AUTOSAVE_SUFFIX):
             raise ApiError(
                 422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
             )
@@ -119,7 +119,7 @@ class SessionRegistry:
 
     def create_adventure(self, *, name: str) -> SessionRecord:
         """Open an adventure session over an existing save (M0.6)."""
-        if name.endswith(AUTOSAVE_SUFFIX):
+        if name.lower().endswith(AUTOSAVE_SUFFIX):
             raise ApiError(
                 422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
             )
@@ -138,7 +138,7 @@ class SessionRegistry:
         characters open as adventure sessions whose view is ``game_over`` —
         the client routes to the memorial screen.
         """
-        if name.endswith(AUTOSAVE_SUFFIX):
+        if name.lower().endswith(AUTOSAVE_SUFFIX):
             raise ApiError(
                 422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
             )
@@ -256,7 +256,7 @@ class SessionRegistry:
         from src.engine.persistence import save
 
         main = self._main_path(name)
-        if main.exists():
+        if main.exists() and name != record.name:
             raise ApiError(409, "save_conflict", f"A save named '{name}' already exists")
         save(record.game.state, main)
         if record.game.state.campaign.death_mode == "checkpoint":
