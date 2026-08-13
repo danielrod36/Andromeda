@@ -176,6 +176,17 @@ class GameSession:
         # hash matches the on-disk state the next save() compares against.
         self._last_write_hash = self._compute_disk_hash()
 
+    def retarget(self, save_path: Path) -> None:
+        """Point the session's autosave at a new path (M0.6 manual save).
+
+        Resets stale-write detection against the new location (the file may
+        not exist yet — a ``None`` hash disables the next check, same as a
+        fresh session). The checkpoint manager and its in-memory snapshot
+        are untouched.
+        """
+        self._save_path = Path(save_path)
+        self._last_write_hash = self._compute_disk_hash()
+
     def _compute_disk_hash(self) -> str | None:
         """Hash the on-disk document pair (main + checkpoint sidecar).
 

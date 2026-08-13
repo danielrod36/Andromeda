@@ -210,9 +210,9 @@ class SessionRegistry:
     def save_manual(self, record: SessionRecord, name: str) -> None:
         """Write the named manual save, main-then-sidecar (spec §5).
 
-        Retargets the session's base name so subsequent autosaves follow
-        the new name. Prior files are left in place (they are earlier save
-        points; Chronicles lists them).
+        Retargets the session's autosave to the new base name so subsequent
+        beats keep one live document per chronicle. Prior files are left in
+        place (they are earlier save points; Chronicles lists them).
         """
         from src.engine.persistence import save
 
@@ -220,6 +220,7 @@ class SessionRegistry:
         save(record.game.state, main)
         if record.game.state.campaign.death_mode == "checkpoint":
             record.game.checkpoint_mgr.save_snapshot(main)
+        record.game.retarget(self._autosave_path(name))
         record.name = name
 
     def _main_path(self, name: str) -> Path:
