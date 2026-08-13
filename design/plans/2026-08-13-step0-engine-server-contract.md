@@ -25,6 +25,16 @@ Every task implicitly includes these. They are not optional.
 - **Tests:** mirror existing layout (`tests/engine/`, `tests/game/`, `tests/llm/`, new `tests/server/`); every test dir has an `__init__.py`. New code lands with its tests in the same commit.
 - **Quality gate per commit:** `uv run ruff check src tests && uv run ruff format src tests && uv run pytest tests/ -q` all green before committing.
 
+## Executor Rules (read first — they prevent failure modes)
+
+1. **Do exactly what the steps say.** Every code block is complete and intended to be applied verbatim. Do not paraphrase, "improve", or add unrequested handling.
+2. **Only touch the files a task lists.** If you believe another file needs a change, stop and report instead.
+3. **Never skip the failing-test step.** If the test PASSES when the plan says it should FAIL, the implementation already exists or you're in the wrong state — stop and report; do not proceed.
+4. **If a command fails differently than the plan's stated expectation, stop and report the exact output.** Do not improvise fixes.
+5. **Apply imports exactly as shown.** Where a step says "replace import line X with Y", do that verbatim.
+6. **Commit with the exact message given**, after the full gate passes.
+7. Run everything from the repo root (`/home/daniel/Andromeda`) with `uv run ...`.
+
 ## File Structure
 
 **Created:**
@@ -208,21 +218,55 @@ git commit -m "fix(engine): gate push_for_ending before any roll (B4/M0.1)"
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/engine/test_retrieval.py` (check its imports first — it already imports `GameState`, `NarrativeFact`, `Engine`, `ForcedRoller`, `ratify_fact_as_npc`; add `EventKind`, `NpcRecord`, `load_scifi_pack`, `npc_reaction_disposition` as needed):
+First, update the imports in `tests/engine/test_retrieval.py`. Replace line 20 exactly:
+
+```python
+from src.engine.scene import RatifyFactCommand, RegisterFactCommand
+```
+
+with:
+
+```python
+from src.engine.scene import CreateNpcRecordCommand, RatifyFactCommand, RegisterFactCommand
+```
+
+Replace line 21 exactly:
+
+```python
+from src.engine.state import CampaignConfig, GameState, NarrativeFact
+```
+
+with:
+
+```python
+from src.engine.state import CampaignConfig, GameState, NarrativeFact, NpcRecord
+```
+
+Replace line 23 exactly:
+
+```python
+from src.themepacks.base import get_pack
+```
+
+with:
+
+```python
+from src.engine.audit import EventKind
+from src.themepacks.base import get_pack, npc_reaction_disposition
+```
+
+(ruff's isort will normalize ordering on `ruff format` — don't hand-sort.)
+
+Then append to `tests/engine/test_retrieval.py` (the existing `pack` fixture at line 30-32 provides the scifi pack; `make_state()` at line 35 provides a fresh state):
 
 ```python
 class TestNpcRecordProduction:
     """G6 (M0.2): ratification creates a canonical NpcRecord with a rolled disposition."""
 
-    def test_ratify_creates_npc_record_with_rolled_disposition(self):
-        from src.engine.audit import EventKind
-        from src.engine.state import NpcRecord
-        from src.themepacks.cepheus_scifi import load_scifi_pack
-
-        state = GameState.new(seed=7)
+    def test_ratify_creates_npc_record_with_rolled_disposition(self, pack):
+        state = make_state()
         state.entities.append(NarrativeFact(name="Ila Renn", description="dockmaster"))
         engine = Engine(state, roller=ForcedRoller([[6, 6]]))  # reaction 12 → Devoted
-        pack = load_scifi_pack()
 
         ratify_fact_as_npc(state.entities[0], engine=engine, pack=pack)
 
@@ -239,23 +283,18 @@ class TestNpcRecordProduction:
         assert rolls[0].roll.stream == "oracle"
 
     def test_ratify_without_pack_defaults_neutral_and_rolls_nothing(self):
-        from src.engine.state import NpcRecord
-
-        state = GameState.new(seed=7)
+        state = make_state()
         state.entities.append(NarrativeFact(name="Ila Renn", description="dockmaster"))
         engine = Engine(state, roller=ForcedRoller([]))  # any roll would raise
 
-        ratify_fact_as_npc(state.entities[0], engine=engine)  # no pack → no table → no roll
+        ratify_fact_as_npc(state.entities[0], engine=engine)  # no pack → no roll
 
         npcs = [e for e in state.entities if isinstance(e, NpcRecord)]
         assert len(npcs) == 1
         assert npcs[0].disposition == 0
 
     def test_create_npc_record_is_idempotent_by_name(self):
-        from src.engine.scene import CreateNpcRecordCommand
-        from src.engine.state import NpcRecord
-
-        state = GameState.new(seed=7)
+        state = make_state()
         engine = Engine(state, roller=ForcedRoller([]))
         engine.apply(CreateNpcRecordCommand(name="Ila Renn", disposition=1))
         engine.apply(CreateNpcRecordCommand(name="Ila Renn", disposition=-2))
@@ -269,8 +308,6 @@ class TestNpcReactionDisposition:
     """The keyword map (content layer) maps reaction text to [-2, +2]."""
 
     def test_keyword_mapping(self):
-        from src.themepacks.base import npc_reaction_disposition
-
         assert npc_reaction_disposition("Hostile — immediate attack.") == -2
         assert npc_reaction_disposition("Unfriendly — cold, suspicious.") == -1
         assert npc_reaction_disposition("Wary — cautious and guarded.") == 0
@@ -280,14 +317,10 @@ class TestNpcReactionDisposition:
         assert npc_reaction_disposition("Devoted — a loyal ally.") == 2
 
     def test_unfriendly_beats_friendly_substring(self):
-        from src.themepacks.base import npc_reaction_disposition
-
         # "Unfriendly" contains "friendly" — ordering must check it first.
         assert npc_reaction_disposition("Unfriendly") == -1
 
     def test_unknown_text_defaults_neutral(self):
-        from src.themepacks.base import npc_reaction_disposition
-
         assert npc_reaction_disposition("Something entirely alien") == 0
 ```
 
@@ -1007,8 +1040,16 @@ def test_beat_facts_describe_the_check_without_pips():
 
 def test_beat_facts_cover_mission_resolution():
     engine, _ = _play_one_scene()
-    # Resolve two more scenes, then push the ending.
-    engine.roller.extend([[5, 5], [4, 4], [6, 6], [5, 5], [4, 4], [6, 6], [6, 6], [3, 3]])
+    # Two more scenes (oracle+check each), the pre-push scene generation
+    # (oracle), then the push's own check. Exactly 9 forced rolls.
+    engine.roller.extend(
+        [
+            [5, 5], [4, 4], [6, 6],  # scene 2: oracle, oracle, check
+            [5, 5], [4, 4], [6, 6],  # scene 3: oracle, oracle, check
+            [6, 6], [3, 3],  # scene 4 oracle rolls (from the pre-push get_view)
+            [6, 6],  # the push's scene check → strong hit → success
+        ]
+    )
     controller = AdventureController(engine, load_scifi_pack())
     controller.get_view()
     controller.apply_choice("option:0")
@@ -1072,18 +1113,18 @@ class TestNarrateBeat:
 
     async def test_mechanical_leak_falls_back_to_template(self):
         """Prose that leaks dice notation fails the mechanical-claim guard."""
-
-        class DiceyModel(TestModel):
-            async def agent_model_function(self, messages, tools, output_mode=None):
-                from pydantic_ai.messages import ModelResponse, TextPart
-
-                return ModelResponse(parts=[TextPart(content='{"prose": "You rolled 2D6 and got 11 vs 8."}')])
-
         state = GameState.new(seed=1)
-        adapter = LLMAdapter(AdapterConfig(), test_model=DiceyModel())
+        # custom_output_args forces the structured output verbatim (pydantic-ai 2.x TestModel).
+        adapter = LLMAdapter(
+            AdapterConfig(),
+            test_model=TestModel(
+                custom_output_args={"prose": "You rolled 2D6 and got 11 vs 8."}
+            ),
+        )
         result = await adapter.narrate_beat(_view(state), ["A check happened."], state=state)
         assert result.source == "template"
         assert result.llm_failed
+        assert result.prose == "A check happened."  # the template floor ships
 
 
 class TestNarrateWorldIntro:
@@ -1115,40 +1156,22 @@ class TestNarrateWorldIntro:
         assert result.prose.strip()
 ```
 
-Append to `tests/themepacks/test_pack_load_v2.py`:
+Append to `tests/themepacks/test_pack_load_v2.py` (uses the file's own `_minimal_pack_dict()` helper at line 45; `validate_pack` is already imported at line 42):
 
 ```python
 def test_pack_theme_and_intro_defaults_and_overrides():
     """M0.4: packs may ship theme:/intro: in pack.yaml; loader defaults otherwise."""
-    from src.themepacks.base import validate_pack
-
-    minimal = {
-        "pack": {"id": "fixture", "name": "Fixture"},
-        "careers": {},
-        "skills": {},
-        "oracle_tables": {},
-        "complication_tables": {},
-        "mission_tables": {},
-    }
-    pack = validate_pack(minimal)
+    pack = validate_pack(_minimal_pack_dict())
     assert pack.theme_tokens == {}
     assert pack.intro_text == ""
 
-    themed = {
-        **minimal,
-        "pack": {
-            "id": "fixture2",
-            "name": "Fixture 2",
-            "theme": {"motif": "✦", "accent": "amber"},
-            "intro": "The frontier calls.",
-        },
-    }
+    themed = _minimal_pack_dict()
+    themed["pack"]["theme"] = {"motif": "✦", "accent": "amber"}
+    themed["pack"]["intro"] = "The frontier calls."
     pack2 = validate_pack(themed)
     assert pack2.theme_tokens == {"motif": "✦", "accent": "amber"}
     assert pack2.intro_text == "The frontier calls."
 ```
-
-(If `validate_pack` with empty sections raises on this codebase's integrity rules, copy the smallest fixture dict already used in that test file and add `theme`/`intro` to its manifest instead.)
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -1512,6 +1535,8 @@ In `src/themepacks/base.py`:
 
 - [ ] **Step 3e: Ship `intro:` + `theme:` in both packs**
 
+Both `pack.yaml` files use top-level manifest keys (`id`, `name`, `description`, `injury_table`, ...) — the loader treats the whole file as the manifest. Append the following at the END of each file, at column 0 (top level, no indentation).
+
 Append to `src/themepacks/data/scifi/pack.yaml`:
 
 ```yaml
@@ -1542,12 +1567,10 @@ theme:
   ambience: [fireflies, leaves]
 ```
 
-(Verify the existing `pack:` manifest keys are top-level in these files; `intro`/`theme` belong at the same top level as `id`/`name`/`description`. If the files nest manifest keys under a `pack:` key, indent accordingly — the loader reads `data["pack"]`.)
-
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/game/test_beats.py tests/llm/test_beat_narration.py tests/themepacks/ -q`
-Expected: PASS. (If `DiceyModel` in the beat test doesn't force the intended prose — pydantic-ai's `TestModel` subclass hooks vary by version — replace it with `FunctionModel` as used in `tests/llm/test_advisor.py`; copy that file's model-stubbing pattern. The assertion that matters: mechanical-leak prose → `source == "template"` and `llm_failed`.)
+Expected: PASS (all). The forced-output test relies on pydantic-ai 2.x `TestModel(custom_output_args=...)`, verified against the installed pydantic-ai 2.20.0 — no subclassing needed.
 
 - [ ] **Step 5: Full gate + commit**
 
@@ -1579,15 +1602,39 @@ Steering rule (spec §2 D6): "The past is written. The present can be re-told. T
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/engine/test_commands.py`:
+In `tests/engine/test_commands.py`, replace the existing commands import block (lines 12-18) exactly:
+
+```python
+from src.engine.commands import (
+    Engine,
+    RecordAdviceCommand,
+    RecordProposalCommand,
+    RollCharacteristicCommand,
+    SetFlagCommand,
+)
+```
+
+with:
+
+```python
+from src.engine.commands import (
+    Engine,
+    RecordAdviceCommand,
+    RecordNarrationCommand,
+    RecordProposalCommand,
+    RecordStoryDirectionCommand,
+    RollCharacteristicCommand,
+    SetFlagCommand,
+)
+```
+
+Then append to `tests/engine/test_commands.py`:
 
 ```python
 class TestNarrationRecordCommands:
     """M0.5: shipped prose and story directions are canonical funnel events."""
 
     def test_record_narration_appends_prose_and_event(self):
-        from src.engine.commands import RecordNarrationCommand
-
         state = GameState.new(seed=1)
         engine = Engine(state)
         event = engine.apply(
@@ -1601,10 +1648,6 @@ class TestNarrationRecordCommands:
         }
 
     def test_record_narration_rejects_empty(self):
-        import pytest
-
-        from src.engine.commands import RecordNarrationCommand
-
         state = GameState.new(seed=1)
         engine = Engine(state)
         with pytest.raises(ValueError, match="non-empty"):
@@ -1612,24 +1655,16 @@ class TestNarrationRecordCommands:
         assert state.narrative_log == []  # validate fired before any mutation
 
     def test_record_story_direction_uses_scannable_prefix(self):
-        from src.engine.commands import RecordStoryDirectionCommand
-
         state = GameState.new(seed=1)
         engine = Engine(state)
         engine.apply(RecordStoryDirectionCommand(text="more paranoia, less heroics", beat="scene"))
         assert state.narrative_log[-1] == "story_direction=more paranoia, less heroics"
 
     def test_record_story_direction_rejects_empty(self):
-        import pytest
-
-        from src.engine.commands import RecordStoryDirectionCommand
-
         engine = Engine(GameState.new(seed=1))
         with pytest.raises(ValueError, match="non-empty"):
             engine.apply(RecordStoryDirectionCommand(text=""))
 ```
-
-(Adjust imports to the file's existing style — it already imports `Engine`, `GameState` at top; hoist the command imports there.)
 
 Append to `tests/game/test_beats.py`:
 
@@ -2728,11 +2763,28 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 
 from src.llm.settings import LLMSettings, create_llm_adapter, load_settings
 from src.server.errors import register_error_handlers
 from src.server.sessions import SessionRegistry
+
+
+class ActivityMiddleware:
+    """Stamp ``last_request_at`` on every HTTP request (idle watchdog feed).
+
+    Pure ASGI — deliberately NOT ``@app.middleware("http")``:
+    BaseHTTPMiddleware buffers response bodies on some Starlette versions,
+    which would break the Task 8 NDJSON stream.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            scope["app"].state.last_request_at = time.monotonic()
+        await self.app(scope, receive, send)
 
 
 def create_app(
@@ -2780,11 +2832,7 @@ def create_app(
         translator=translator,
     )
 
-    @app.middleware("http")
-    async def _stamp_activity(request: Request, call_next):
-        request.app.state.last_request_at = time.monotonic()
-        return await call_next(request)
-
+    app.add_middleware(ActivityMiddleware)
     register_error_handlers(app)
 
     from src.server.routes_config import router as config_router
@@ -3064,7 +3112,7 @@ Expected: PASS (all meta/config tests; the 404 envelope test passes because `/v1
         )
 ```
 
-Two middleware notes: (1) `@app.middleware("http")` wraps responses via BaseHTTPMiddleware — modern Starlette streams NDJSON through it fine, but if the Task 8 narrate test ever hangs, convert `_stamp_activity` to a pure ASGI middleware first. (2) The `StarletteHTTPException` import must come from `starlette.exceptions`, not `fastapi.exceptions`.)
+Note: the `StarletteHTTPException` import must come from `starlette.exceptions` (as shown), not `fastapi.exceptions`. The activity middleware is already pure ASGI (see app.py), so NDJSON streaming in Task 8 is unaffected by response buffering.
 
 - [ ] **Step 6: Full gate + commit**
 
@@ -4231,7 +4279,7 @@ async def test_llm_settings(request: Request) -> dict:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/server/ -q`
-Expected: PASS. Note: `test_put_stores_key_outside_the_file` asserts `key_tail == "…ey99"` — `masked_tail("sk-ant-testkey99")` is `"…ey99"`; adjust if the fixture key differs.
+Expected: PASS. Calibration note: `test_put_stores_key_outside_the_file` asserts `key_tail == "…ey99"` because the stored key is the literal `"sk-ant-testkey99"` — `masked_tail` keeps the last four characters and prefixes `…`.
 
 - [ ] **Step 5: Full gate + commit**
 
@@ -4320,10 +4368,12 @@ class TestAudit:
         session = _create(client)
         client.post(f"/v1/sessions/{session['id']}/choose", json={"option_id": "roll_pool"})
         total = client.get(f"/v1/sessions/{session['id']}/audit").json()["total_events"]
+        # seq is 0-based and assigned at append time, so `since = total - 1`
+        # matches exactly the last event.
         filtered = client.get(
             f"/v1/sessions/{session['id']}/audit", params={"since": total - 1}
         ).json()
-        assert filtered["filtered_count"] <= 1
+        assert filtered["filtered_count"] == 1
 
 
 class TestLlmContext:
@@ -4444,25 +4494,19 @@ class TestAutosaveCadence:
 
 class TestStaleWrite:
     def test_external_modification_conflicts(self, client, tmp_path):
+        # Create writes the autosave (registry.create_chargen autosaves).
         session = _create(client)
-        client.post(f"/v1/sessions/{session['id']}/choose", json={"option_id": "roll_pool"})
         auto = tmp_path / "saves" / "The_Ruuth_Run.autosave.json"
-        # Another "session" writes to the file.
+        # Another "session" writes to the file — the session's stored hash
+        # no longer matches the disk.
         auto.write_text(auto.read_text() + "\n")
 
+        # roll_pool is still the first (unused) choice, so the choice itself
+        # is valid; the conflict must surface at autosave time, after the
+        # mutation — proving stale-write detection guards every beat.
         resp = client.post(
             f"/v1/sessions/{session['id']}/choose", json={"option_id": "roll_pool"}
         )
-        # roll_pool is single-use; any valid next option works — but the
-        # conflict must fire before the choice is even considered valid.
-        # Use the session payload to find a valid option for a clean signal.
-        if resp.status_code == 422:
-            # choice invalid after first roll — fetch a valid one and retry
-            current = client.get(f"/v1/sessions/{session['id']}").json()["session"]
-            option = current["view"]["options"][0]["option_id"]
-            resp = client.post(
-                f"/v1/sessions/{session['id']}/choose", json={"option_id": option}
-            )
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "save_conflict"
 ```
@@ -4489,7 +4533,6 @@ import hashlib
 
 from fastapi import APIRouter, Query, Request
 
-from src.engine.audit import EventKind
 from src.engine.odds import compute_check_odds, format_odds_line
 from src.game.audit_view import build_audit_view, filter_from_params
 from src.game.memorial import build_memorial, build_obituary
@@ -4620,14 +4663,12 @@ async def verify(session_id: str, request: Request) -> None:
     )
 ```
 
-Note: `EventKind` import is unused if no endpoint references it — drop it from imports if ruff flags F401, or keep a `kind` filter passthrough (the `filter_from_params` handles strings). Check with ruff and prune.
+The `kind` query param is passed through to `filter_from_params` as a comma-separated string of `EventKind` values (e.g. `?kind=roll,state_change`); no `EventKind` import is needed in this module.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/server/ -q`
-Expected: PASS. Two likely adjustments:
-- `test_since_filter`: `since = total - 1` keeps the last event — `filtered_count <= 1` holds only when the last action appended ≥1 event after that seq; loosen to `filtered["filtered_count"] < total` if flaky.
-- `test_external_modification_conflicts`: chargen's second option after `roll_pool` is phase-dependent — the retry path in the test handles it.
+Expected: PASS. One calibration note: `test_since_filter` asserts `filtered_count == 1` — that is exact, not approximate: `seq` is assigned as `len(events)` at append time (0-based), so `since = total - 1` matches exactly the last appended event.
 
 - [ ] **Step 5: Full gate + commit**
 
