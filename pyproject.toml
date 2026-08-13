@@ -13,9 +13,12 @@ classifiers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.141.1",
+    "keyring>=25.7.0",
     "pydantic>=2.7",
     "pydantic-ai>=0.0.1",
     "pyyaml>=6.0",
+    "uvicorn>=0.51.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -37,6 +40,8 @@ slow = "marks tests as slow"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# design/ holds markdown plans with Python code fences — not source code.
+exclude = ["design/"]
 
 [tool.ruff.lint]
 # Broad-but-pragmatic rule set. BLE001 is globally ignored: the LLM adapter

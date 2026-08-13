@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>04 — The Ceremony</title><link rel="stylesheet" href="tokens.css"></head>
+<body class="t-scifi">
+<div class="screen">
+  <div class="s-head"><span class="s-name">04 · The Ceremony (beats 1–3)</span>
+    <div class="s-sub">Seed ritual → world-intro cinematic → the name. All stamps level (no-tilt rule). Beat 4 is the chargen shell's first phase.</div></div>
+  <div class="scene sc-night" style="height:440px; display:flex; flex-direction:column;">
+    <div class="horizon"></div><div class="veil veil-cinema"></div>
+    <div class="kicker">◤ THE SPINWARD REACH — A WORLD INTRODUCTION</div>
+    <div class="docket" style="position:absolute; top:14px; right:18px; z-index:4;">FATE SEEDED · 482991</div>
+    <div style="position:relative; z-index:2; flex:1; display:flex; align-items:center; justify-content:center; padding:40px;">
+      <p class="x-prose" style="font-size:19px; line-height:1.75; color:var(--ink); max-width:58ch; text-shadow:0 2px 12px rgba(0,0,0,.6); margin:0;"><em style="color:var(--accent)">The Spinward frontier does not care about you.</em> A thousand beacons burn out past the jump limit, and every one of them was somebody's fortune. The patrons on Ruuth Prime pay in hard credits and softer promises, and the scouts who fly for them come home rich, or broken, or not at all. <em style="color:var(--accent)">You are eighteen years old, and tomorrow you will sign your name to something.</em> Tonight, the rain that isn't rain falls on Pad 9.<span class="caret">▌</span></p>
+    </div>
+    <div style="position:relative; z-index:2; display:flex; justify-content:space-between; align-items:center; padding:0 26px 20px;">
+      <span class="microlink">SKIP — SHOW FULL TEXT</span><span class="btn">CONTINUE ▸</span>
+    </div>
+  </div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 18px 18px; background:#0c0f16;">
+    <div class="scene sc-night" style="min-height:220px;">
+      <div class="horizon"></div><div class="veil veil-cinema"></div>
+      <div class="kicker">BEAT 1 · FATE SEEDED (AUTO-ADVANCES)</div>
+      <div style="position:relative; z-index:2; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px; text-align:center;">
+        <span class="docket" style="font-size:13px; padding:10px 18px;">FATE SEEDED · 482991</span>
+        <div class="x-prose" style="font-size:14px; line-height:1.6; color:var(--ink); margin-top:16px; max-width:34ch;">The dice are already cast. Every fortune in this chronicle was written at this number.</div>
+      </div>
+    </div>
+    <div class="scene t-fantasy" style="min-height:220px; background:
+      radial-gradient(1.5px 1.5px at 18% 20%, rgba(242,233,216,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 74% 14%, rgba(242,233,216,.35) 50%, transparent 51%),
+      linear-gradient(180deg, #100D08 0%, #1C1509 60%, #2A1F0E 100%);">
+      <div class="veil" style="background:linear-gradient(180deg, rgba(16,13,8,.3), rgba(16,13,8,.72));"></div>
+      <div class="kicker">BEAT 3 · WHO ARE YOU? (FANTASY TOKENS)</div>
+      <div style="position:relative; z-index:2; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px; text-align:center;">
+        <div class="x-title" style="font-size:21px; color:var(--ink); margin-bottom:16px;">Every fortune starts with a name.</div>
+        <div class="card0" style="width:280px; padding:11px 14px; text-align:left;"><div class="x-micro" style="font-size:10px; letter-spacing:.16em; color:var(--muted); margin-bottom:5px;">THE NAME THE WORLD REMEMBERS</div><div class="x-int" style="font-size:17px; color:var(--ink);">Branwen<span style="color:var(--accent)">▌</span></div></div>
+        <div style="margin-top:16px;"><span class="btn">TAKE UP THE TALE ▸</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="s-note"><b>Wiring:</b> POST /narrate {"beat":"world_intro"} streams the intro (pack template fallback) · name commits via SetCharacterNameCommand · FATE SEEDED stamp rides as a level chip (no tilt).</div>
+</div>
+</body></html>

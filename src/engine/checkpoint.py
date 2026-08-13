@@ -49,6 +49,16 @@ class CheckpointManager:
         """Whether a scene-start snapshot is available for rewind."""
         return self._snapshot is not None
 
+    @property
+    def snapshot(self) -> GameState | None:
+        """The current scene-start snapshot, or None (M0.3 serialize support).
+
+        Read-only: callers never mutate the returned state. Session
+        envelopes embed ``snapshot.model_dump()`` so checkpoint-mode rewind
+        survives a serialize/restore handoff.
+        """
+        return self._snapshot.model_copy(deep=True) if self._snapshot is not None else None
+
     # ------------------------------------------------------------------
     # Snapshot capture.
     # ------------------------------------------------------------------

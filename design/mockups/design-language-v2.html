@@ -1,0 +1,137 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+<style>
+  /* ---- token architecture: pack themes as custom-property sets ---- */
+  .t-scifi   { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .t-fantasy { --bg:#17120C; --panel:#221A10; --line:#4A3A22; --ink:#F2E9D8; --muted:#9C8D76; --accent:#D9A02B; --ok:#7FA85C; --danger:#C24A52; --motif:"❧"; }
+  .t-neutral { --bg:#13161D; --panel:#1A1F2A; --line:#2C3444; --ink:#E9EDF5; --muted:#7E8899; --accent:#8FA3C8; --ok:#5FC98E; --danger:#E5606C; --motif:"◆"; }
+
+  .vx { margin: 0 0 46px; border-radius: 10px; overflow: hidden; cursor: pointer;
+        border: 2px solid transparent; transition: transform .15s ease, box-shadow .15s ease; background: #10131a; }
+  .vx:hover { transform: translateY(-2px); }
+  .vx.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .vx-head { padding: 14px 20px 10px; }
+  .vx-name { font: 700 19px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .vx-name .dial { font: 400 12px/1 "IBM Plex Mono", monospace; color:#8FA3C8; margin-left: 10px; letter-spacing: .1em; }
+  .vx-thesis { font: 400 13px/1.45 "Inter", sans-serif; color: #98a2b8; margin-top: 5px; max-width: 110ch; }
+  .vx-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 20px 20px; }
+  .vx-tokens { padding: 10px 20px 15px; font: 400 11.5px/1.7 "IBM Plex Mono", monospace; color: #7E8899; border-top: 1px solid #232a3a; }
+  .vx-tokens b { color:#aab4c8; font-weight:600; }
+
+  .beat { background: var(--bg); padding: 14px; }
+  .b-pack { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .18em; color: var(--muted); margin-bottom: 10px; }
+  .b-pack::before { content: var(--motif) " "; color: var(--accent); }
+  .b-strip { display:flex; justify-content:space-between; font: 500 10px/1.5 "IBM Plex Mono", monospace;
+             letter-spacing: .1em; color: var(--muted); border: 1px solid var(--line);
+             background: var(--panel); padding: 6px 9px; margin-bottom: 12px; }
+  .b-strip .sync { color: var(--ok); }
+  .b-docket { display:inline-block; font: 500 10.5px/1.5 "IBM Plex Mono", monospace; letter-spacing:.03em;
+              color: var(--bg); background: var(--accent); padding: 4px 10px; margin-bottom: 12px; }
+  .b-choice { background: var(--panel); border: 1px solid var(--line); padding: 9px 12px; }
+  .b-choice .t { font: 600 13.5px/1.3 "Space Grotesk", sans-serif; color: var(--ink); margin-bottom: 3px; }
+  .b-choice .o { font: 500 10px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; color: var(--muted); }
+  .b-choice .o .ok { color: var(--ok); }
+
+  /* ---- V1: NEUTRAL CONSOLE (pixel dial: low) ---- */
+  .v1 .beat { border: 1px solid var(--line); border-radius: 4px; }
+  .v1 .b-docket { border-radius: 2px; clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 50%); padding-left: 14px; }
+  .v1 .b-choice { border-left: 3px solid var(--accent); border-radius: 2px; }
+
+  /* ---- V2: HI-BIT CONSOLE (pixel dial: high) ---- */
+  .v2 .beat { background: var(--accent); padding: 2px;
+    clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)); }
+  .v2 .b-in { background: var(--bg); padding: 12px; height: 100%; box-sizing: border-box; position: relative;
+    clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)); }
+  .v2 .b-in::after { content:""; position:absolute; inset:0; pointer-events:none;
+    background: repeating-conic-gradient(rgba(255,255,255,.028) 0% 25%, transparent 0% 50%); background-size: 4px 4px; }
+  .v2 .b-strip, .v2 .b-docket, .v2 .b-choice .o { font-family: "VT323", monospace; font-size: 13px; letter-spacing: .04em; }
+  .v2 .b-pack { font-family: "VT323", monospace; font-size: 12px; }
+  .v2 .b-docket { clip-path: none; }
+  .v2 .b-choice { border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .v2 .b-strip { border-width: 2px; }
+
+  /* ---- V3: ORNAMENTAL CONSOLE (pixel dial: med, decorative) ---- */
+  .v3 .beat { background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+    border: 1px solid var(--accent); outline: 1px solid var(--bg); outline-offset: 2px;
+    box-shadow: inset 0 0 22px rgba(0,0,0,.5), 0 0 0 1px var(--line); position: relative; }
+  .v3 .beat::before, .v3 .beat::after { content: var(--motif); position: absolute; color: var(--accent);
+    font-size: 12px; line-height: 1; opacity: .9; }
+  .v3 .beat::before { top: 5px; left: 7px; } .v3 .beat::after { bottom: 5px; right: 7px; }
+  .v3 .b-strip { border: 1px solid var(--line); background: rgba(0,0,0,.28); }
+  .v3 .b-docket { background: var(--accent); border-radius: 8px; }
+  .v3 .b-choice { border-color: var(--line); border-radius: 6px; background: rgba(0,0,0,.3); }
+  .v3 .b-choice .t { font-family: "Newsreader", serif; font-size: 14.5px; }
+
+  @media (max-width: 900px) { .vx-stage { grid-template-columns: 1fr; } }
+</style>
+
+<h2>Direction A, tuned three ways — with pack tokens swapping live</h2>
+<p class="subtitle">The chrome (typography, docket, choice anatomy) is constant; each pack supplies a token set — <b>accent, panel tint, motif, ok/danger</b> — via its <code>theme:</code> block. Every panel below renders the same beat twice: sci-fi tokens left, fantasy tokens right. A packless base (graphite/steel) covers the future. Pick the tuning, or mix notes across rows.</p>
+
+<!-- ============ V1 ============ -->
+<div class="vx v1" data-choice="v1" onclick="toggleSelect(this)">
+  <div class="vx-head">
+    <span class="vx-name">V1 · Neutral Console <span class="dial">PIXEL DIAL ▮▯▯▯▯</span></span>
+    <div class="vx-thesis">The restrained reading machine. Thin rules, quiet panels, one accent doing all the work per pack. Most legible, most neutral — the pixel heritage shows only in the notched docket.</div>
+  </div>
+  <div class="vx-stage">
+    <div class="beat t-scifi"><div class="b-in">
+      <div class="b-pack">SCI-FI TOKENS</div>
+      <div class="b-strip"><span>MARA VOSS · SCOUT R2 · TERM 4</span><span class="sync">SYNC ✓</span></div>
+      <div class="b-docket">SEQ 0417 · 4+5 +2 DEX vs 8+ → SUCCESS · EFFECT 3</div>
+      <div class="b-choice"><div class="t">Ask the tower who paid for the warning</div><div class="o">PERSUADE · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+    </div></div>
+    <div class="beat t-fantasy"><div class="b-in">
+      <div class="b-pack">FANTASY TOKENS</div>
+      <div class="b-strip"><span>BRANWEN · BARD R1 · TERM 2 · 340 CROWNS</span><span class="sync">SYNC ✓</span></div>
+      <div class="b-docket">SEQ 0088 · 5+4 +1 SOC vs 8+ → SUCCESS · EFFECT 2</div>
+      <div class="b-choice"><div class="t">Parley with the ferryman before the crossing</div><div class="o">PERSUASION · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+    </div></div>
+  </div>
+  <div class="vx-tokens"><b>Changes vs A:</b> navy → graphite-agnostic base, accents 100% pack-supplied · <b>Type:</b> Space Grotesk / Newsreader / Plex Mono (unchanged) · <b>Motion:</b> typewriter prose, docket stamp · <b>Risk:</b> least game-feel; could read as "a very nice web app"</div>
+</div>
+
+<!-- ============ V2 ============ -->
+<div class="vx v2" data-choice="v2" onclick="toggleSelect(this)">
+  <div class="vx-head">
+    <span class="vx-name">V2 · Hi-bit Console <span class="dial">PIXEL DIAL ▮▮▮▮▯</span></span>
+    <div class="vx-thesis">The SNES cartridge. Stepped pixel frames, dithered panels, pixel font for all data (dockets, odds, strips) while prose stays in readable Newsreader. Most game-feel per pixel; the accent-colored frame shouts the active pack.</div>
+  </div>
+  <div class="vx-stage">
+    <div class="beat t-scifi"><div class="b-in">
+      <div class="b-pack">SCI-FI TOKENS</div>
+      <div class="b-strip"><span>MARA VOSS · SCOUT R2 · TERM 4</span><span class="sync">SYNC ✓</span></div>
+      <div class="b-docket">SEQ 0417 · 4+5 +2 DEX vs 8+ → SUCCESS · EFFECT 3</div>
+      <div class="b-choice"><div class="t">Ask the tower who paid for the warning</div><div class="o">PERSUADE · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+    </div></div>
+    <div class="beat t-fantasy"><div class="b-in">
+      <div class="b-pack">FANTASY TOKENS</div>
+      <div class="b-strip"><span>BRANWEN · BARD R1 · TERM 2 · 340 CROWNS</span><span class="sync">SYNC ✓</span></div>
+      <div class="b-docket">SEQ 0088 · 5+4 +1 SOC vs 8+ → SUCCESS · EFFECT 2</div>
+      <div class="b-choice"><div class="t">Parley with the ferryman before the crossing</div><div class="o">PERSUASION · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+    </div></div>
+  </div>
+  <div class="vx-tokens"><b>Changes vs A:</b> stepped pixel frames everywhere, VT323 for data, dither texture, hard offset shadows · <b>Type:</b> Space Grotesk / Newsreader / VT323 · <b>Motion:</b> frame-by-frame sprite steps, stamp slams · <b>Risk:</b> pixel data font at small sizes on dense screens (audit viewer) could fatigue</div>
+</div>
+
+<!-- ============ V3 ============ -->
+<div class="vx v3" data-choice="v3" onclick="toggleSelect(this)">
+  <div class="vx-head">
+    <span class="vx-name">V3 · Ornamental Console <span class="dial">PIXEL DIAL ▮▮▯▯▯</span></span>
+    <div class="vx-thesis">The Sea of Stars menu: soft gradient panels, gold-trim double frames, pack-motif corner flourishes. Serif choice titles make it storybook-adjacent without leaving the console. Most "shipped JRPG" of the three.</div>
+  </div>
+  <div class="vx-stage">
+    <div class="beat t-scifi"><div class="b-in">
+      <div class="b-pack">SCI-FI TOKENS</div>
+      <div class="b-strip"><span>MARA VOSS · SCOUT R2 · TERM 4</span><span class="sync">SYNC ✓</span></div>
+      <div class="b-docket">SEQ 0417 · 4+5 +2 DEX vs 8+ → SUCCESS · EFFECT 3</div>
+      <div class="b-choice"><div class="t">Ask the tower who paid for the warning</div><div class="o">PERSUADE · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+    </div></div>
+    <div class="beat t-fantasy"><div class="b-in">
+      <div class="b-pack">FANTASY TOKENS</div>
+      <div class="b-strip"><span>BRANWEN · BARD R1 · TERM 2 · 340 CROWNS</span><span class="sync">SYNC ✓</span></div>
+      <div class="b-docket">SEQ 0088 · 5+4 +1 SOC vs 8+ → SUCCESS · EFFECT 2</div>
+      <div class="b-choice"><div class="t">Parley with the ferryman before the crossing</div><div class="o">PERSUASION · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+    </div></div>
+  </div>
+  <div class="vx-tokens"><b>Changes vs A:</b> gradient panels + double frames + corner motifs; choice titles go serif · <b>Type:</b> Newsreader choices / Space Grotesk heads / Plex Mono data · <b>Motion:</b> glow pulses, ornament shimmer, soft fades · <b>Risk:</b> ornament can tip into "generic JRPG menu" if overused</div>
+</div>

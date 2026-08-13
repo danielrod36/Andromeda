@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>05 — Settings</title><link rel="stylesheet" href="tokens.css"></head>
+<body class="t-neutral">
+<div class="screen">
+  <div class="s-head"><span class="s-name">05 · Settings</span>
+    <div class="s-sub">Server-owned cards validate and persist engine-side; client-owned cards never leave the machine. The API key lives in the OS keychain; only its tail is ever shown.</div></div>
+  <div style="background:var(--bg);">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; padding:12px 18px 10px; border-bottom:2px solid var(--line);">
+      <span class="x-title" style="font-size:20px; letter-spacing:.14em; color:var(--ink);">◆ SETTINGS</span>
+      <span class="x-micro" style="font-size:12px; letter-spacing:.1em; color:var(--muted);">ESC — BACK</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 18px 18px;">
+      <div class="card0" style="padding:14px 16px;">
+        <div class="x-data" style="font-size:9.5px; letter-spacing:.18em; color:var(--muted); margin-bottom:12px;"><span style="color:var(--accent)">SERVER</span> · THE NARRATOR</div>
+        <div style="display:grid; gap:9px;">
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Provider</span><span class="x-data" style="flex:1; background:var(--bg); border:2px solid var(--line); padding:8px 10px; font-size:11.5px;">anthropic ▾</span></div>
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Model</span><span class="x-data" style="flex:1; background:var(--bg); border:2px solid var(--line); padding:8px 10px; font-size:11.5px;">claude-sonnet-5 ▾</span></div>
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">API key</span><span class="x-data" style="flex:1; background:var(--bg); border:2px solid var(--line); padding:8px 10px; font-size:11.5px; color:var(--muted);">sk-…wxyz · OS keychain <span style="color:var(--accent)">REPLACE</span></span></div>
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Base URL</span><span class="x-data" style="flex:1; background:var(--bg); border:2px solid var(--line); padding:8px 10px; font-size:11.5px; color:var(--muted);">provider default</span></div>
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Max retries</span><span class="x-data" style="flex:1; background:var(--bg); border:2px solid var(--line); padding:8px 10px; font-size:11.5px;">3</span></div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:12px;"><span class="btn">TEST CONNECTION</span><span class="ghostbtn">SAVE</span></div>
+        <div class="x-data" style="font-size:10px; letter-spacing:.05em; color:var(--ok); margin-top:10px;">✓ CONNECTION OK · claude-sonnet-5 · 640ms</div>
+        <div class="x-data" style="font-size:10px; letter-spacing:.05em; color:var(--ok); margin-top:4px;">✓ KEY STORAGE: WINDOWS CREDENTIAL MANAGER (OS KEYRING)</div>
+        <div class="x-data" style="font-size:10px; letter-spacing:.05em; color:var(--muted); margin-top:4px;">No OS keyring → owner-only file fallback, said so here. Narration falls back to templates — the game never breaks.</div>
+      </div>
+      <div style="display:grid; gap:16px; align-content:start;">
+        <div class="card0" style="padding:14px 16px;">
+          <div class="x-data" style="font-size:9.5px; letter-spacing:.18em; color:var(--muted); margin-bottom:12px;"><span style="color:var(--accent)">CLIENT</span> · READING</div>
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Text speed</span>
+            <span style="flex:1; display:flex; border:2px solid var(--line);"><span class="x-int" style="flex:1; text-align:center; font-size:10.5px; padding:8px 4px; color:var(--muted); background:var(--bg);">SLOW</span><span class="x-int" style="flex:1; text-align:center; font-size:10.5px; padding:8px 4px; color:var(--bg); background:var(--accent);">MEDIUM</span><span class="x-int" style="flex:1; text-align:center; font-size:10.5px; padding:8px 4px; color:var(--muted); background:var(--bg);">FAST</span><span class="x-int" style="flex:1; text-align:center; font-size:10.5px; padding:8px 4px; color:var(--muted); background:var(--bg);">INSTANT</span></span></div>
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Ambient life</span><span style="width:44px; height:22px; border:2px solid var(--line); background:var(--bg); position:relative; flex:none;"><span style="position:absolute; top:2px; left:22px; width:16px; height:14px; background:var(--ok);"></span></span><span class="subnote">meteors, birds, fireflies</span></div>
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Reduced motion</span><span style="width:44px; height:22px; border:2px solid var(--line); background:var(--bg); position:relative; flex:none;"><span style="position:absolute; top:2px; left:2px; width:16px; height:14px; background:var(--muted);"></span></span><span class="subnote">stills all animation</span></div>
+        </div>
+        <div class="card0" style="padding:14px 16px;">
+          <div class="x-data" style="font-size:9.5px; letter-spacing:.18em; color:var(--muted); margin-bottom:12px;"><span style="color:var(--accent)">CLIENT</span> · AUDIO</div>
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Master</span><span style="flex:1; height:6px; background:var(--bg); border:1px solid var(--line); position:relative;"><i style="position:absolute; left:0; top:0; bottom:0; width:70%; background:var(--accent); display:block;"></i><b style="position:absolute; top:-5px; left:calc(70% - 5px); width:10px; height:14px; background:var(--ink); display:block;"></b></span></div>
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Music</span><span style="flex:1; height:6px; background:var(--bg); border:1px solid var(--line); position:relative;"><i style="position:absolute; left:0; top:0; bottom:0; width:55%; background:var(--accent); display:block;"></i><b style="position:absolute; top:-5px; left:calc(55% - 5px); width:10px; height:14px; background:var(--ink); display:block;"></b></span></div>
+          <div style="display:flex; gap:10px; align-items:center;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Effects</span><span style="flex:1; height:6px; background:var(--bg); border:1px solid var(--line); position:relative;"><i style="position:absolute; left:0; top:0; bottom:0; width:80%; background:var(--accent); display:block;"></i><b style="position:absolute; top:-5px; left:calc(80% - 5px); width:10px; height:14px; background:var(--ink); display:block;"></b></span></div>
+        </div>
+        <div class="card0" style="padding:14px 16px;">
+          <div class="x-data" style="font-size:9.5px; letter-spacing:.18em; color:var(--muted); margin-bottom:12px;"><span style="color:var(--accent)">SERVER</span> · DATA</div>
+          <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;"><span class="x-int" style="font-size:11px; letter-spacing:.06em; width:118px; color:var(--ink);">Saves</span><span class="x-data" style="flex:1; background:var(--bg); border:2px solid var(--line); padding:8px 10px; font-size:11.5px; color:var(--muted);">saves/ · 4 chronicles · autosaves on</span></div>
+          <div style="display:flex; gap:10px;"><span class="ghostbtn">OPEN CHRONICLES ▸</span><span class="ghostbtn">EXPORT ALL</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip"><span>NARRATOR: CLAUDE-SONNET-5 <span class="ok">●</span></span><span>SETTINGS SAVED</span></div>
+  </div>
+  <div class="s-note"><b>Wiring:</b> GET/PUT /v1/settings/llm (key masked; absent key field keeps stored; keyring backend reported) · POST /v1/settings/llm/test · providers from /v1/config/providers · client cards write user://settings.cfg.</div>
+</div>
+</body></html>

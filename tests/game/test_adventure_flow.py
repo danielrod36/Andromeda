@@ -422,3 +422,51 @@ class TestOptionIndexBoundsCheck:
         controller.get_view()
         view = controller._do_resolve_option(-1)
         assert view.phase == "scene_active"
+
+
+class TestEarlyPushGate:
+    """B4: pushing for the ending before min_scenes must not roll or log (M0.1)."""
+
+    def test_early_push_consumes_no_rolls_and_appends_no_events(self):
+        # Exactly enough rolls for: 4 hook tables + 2 scene oracle tables.
+        # Any further roll attempt raises IndexError (queue exhausted) —
+        # so a clean return proves the gate fired before any roll.
+        queue = [
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],  # mission hook tables
+            [5, 5],
+            [4, 4],  # first scene oracle tables
+        ]
+        engine = _make_engine(queue)
+        controller = AdventureController(engine, load_scifi_pack())
+        controller.get_view()  # generates + persists the hook
+        controller.apply_choice("accept_mission")  # generates the scene; queue now empty
+        events_before = len(engine.state.events)
+
+        view = controller.apply_choice("push_for_ending")
+
+        assert len(engine.state.events) == events_before
+        assert engine.state.active_mission is not None  # mission NOT resolved
+        assert "scene" in view.prompt.lower()
+
+    def test_early_push_prompt_names_remaining_scenes(self):
+        queue = [
+            [3, 4],
+            [5, 5],
+            [3, 3],
+            [4, 4],
+            [5, 5],
+            [4, 4],
+        ]
+        engine = _make_engine(queue)
+        controller = AdventureController(engine, load_scifi_pack())
+        controller.get_view()
+        controller.apply_choice("accept_mission")
+
+        view = controller.apply_choice("push_for_ending")
+
+        mission = engine.state.active_mission
+        remaining = int(mission["min_scenes"]) - int(mission["scenes_completed"])
+        assert str(remaining) in view.prompt

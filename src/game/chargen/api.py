@@ -107,6 +107,16 @@ class ChargenSession:
             self._controller.runner.ruleset,
         )
 
+    @property
+    def phase(self) -> str:
+        """The controller's current phase identifier (M0.6 server surface)."""
+        return self._controller.determine_phase()
+
+    @property
+    def completed(self) -> bool:
+        """True when chargen has run to completion (mustered out or died)."""
+        return self._controller.determine_phase() == "complete"
+
     # ------------------------------------------------------------------
     # Mutations
     # ------------------------------------------------------------------

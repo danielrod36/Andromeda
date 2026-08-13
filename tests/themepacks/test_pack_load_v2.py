@@ -316,3 +316,17 @@ def test_currency_units_default_and_override():
     data = _minimal_pack_dict()
     data["pack"]["currency_units"] = ["credits"]
     assert validate_pack(data).currency_units == ["credits"]
+
+
+def test_pack_theme_and_intro_defaults_and_overrides():
+    """M0.4: packs may ship theme:/intro: in pack.yaml; loader defaults otherwise."""
+    pack = validate_pack(_minimal_pack_dict())
+    assert pack.theme_tokens == {}
+    assert pack.intro_text == ""
+
+    themed = _minimal_pack_dict()
+    themed["pack"]["theme"] = {"motif": "✦", "accent": "amber"}
+    themed["pack"]["intro"] = "The frontier calls."
+    pack2 = validate_pack(themed)
+    assert pack2.theme_tokens == {"motif": "✦", "accent": "amber"}
+    assert pack2.intro_text == "The frontier calls."

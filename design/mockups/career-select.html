@@ -1,0 +1,160 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&family=Chakra+Petch:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  .t-scifi { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .opt { margin: 0 0 46px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent;
+         transition: transform .15s ease, box-shadow .15s ease; background:#0c0f16; }
+  .opt:hover { transform: translateY(-2px); }
+  .opt.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .opt-head { padding: 13px 20px 9px; }
+  .opt-name { font: 700 18px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .opt-thesis { font: 400 12.5px/1.45 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; }
+
+  .scene { position: relative; overflow: hidden;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 14%, rgba(233,237,245,.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 32% 8%,  rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(2px 2px at 71% 12%, rgba(245,166,35,.4) 50%, transparent 51%),
+      radial-gradient(1px 1px at 88% 30%, rgba(233,237,245,.35) 50%, transparent 51%),
+      linear-gradient(180deg, #0B0E17 0%, #181E38 45%, #41365C 75%, #8A5A3A 100%); }
+  .veil { position:absolute; inset:0; background: linear-gradient(180deg, rgba(8,10,16,.5) 0%, rgba(8,10,16,.66) 60%, rgba(8,10,16,.82) 100%); }
+  .kicker { position: absolute; top: 14px; left: 18px; font: 400 12.5px/1 "VT323", monospace; letter-spacing: .2em; color: var(--accent); z-index: 4; }
+
+  .cin { position: relative; z-index: 3; display: flex; flex-direction: column; height: 100%; }
+  .fchips { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 18px 12px; }
+  .fchip { font: 600 10px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; color: var(--muted);
+    border: 2px solid var(--line); background: rgba(8,10,16,.72); padding: 6px 10px; }
+  .fchip.on { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+
+  .ccard { background: rgba(10,15,30,.72); border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 10px 12px; cursor: pointer; }
+  .ccard:hover { border-color: var(--accent); }
+  .ccard.on { border-color: var(--accent); }
+  .ccard .c-name { font: 600 14px/1.2 "Chakra Petch", sans-serif; color: var(--ink); }
+  .ccard .c-qual { font: 500 9.5px/1.5 "IBM Plex Mono", monospace; letter-spacing: .05em; color: var(--muted); margin-top: 4px; }
+  .ccard .c-odds { font: 600 10px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; margin-top: 6px; }
+  .oddsbar { height: 4px; background: var(--line); margin-top: 5px; position: relative; }
+  .oddsbar i { position: absolute; left: 0; top: 0; bottom: 0; display: block; }
+  .ok { color: var(--ok); } .mid { color: var(--accent); } .risk { color: var(--danger); }
+  .fill-ok { background: var(--ok); } .fill-mid { background: var(--accent); } .fill-risk { background: var(--danger); }
+
+  .detail { background: rgba(8,10,16,.82); border: 2px solid var(--accent); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 14px 16px; }
+  .detail .d-name { font: 700 20px/1.1 "Space Grotesk", sans-serif; color: var(--ink); }
+  .detail .d-qual { font: 600 10.5px/1.5 "IBM Plex Mono", monospace; letter-spacing: .06em; color: var(--accent); margin: 6px 0 8px; }
+  .detail .d-desc { font: 400 13px/1.55 "Atkinson Hyperlegible", sans-serif; color: var(--ink); margin-bottom: 10px; }
+  .detail .d-rows { font: 500 10px/1.7 "IBM Plex Mono", monospace; color: var(--muted); }
+  .detail .d-rows .ok { color: var(--ok); }
+  .btn { font: 600 12px/1 "Chakra Petch", sans-serif; letter-spacing: .06em; color: var(--bg); background: var(--accent); padding: 10px 16px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); display:inline-block; }
+
+  .dockbar { display: flex; gap: 12px; align-items: center; padding: 12px 18px;
+    background: rgba(8,10,16,.85); border-top: 2px solid var(--line); position: relative; z-index: 3; }
+  .ft { flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(16,24,56,.85); border: 2px solid var(--line); padding: 9px 12px; }
+  .ft .ph { font: 400 12.5px/1 "Atkinson Hyperlegible", sans-serif; color: var(--muted); font-style: italic; }
+  .ft .mic { font: 400 10px/1 "VT323", monospace; color: var(--accent); letter-spacing: .1em; }
+  .ghostbtn { font: 600 12px/1 "Chakra Petch", sans-serif; color: var(--ink); background: rgba(16,24,56,.85); border: 2px solid var(--line); padding: 10px 14px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+
+  .lrow { display: flex; align-items: baseline; gap: 10px; padding: 6px 10px; border-bottom: 1px dashed var(--line); cursor: pointer; background: rgba(10,15,30,.6); }
+  .lrow:hover { border-color: var(--accent); }
+  .lrow.on { border-left: 3px solid var(--accent); }
+  .lrow .r-name { font: 600 12.5px/1.3 "Chakra Petch", sans-serif; color: var(--ink); width: 118px; }
+  .lrow .r-qual { font: 500 9.5px/1 "IBM Plex Mono", monospace; color: var(--muted); width: 64px; }
+  .lrow .r-odds { font: 600 9.5px/1 "IBM Plex Mono", monospace; margin-left: auto; }
+</style>
+
+<h2>Chargen widget — the career selector (25 careers)</h2>
+<p class="subtitle">Odds are live against Mara's stats (STR 9 · DEX 11 · END 7 · INT 8 · EDU 5 · SOC 4). The scene behind has shifted to dawn — career choice is the sunrise phase. Filter chips by characteristic; the dock keeps the advisor and the free-text path ("describe the life you want" → translator picks among the 25).</p>
+
+<!-- ============ K1: CAREER DECK ============ -->
+<div class="opt" data-choice="k1" onclick="toggleSelect(this)">
+  <div class="opt-head"><span class="opt-name">K1 · Career Deck</span>
+    <div class="opt-thesis">Card grid + detail rail. Cards sell the fantasy; the rail sells the numbers. Consistent with Chronicles' dockets-and-preview pattern.</div></div>
+  <div class="scene t-scifi" style="height: 620px;">
+    <div class="veil"></div><div class="kicker">◤ CHAPTER II — A TRADE · AGE 18</div>
+    <div class="cin" style="padding-top: 40px;">
+      <div class="fchips"><span class="fchip on">ALL 25</span><span class="fchip">STR</span><span class="fchip">DEX</span><span class="fchip">END</span><span class="fchip">INT</span><span class="fchip">EDU</span><span class="fchip">SOC</span><span class="fchip">OFFICER TRACK</span></div>
+      <div style="flex:1; display:grid; grid-template-columns: 1fr 300px; gap: 14px; padding: 0 18px; min-height:0;">
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content:start; overflow:hidden;">
+          <div class="ccard on"><div class="c-name">Navy</div><div class="c-qual">QUALIFY: INT 6+</div><div class="c-odds ok">72% · FAVORABLE</div><div class="oddsbar"><i class="fill-ok" style="width:72%"></i></div></div>
+          <div class="ccard"><div class="c-name">Agent</div><div class="c-qual">QUALIFY: SOC 6+</div><div class="c-odds mid">58% · MODEST</div><div class="oddsbar"><i class="fill-mid" style="width:58%"></i></div></div>
+          <div class="ccard"><div class="c-name">Scout</div><div class="c-qual">QUALIFY: INT 6+</div><div class="c-odds ok">72% · FAVORABLE</div><div class="oddsbar"><i class="fill-ok" style="width:72%"></i></div></div>
+          <div class="ccard"><div class="c-name">Merchant</div><div class="c-qual">QUALIFY: INT 4+</div><div class="c-odds ok">92% · FAVORABLE</div><div class="oddsbar"><i class="fill-ok" style="width:92%"></i></div></div>
+          <div class="ccard"><div class="c-name">Rogue</div><div class="c-qual">QUALIFY: DEX 5+</div><div class="c-odds ok">92% · FAVORABLE</div><div class="oddsbar"><i class="fill-ok" style="width:92%"></i></div></div>
+          <div class="ccard"><div class="c-name">Athlete</div><div class="c-qual">QUALIFY: END 8+</div><div class="c-odds mid">42% · CHANCY</div><div class="oddsbar"><i class="fill-mid" style="width:42%"></i></div></div>
+          <div class="ccard"><div class="c-name">Entertainer</div><div class="c-qual">QUALIFY: SOC 8+</div><div class="c-odds risk">28% · RISKY</div><div class="oddsbar"><i class="fill-risk" style="width:28%"></i></div></div>
+          <div class="ccard"><div class="c-name">Drifter</div><div class="c-qual">ALWAYS OPEN</div><div class="c-odds ok">— · GUARANTEED</div><div class="oddsbar"><i class="fill-ok" style="width:100%"></i></div></div>
+          <div class="ccard" style="opacity:.5"><div class="c-name">Noble</div><div class="c-qual">QUALIFY: SOC 8+</div><div class="c-odds risk">28% · RISKY</div><div class="oddsbar"><i class="fill-risk" style="width:28%"></i></div></div>
+        </div>
+        <div class="detail">
+          <div class="d-name">Navy</div>
+          <div class="d-qual">QUALIFY: 2D6+0 vs INT 6+ · 72% FAVORABLE</div>
+          <div class="d-desc">Member of an interstellar armed military force that conducts military operations in space. Officer track: commission, ranks, and the rank-bonus skills that come with them.</div>
+          <div class="d-rows">
+            SURVIVE: END 5+ · <span class="ok">92%</span><br>
+            COMMISSION: SOC 8+ · 28%<br>
+            ADVANCE: INT 6+ · <span class="ok">72%</span><br>
+            RANK-0 GRANT: VACC SUIT-1<br>
+            TABLES: PERSONAL · SERVICE · SPECIALIST · ADV. EDU
+          </div>
+          <div style="margin-top: 12px;"><span class="btn">ATTEMPT QUALIFICATION ▸</span></div>
+        </div>
+      </div>
+      <div class="dockbar">
+        <span class="ghostbtn">✦ ASK THE ADVISOR</span>
+        <div class="ft"><span class="mic">✎</span><span class="ph">In your own words — "a life among the stars, in uniform"…</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ K2: THE BOARD ============ -->
+<div class="opt" data-choice="k2" onclick="toggleSelect(this)">
+  <div class="opt-head"><span class="opt-name">K2 · The Board</span>
+    <div class="opt-thesis">A job-board manifest: all 25 careers as scan-rows in three columns, odds inline, no cards. Fastest to scan; least cinematic.</div></div>
+  <div class="scene t-scifi" style="height: 620px;">
+    <div class="veil"></div><div class="kicker">◤ CHAPTER II — A TRADE · AGE 18</div>
+    <div class="cin" style="padding-top: 40px;">
+      <div class="fchips"><span class="fchip on">ALL 25</span><span class="fchip">STR</span><span class="fchip">DEX</span><span class="fchip">END</span><span class="fchip">INT</span><span class="fchip">EDU</span><span class="fchip">SOC</span><span class="fchip">OFFICER TRACK</span></div>
+      <div style="flex:1; display:grid; grid-template-columns: 1fr 1fr 1fr 300px; gap: 4px 14px; padding: 0 18px; min-height:0;">
+        <div>
+          <div class="lrow on"><span class="r-name">Navy</span><span class="r-qual">INT 6+</span><span class="r-odds ok">72%</span></div>
+          <div class="lrow"><span class="r-name">Agent</span><span class="r-qual">SOC 6+</span><span class="r-odds mid">58%</span></div>
+          <div class="lrow"><span class="r-name">Scout</span><span class="r-qual">INT 6+</span><span class="r-odds ok">72%</span></div>
+          <div class="lrow"><span class="r-name">Merchant</span><span class="r-qual">INT 4+</span><span class="r-odds ok">92%</span></div>
+          <div class="lrow"><span class="r-name">Rogue</span><span class="r-qual">DEX 5+</span><span class="r-odds ok">92%</span></div>
+          <div class="lrow"><span class="r-name">Athlete</span><span class="r-qual">END 8+</span><span class="r-odds mid">42%</span></div>
+          <div class="lrow"><span class="r-name">Entertainer</span><span class="r-qual">SOC 8+</span><span class="r-odds risk">28%</span></div>
+          <div class="lrow"><span class="r-name">Drifter</span><span class="r-qual">OPEN</span><span class="r-odds ok">100%</span></div>
+          <div class="lrow"><span class="r-name">Pirate</span><span class="r-qual">DEX 5+</span><span class="r-odds ok">92%</span></div>
+        </div>
+        <div>
+          <div class="lrow"><span class="r-name">Marines</span><span class="r-qual">INT 6+</span><span class="r-odds ok">72%</span></div>
+          <div class="lrow"><span class="r-name">Army</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+          <div class="lrow"><span class="r-name">Belter</span><span class="r-qual">INT 4+</span><span class="r-odds ok">92%</span></div>
+          <div class="lrow"><span class="r-name">Bureaucrat</span><span class="r-qual">SOC 6+</span><span class="r-odds mid">58%</span></div>
+          <div class="lrow"><span class="r-name">Colonist</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+          <div class="lrow"><span class="r-name">Diplomat</span><span class="r-qual">SOC 6+</span><span class="r-odds mid">58%</span></div>
+          <div class="lrow"><span class="r-name">Hunter</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+          <div class="lrow"><span class="r-name">Mercenary</span><span class="r-qual">INT 4+</span><span class="r-odds ok">92%</span></div>
+          <div class="lrow"><span class="r-name">Noble</span><span class="r-qual">SOC 8+</span><span class="r-odds risk">28%</span></div>
+        </div>
+        <div>
+          <div class="lrow"><span class="r-name">Physician</span><span class="r-qual">EDU 6+</span><span class="r-odds mid">58%</span></div>
+          <div class="lrow"><span class="r-name">Scientist</span><span class="r-qual">EDU 6+</span><span class="r-odds mid">58%</span></div>
+          <div class="lrow"><span class="r-name">Technician</span><span class="r-qual">EDU 6+</span><span class="r-odds mid">58%</span></div>
+          <div class="lrow"><span class="r-name">Aerospace Def.</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+          <div class="lrow"><span class="r-name">Maritime Def.</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+          <div class="lrow"><span class="r-name">Surface Def.</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+          <div class="lrow"><span class="r-name">Barbarian</span><span class="r-qual">END 5+</span><span class="r-odds ok">83%</span></div>
+        </div>
+        <div class="detail">
+          <div class="d-name">Navy</div>
+          <div class="d-qual">QUALIFY: 2D6+0 vs INT 6+ · 72% FAVORABLE</div>
+          <div class="d-desc">Interstellar armed military force. Officer track with commission, ranks, rank-bonus skills.</div>
+          <div style="margin-top: 12px;"><span class="btn">ATTEMPT ▸</span></div>
+        </div>
+      </div>
+      <div class="dockbar">
+        <span class="ghostbtn">✦ ASK THE ADVISOR</span>
+        <div class="ft"><span class="mic">✎</span><span class="ph">In your own words…</span></div>
+      </div>
+    </div>
+  </div>
+</div>

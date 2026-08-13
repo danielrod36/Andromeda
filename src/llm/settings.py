@@ -1,12 +1,15 @@
 """LLM settings persistence — API key, endpoint, model selection.
 
 Settings are stored as JSON in a settings directory so they persist across
-sessions. The file is loaded on app startup and used to configure the LLM
-adapter. Keys are never written to the engine state or save files.
+sessions. The API key is NOT stored in this file (M0.7, D7): it lives in the
+OS keychain via ``keyring`` (service ``andromeda``), with an owner-only
+(0600) fallback file on systems without a keychain. The ``api_key`` field
+on :class:`LLMSettings` is runtime-only, resolved at load.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -35,6 +38,9 @@ class LLMSettings(BaseModel):
     provider: str = "anthropic"
     model: str = ""
     api_key: str = ""
+    key_backend: str = ""
+    """Where the API key is stored: ``"keyring"`` | ``"file"`` | ``""`` (no key).
+    The key itself is never persisted in this file (M0.7, D7)."""
     base_url: str = ""
     max_retries: int = 3
 
@@ -114,36 +120,103 @@ def settings_path(settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> Path:
 
 
 def load_settings(settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> LLMSettings:
-    """Load LLM settings from disk, or return defaults if none exist."""
+    """Load LLM settings from disk and resolve the API key from the store.
+
+    The on-disk file never contains the key (M0.7): the key is read from
+    the OS keychain (or the 0600 fallback file) into the runtime-only
+    ``api_key`` field. Legacy files that still hold a plaintext key are
+    migrated: the key moves into the store and the file is rewritten
+    scrubbed.
+    """
+    from src.llm.keystore import get_keystore
+
     path = settings_path(settings_dir)
     if not path.exists():
         return LLMSettings()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return LLMSettings.model_validate(data)
+        settings = LLMSettings.model_validate(data)
     except (json.JSONDecodeError, ValueError):
         return LLMSettings()
 
+    store = get_keystore(settings_dir)
+    legacy_key = settings.api_key  # present only in pre-M0.7 files
+    if legacy_key:
+        try:
+            store.set(settings.provider, legacy_key)
+            settings.key_backend = store.backend_name
+            # Rewrite scrubbed — the file must not keep the key.
+            scrubbed = settings.model_copy(update={"api_key": ""})
+            _write_settings_file(scrubbed, settings_dir)
+        except Exception:
+            pass  # degrade: keep the key in-memory, don't crash startup
+    elif settings.key_backend:
+        settings.api_key = store.get(settings.provider)
+    return settings
+
 
 def save_settings(settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> Path:
-    """Persist LLM settings to disk atomically.
+    """Persist LLM settings atomically; the API key goes to the store (M0.7).
 
-    The file is given restrictive permissions (0600) because it contains the
-    API key in plaintext. For stronger protection, consider integrating the
-    system keyring — but for a single-player local game, file permissions are
-    the pragmatic baseline.
+    When ``settings.api_key`` is set, it is written to the OS keychain (or
+    the 0600 fallback file) and ``key_backend`` records which. The JSON
+    file is written without the key, with owner-only permissions.
     """
+    from src.llm.keystore import get_keystore
+
+    store = get_keystore(settings_dir)
+    to_persist = settings.model_copy(update={"api_key": ""})
+    if settings.api_key:
+        store.set(settings.provider, settings.api_key)
+        to_persist.key_backend = store.backend_name
+    elif to_persist.key_backend:
+        # Caller saved with an empty key — clear any previously stored entry
+        # so the old key does not resurrect on reload.
+        with contextlib.suppress(Exception):
+            store.delete(settings.provider)
+        to_persist.key_backend = ""
+    return _write_settings_file(to_persist, settings_dir)
+
+
+def _write_settings_file(settings: LLMSettings, settings_dir: str | Path) -> Path:
+    """Write the settings JSON (never contains the key) with 0600 perms."""
     path = settings_path(settings_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(
-        json.dumps(settings.model_dump(), indent=2),
-        encoding="utf-8",
-    )
+    payload = settings.model_dump()
+    payload.pop("api_key", None)  # belt: the key never lands on disk here
+    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     tmp.replace(path)
-    # Restrict to owner-only — the file contains an API key.
     os.chmod(path, 0o600)
     return path
+
+
+def resolve_api_key(settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> str:
+    """Return the stored API key for the settings' provider ("" when none)."""
+    from src.llm.keystore import get_keystore
+
+    if settings.api_key:  # already resolved (runtime)
+        return settings.api_key
+    return get_keystore(settings_dir).get(settings.provider)
+
+
+def delete_api_key(
+    settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR
+) -> LLMSettings:
+    """Remove the stored key and return updated (persisted) settings."""
+    from src.llm.keystore import get_keystore
+
+    get_keystore(settings_dir).delete(settings.provider)
+    updated = settings.model_copy(update={"api_key": "", "key_backend": ""})
+    _write_settings_file(updated, settings_dir)
+    return updated
+
+
+def masked_key_tail(settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> str:
+    """The masked tail shown in the UI (``…1234``), or "" when no key."""
+    from src.llm.keystore import masked_tail
+
+    return masked_tail(resolve_api_key(settings, settings_dir))
 
 
 #: Common model presets per provider (fallback when API fetch is unavailable).

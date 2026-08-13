@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from src.engine.audit import EventKind
 from src.engine.commands import Engine
 from src.engine.dice import ForcedRoller
 from src.engine.retrieval import (
@@ -17,10 +18,10 @@ from src.engine.retrieval import (
     generate_npc_stats,
     ratify_fact_as_npc,
 )
-from src.engine.scene import RatifyFactCommand, RegisterFactCommand
-from src.engine.state import CampaignConfig, GameState, NarrativeFact
+from src.engine.scene import CreateNpcRecordCommand, RatifyFactCommand, RegisterFactCommand
+from src.engine.state import CampaignConfig, GameState, NarrativeFact, NpcRecord
 from src.rulesets.cepheus import CepheusRuleSet
-from src.themepacks.base import get_pack
+from src.themepacks.base import get_pack, npc_reaction_disposition
 
 # ---------------------------------------------------------------------------
 # Fixtures.
@@ -295,8 +296,8 @@ class TestRatifyFactFunnel:
 
         stats = ratify_fact_as_npc(fact, engine=engine)
 
-        assert len(state.events) == initial_events + 1
-        event = state.events[-1]
+        assert len(state.events) == initial_events + 2  # ratify_fact + create_npc_record
+        event = state.events[-2]
         assert event.command_type == "ratify_fact"
         assert "NPC stats" in fact.description
         assert stats["skill_level"] >= 0
@@ -338,3 +339,67 @@ class TestRatifyFactFunnel:
 
         with pytest.raises(ValueError, match="non-empty"):
             engine.apply(RatifyFactCommand(fact_name="", stats_description="x"))
+
+
+class TestNpcRecordProduction:
+    """G6 (M0.2): ratification creates a canonical NpcRecord with a rolled disposition."""
+
+    def test_ratify_creates_npc_record_with_rolled_disposition(self, pack):
+        state = make_state()
+        state.entities.append(NarrativeFact(name="Ila Renn", description="dockmaster"))
+        engine = Engine(state, roller=ForcedRoller([[6, 6]]))  # reaction 12 → Devoted
+
+        ratify_fact_as_npc(state.entities[0], engine=engine, pack=pack)
+
+        npcs = [e for e in state.entities if isinstance(e, NpcRecord)]
+        assert len(npcs) == 1
+        assert npcs[0].name == "Ila Renn"
+        assert npcs[0].disposition == 2  # Devoted → allied
+        rolls = [
+            e
+            for e in state.events
+            if e.kind == EventKind.ROLL and e.command_type == "npc_reaction_roll"
+        ]
+        assert len(rolls) == 1
+        assert rolls[0].roll.stream == "oracle"
+
+    def test_ratify_without_pack_defaults_neutral_and_rolls_nothing(self):
+        state = make_state()
+        state.entities.append(NarrativeFact(name="Ila Renn", description="dockmaster"))
+        engine = Engine(state, roller=ForcedRoller([]))  # any roll would raise
+
+        ratify_fact_as_npc(state.entities[0], engine=engine)  # no pack → no roll
+
+        npcs = [e for e in state.entities if isinstance(e, NpcRecord)]
+        assert len(npcs) == 1
+        assert npcs[0].disposition == 0
+
+    def test_create_npc_record_is_idempotent_by_name(self):
+        state = make_state()
+        engine = Engine(state, roller=ForcedRoller([]))
+        engine.apply(CreateNpcRecordCommand(name="Ila Renn", disposition=1))
+        engine.apply(CreateNpcRecordCommand(name="Ila Renn", disposition=-2))
+
+        npcs = [e for e in state.entities if isinstance(e, NpcRecord)]
+        assert len(npcs) == 1
+        assert npcs[0].disposition == 1  # first write wins
+
+
+class TestNpcReactionDisposition:
+    """The keyword map (content layer) maps reaction text to [-2, +2]."""
+
+    def test_keyword_mapping(self):
+        assert npc_reaction_disposition("Hostile — immediate attack.") == -2
+        assert npc_reaction_disposition("Unfriendly — cold, suspicious.") == -1
+        assert npc_reaction_disposition("Wary — cautious and guarded.") == 0
+        assert npc_reaction_disposition("Neutral — transactional.") == 0
+        assert npc_reaction_disposition("Friendly — warm and cooperative.") == 1
+        assert npc_reaction_disposition("Helpful — eager to assist.") == 2
+        assert npc_reaction_disposition("Devoted — a loyal ally.") == 2
+
+    def test_unfriendly_beats_friendly_substring(self):
+        # "Unfriendly" contains "friendly" — ordering must check it first.
+        assert npc_reaction_disposition("Unfriendly") == -1
+
+    def test_unknown_text_defaults_neutral(self):
+        assert npc_reaction_disposition("Something entirely alien") == 0

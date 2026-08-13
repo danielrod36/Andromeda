@@ -1,0 +1,157 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&family=Chakra+Petch:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  .tn { --bg:#13161D; --panel:#1A1F2A; --line:#2C3444; --ink:#E9EDF5; --muted:#7E8899; --accent:#8FA3C8; --ok:#5FC98E; --danger:#E5606C; }
+  .wrap { background:#0c0f16; border-radius: 10px; overflow: hidden; }
+  .head { padding: 13px 20px 9px; }
+  .head .name { font: 700 18px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .head .thesis { font: 400 12.5px/1.45 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; }
+  .note { padding: 10px 20px 16px; font: 500 10.5px/1.7 "IBM Plex Mono", monospace; color:#7E8899; letter-spacing:.04em; border-top: 1px solid #232a3a; }
+  .note b { color:#c6cfe2; }
+
+  /* ---- the living backdrop ---- */
+  .scene { position: relative; overflow: hidden;
+    background:
+      radial-gradient(1px 1px at 22% 12%, rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(1px 1px at 52% 30%, rgba(233,237,245,.3) 50%, transparent 51%),
+      radial-gradient(1px 1px at 85% 34%, rgba(233,237,245,.35) 50%, transparent 51%),
+      linear-gradient(180deg, #0B0E17 0%, #141B31 52%, #1E2A4D 78%, #2A3A66 100%); }
+
+  /* drifting far-star layer */
+  .stars-drift { position:absolute; inset: -60px; opacity:.8;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 18%, rgba(233,237,245,.8) 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 8%,  rgba(233,237,245,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 45% 22%, rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(2px 2px at 63% 10%, rgba(143,163,200,.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 26%, rgba(233,237,245,.45) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 90% 12%, rgba(233,237,245,.6) 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 40%,  rgba(233,237,245,.3) 50%, transparent 51%);
+    animation: drift 140s linear infinite alternate; }
+  @keyframes drift { from { transform: translate(0,0); } to { transform: translate(36px, 18px); } }
+
+  /* twinkling stars */
+  .tw { position:absolute; width:2px; height:2px; background:#E9EDF5; }
+  .tw1 { top:16%; left:18%; animation: twinkle 4.2s ease-in-out infinite; }
+  .tw2 { top:9%;  left:57%; animation: twinkle 5.6s ease-in-out .8s infinite; }
+  .tw3 { top:26%; left:72%; animation: twinkle 3.8s ease-in-out 1.9s infinite; }
+  .tw4 { top:38%; left:34%; animation: twinkle 6.4s ease-in-out 2.6s infinite; }
+  .tw5 { top:6%;  left:38%; animation: twinkle 5s ease-in-out 1.2s infinite; }
+  @keyframes twinkle { 0%,100% { opacity:.15; } 50% { opacity:.95; } }
+
+  /* planet */
+  .planet { position:absolute; width:130px; height:130px; border-radius:50%; top:8%; right:10%;
+    background: radial-gradient(circle at 34% 30%, #C97B4A 0%, #A8542E 42%, #6E3319 78%, #4A2212 100%);
+    box-shadow: 0 0 44px rgba(201,123,74,.35); animation: planetglow 9s ease-in-out infinite; }
+  @keyframes planetglow { 0%,100% { box-shadow: 0 0 36px rgba(201,123,74,.28); } 50% { box-shadow: 0 0 56px rgba(201,123,74,.45); } }
+
+  /* horizon + beacon light */
+  .horizon { position:absolute; left:0; right:0; bottom:0; height: 26%; background: #080A10;
+    clip-path: polygon(0 62%, 6% 62%, 6% 54%, 12% 54%, 12% 66%, 20% 66%, 20% 40%, 26% 40%, 26% 30%, 30% 30%, 30% 40%, 36% 40%, 36% 58%, 44% 58%, 44% 46%, 52% 46%, 52% 24%, 55% 24%, 55% 12%, 58% 12%, 58% 24%, 62% 24%, 62% 52%, 70% 52%, 70% 62%, 78% 62%, 78% 44%, 86% 44%, 86% 58%, 100% 58%, 100% 100%, 0 100%); }
+  .beacon { position:absolute; bottom: calc(26% - 3px); left: 56.5%; width: 4px; height: 4px; background:#F5A623;
+    box-shadow: 0 0 8px 2px rgba(245,166,35,.6); animation: beacon 2.6s steps(1) infinite; }
+  @keyframes beacon { 0%, 62% { opacity: 1; } 63%, 100% { opacity: .12; } }
+
+  /* shooting star */
+  .meteor { position:absolute; top: 10%; right: -8%; width: 2px; height: 2px; background: #fff;
+    box-shadow: 0 0 6px 1px rgba(255,255,255,.8); opacity: 0; animation: meteor 14s linear 3s infinite; }
+  .meteor::before { content:""; position:absolute; right: 0; top: 0; width: 70px; height: 2px;
+    background: linear-gradient(90deg, rgba(255,255,255,.7), transparent); transform-origin: right center; }
+  @keyframes meteor {
+    0%   { transform: translate(0,0) rotate(0.001deg); opacity: 0; }
+    2%   { opacity: 1; }
+    8%   { transform: translate(-52vw, 16vh); opacity: 0; }
+    100% { transform: translate(-52vw, 16vh); opacity: 0; } }
+
+  /* pixel-bird flock */
+  .flock { position:absolute; top: 24%; left: -12%; opacity: 0; animation: flock 26s linear 8s infinite; }
+  .bird { position:absolute; width: 5px; height: 2px; background: #080A10; }
+  .bird::before, .bird::after { content:""; position:absolute; top:-2px; width:3px; height:2px; background:#080A10; }
+  .bird::before { left:-2px; transform: rotate(24deg); animation: flap .5s steps(2) infinite; }
+  .bird::after { right:-2px; transform: rotate(-24deg); animation: flap .5s steps(2) .25s infinite; }
+  .bird2 { transform: translate(-14px, 7px) scale(.85); }
+  .bird3 { transform: translate(12px, 10px) scale(.8); }
+  .bird4 { transform: translate(-26px, 16px) scale(.7); }
+  .bird5 { transform: translate(24px, 20px) scale(.65); }
+  @keyframes flap { 50% { transform: rotate(0deg) translateY(1px); } }
+  @keyframes flock {
+    0%   { transform: translate(0,0); opacity: 0; }
+    3%   { opacity: .85; }
+    60%  { opacity: .85; }
+    72%  { transform: translate(120vw, 6vh); opacity: 0; }
+    100% { transform: translate(120vw, 6vh); opacity: 0; } }
+
+  .veil { position:absolute; inset:0; background: linear-gradient(180deg, rgba(8,10,16,.3) 0%, rgba(8,10,16,.55) 60%, rgba(8,10,16,.78) 100%); }
+
+  /* title content (T2 layout, condensed) */
+  .frame { position: relative; height: 540px; display: grid; grid-template-columns: 380px 1fr; }
+  .t2-left { position: relative; z-index: 5; background: var(--bg); border-right: 2px solid var(--line); padding: 36px 28px 16px; display: flex; flex-direction: column; }
+  .wordmark { font: 700 40px/1 "Space Grotesk", sans-serif; letter-spacing: .16em; color: var(--ink); }
+  .wordmark .sub { display:block; font: 400 12px/1 "VT323", monospace; letter-spacing: .3em; color: var(--accent); margin-top: 8px; }
+  .word-rule { height: 2px; width: 190px; background: var(--accent); margin: 14px 0 4px; position: relative; }
+  .word-rule::after { content:"◆"; position:absolute; right: -20px; top: -8px; color: var(--accent); font-size: 12px; }
+  .menu { display: grid; gap: 9px; margin-top: 20px; }
+  .mi { display: flex; align-items: baseline; gap: 10px; background: var(--panel); border: 2px solid var(--line);
+        box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 10px 14px; }
+  .mi .k { font: 600 10px/1 "IBM Plex Mono", monospace; color: var(--accent); letter-spacing: .1em; }
+  .mi .t { font: 600 15px/1.2 "Chakra Petch", sans-serif; color: var(--ink); }
+  .mi .n { font: 400 11px/1 "VT323", monospace; color: var(--muted); margin-left: auto; letter-spacing: .06em; }
+  .mi.dim { opacity: .55; }
+  .boot { font: 400 11.5px/1.7 "VT323", monospace; color: var(--muted); letter-spacing:.08em; }
+  .t2-right { position: relative; }
+  .vp-label { position: absolute; top: 12px; left: 22px; font: 400 13px/1 "VT323", monospace; letter-spacing: .2em; color: var(--accent); z-index: 6; }
+  .vp-foot { position: absolute; bottom: 12px; left: 22px; font: 400 12px/1 "VT323", monospace; letter-spacing: .12em; color: var(--muted); z-index: 6; }
+  .strip { display:flex; justify-content: space-between; font: 500 10px/1 "IBM Plex Mono", monospace;
+           letter-spacing: .12em; color: var(--muted); border-top: 2px solid var(--line); padding: 8px 12px; background: var(--bg); }
+
+  .legend { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; padding: 14px 20px 6px; }
+  .leg { background:#0c0f16; border: 1px solid #232a3a; border-radius: 6px; padding: 10px 12px;
+         font: 400 11.5px/1.6 "IBM Plex Mono", monospace; color:#8b95ab; }
+  .leg h4 { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .16em; color:#c6cfe2; margin: 0 0 6px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stars-drift, .tw, .planet, .beacon, .meteor, .flock, .bird::before, .bird::after { animation: none !important; }
+    .meteor, .flock { opacity: 0 !important; }
+  }
+</style>
+
+<h2>The living backdrop — ambient system, live</h2>
+<p class="subtitle">Watch the sky for a few seconds: stars twinkle on offset phases, the far-star layer drifts on a 140s parallax whisper, the planet breathes, a horizon beacon blinks — and every so often a shooting star (~14s here) or a pixel-bird flock (~26s here). Production cadence would be rarer: meteor ~1/min, birds ~1/2min.</p>
+
+<div class="wrap">
+  <div class="head"><span class="name">Title — T2 with ambient life</span>
+    <div class="thesis">Same locked title; the backdrop now breathes. Everything below the veil is CSS in the mock — in Godot it's GPUParticles2D (stars, meteor), an AnimatedSprite2D (birds), and a Timer-driven PointLight2D (beacon).</div></div>
+  <div class="frame tn">
+    <div class="t2-left">
+      <div class="wordmark">ANDROMEDA<span class="sub">A DETERMINISTIC ODYSSEY</span></div>
+      <div class="word-rule"></div>
+      <div class="menu">
+        <div class="mi"><span class="k">01</span><span class="t">Continue</span><span class="n">MARA · 2H AGO</span></div>
+        <div class="mi"><span class="k">02</span><span class="t">New Journey</span></div>
+        <div class="mi"><span class="k">03</span><span class="t">Chronicles</span><span class="n">4 SAVES</span></div>
+        <div class="mi"><span class="k">04</span><span class="t">Settings</span></div>
+        <div class="mi dim"><span class="k">05</span><span class="t">Quit</span></div>
+      </div>
+      <div style="flex:1"></div>
+      <div class="boot">SIDECAR: LISTENING 127.0.0.1:63216<br>SAVE BUS: OK · RNG STREAMS: OK</div>
+    </div>
+    <div class="t2-right scene">
+      <div class="stars-drift"></div>
+      <div class="tw tw1"></div><div class="tw tw2"></div><div class="tw tw3"></div><div class="tw tw4"></div><div class="tw tw5"></div>
+      <div class="planet"></div>
+      <div class="meteor"></div>
+      <div class="flock"><div class="bird"></div><div class="bird bird2"></div><div class="bird bird3"></div><div class="bird bird4"></div><div class="bird bird5"></div></div>
+      <div class="horizon"></div>
+      <div class="beacon"></div>
+      <div class="veil"></div>
+      <div class="vp-label">◤ VIEWPORT · DEEP FIELD</div>
+      <div class="vp-foot">RUUTH PRIME ORBIT · LOCAL DRIFT</div>
+    </div>
+  </div>
+  <div class="strip"><span>ENGINE SYNC ✓ · v0.1.0</span><span>NARRATOR: CLAUDE-SONNET-5 ●</span></div>
+  <div class="legend">
+    <div class="leg"><h4>AMBIENT LAYER (ALL SCENES)</h4>twinkle · far-star drift (140s) · planet glow · horizon beacon</div>
+    <div class="leg"><h4>EVENT LAYER (RARE)</h4>meteor ~1/min · bird flock ~1/2min · each rolls its own schedule — never loops on a fixed beat</div>
+    <div class="leg"><h4>PACK VARIANTS</h4>fantasy: fireflies + drifting leaves instead of meteor/birds; tokens carry an <b>ambience</b> list per pack</div>
+    <div class="leg"><h4>ACCESSIBILITY</h4>prefers-reduced-motion collapses every layer to still — this page already honors it</div>
+  </div>
+</div>

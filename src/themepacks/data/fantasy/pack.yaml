@@ -37,3 +37,14 @@ injury_table:
 # into when their chosen career's qualification fails. Covers a mix of
 # military, scout, and tradesman roles suited to a fantasy setting.
 draft_table: [mercenary, sailor, ranger, knight, bard, healer]
+
+intro: >-
+  The old roads still remember the names of kings, though the kings are
+  gone. Between the walled towns the wild keeps its own ledger — of ruins,
+  omens, and bargains struck at crossroads. You carry what you own, and a
+  reputation that walks a day ahead of you.
+
+theme:
+  motif: "❧"
+  accent: gold
+  ambience: [fireflies, leaves]

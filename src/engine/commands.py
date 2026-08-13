@@ -355,3 +355,65 @@ class RecordProposalCommand(Command):
             description=description,
             changes=dict(self.payload),
         )
+
+
+class RecordNarrationCommand(Command):
+    """Funnel shipped narration prose into canonical state (M0.5, D6).
+
+    The prose that actually shipped to the player — LLM or template — is
+    appended to ``state.narrative_log`` and recorded as a ``SYSTEM`` event.
+    Replay re-reads this record; it never re-calls the LLM (the same
+    guarantee :class:`RecordAdviceCommand` makes for advice).
+    """
+
+    command_type: ClassVar[str] = "record_narration"
+
+    text: str
+    beat: str = ""
+    source: str = "llm"  # "llm" | "template"
+
+    def validate(self, state: GameState) -> None:
+        if not self.text or not self.text.strip():
+            raise ValueError("narration text must be non-empty")
+        if len(self.text) > 4000:
+            raise ValueError("narration text must be 4000 characters or fewer")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.narrative_log.append(self.text.strip())
+        return Event(
+            kind=EventKind.SYSTEM,
+            command_type=self.command_type,
+            description=f"Narration shipped ({self.beat or 'beat'}, {self.source})",
+            changes={"text": self.text.strip(), "beat": self.beat, "source": self.source},
+        )
+
+
+class RecordStoryDirectionCommand(Command):
+    """Record a player story direction for future narration conditioning (M0.5, D6).
+
+    Directions are appended to ``narrative_log`` with the scannable
+    ``story_direction=`` prefix (the same flag-channel convention as
+    ``crisis_cost=``/``term_phase=``) and recorded as a ``SYSTEM`` event.
+    Prompt builders surface recent directions so future prose is steered
+    without ever touching mechanics.
+    """
+
+    command_type: ClassVar[str] = "record_story_direction"
+
+    text: str
+    beat: str = ""
+
+    def validate(self, state: GameState) -> None:
+        if not self.text or not self.text.strip():
+            raise ValueError("story direction must be non-empty")
+        if len(self.text) > 1000:
+            raise ValueError("story direction must be 1000 characters or fewer")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        state.narrative_log.append(f"story_direction={self.text.strip()}")
+        return Event(
+            kind=EventKind.SYSTEM,
+            command_type=self.command_type,
+            description="Story direction recorded",
+            changes={"text": self.text.strip(), "beat": self.beat},
+        )

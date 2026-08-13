@@ -1,0 +1,72 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Sora:wght@400;600&family=VT323&family=Chakra+Petch:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  .t-scifi { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .popt { margin: 0 0 30px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent;
+          transition: transform .15s ease, box-shadow .15s ease; background:#0c0f16; }
+  .popt:hover { transform: translateY(-2px); }
+  .popt.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .popt-head { padding: 12px 20px 6px; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;}
+  .popt-name { font: 700 16px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .popt-note { font: 400 12px/1.4 "Inter", sans-serif; color:#98a2b8; }
+  .popt-stage { padding: 4px 20px 18px; }
+  .pwrap { background: var(--bg); border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 16px 20px; }
+  .cap { font: 400 11px/1 "VT323", monospace; letter-spacing: .14em; color: var(--muted); margin-bottom: 10px; }
+  .recap { color: var(--ink); max-width: 68ch; }
+  .recap p { margin: 0 0 9px; }
+  .recap .nar { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .recap em { font-style: italic; }
+
+  .p1 .recap { font: 400 16px/1.6 "IBM Plex Sans", sans-serif; }
+  .p1 .recap b { font-weight: 600; }
+  .p2 .recap { font: 400 16.5px/1.62 "Literata", Georgia, serif; }
+  .p3 .recap { font: 400 16px/1.6 "Atkinson Hyperlegible", sans-serif; }
+  .p3 .recap b { font-weight: 700; }
+  .p4 .recap { font: 400 15.5px/1.6 "Sora", sans-serif; }
+</style>
+
+<h2>Prose voice — four candidates</h2>
+<p class="subtitle">Same text at reading size: one recap paragraph (game-generated) and one narration line (LLM voice). This font is read for hours — judge on stamina, not first impression.</p>
+
+<div class="popt t-scifi p1" data-choice="p1" onclick="toggleSelect(this)">
+  <div class="popt-head"><span class="popt-name">P1 · IBM Plex Sans</span><span class="popt-note">Same family as the data font — prose and receipts feel like one instrument. Technical but human.</span></div>
+  <div class="popt-stage"><div class="pwrap">
+    <div class="cap">RECAP · THE STORY SO FAR</div>
+    <div class="recap">
+      <p>The crew took on a job: recover the survey beacon past the jump limit. After 3 scenes, the mission ended in <b>success</b>.</p>
+      <p class="nar">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em></p>
+    </div>
+  </div></div>
+</div>
+
+<div class="popt t-scifi p2" data-choice="p2" onclick="toggleSelect(this)">
+  <div class="popt-head"><span class="popt-name">P2 · Literata</span><span class="popt-note">A serif built for long reading (Google Books' face) — keeps the literary feel, drops the formality.</span></div>
+  <div class="popt-stage"><div class="pwrap">
+    <div class="cap">RECAP · THE STORY SO FAR</div>
+    <div class="recap">
+      <p>The crew took on a job: recover the survey beacon past the jump limit. After 3 scenes, the mission ended in <b>success</b>.</p>
+      <p class="nar">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em></p>
+    </div>
+  </div></div>
+</div>
+
+<div class="popt t-scifi p3" data-choice="p3" onclick="toggleSelect(this)">
+  <div class="popt-head"><span class="popt-name">P3 · Atkinson Hyperlegible</span><span class="popt-note">Friendliest and most legible; unambiguous letterforms. Quiet personality — lets the words carry it.</span></div>
+  <div class="popt-stage"><div class="pwrap">
+    <div class="cap">RECAP · THE STORY SO FAR</div>
+    <div class="recap">
+      <p>The crew took on a job: recover the survey beacon past the jump limit. After 3 scenes, the mission ended in <b>success</b>.</p>
+      <p class="nar">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em></p>
+    </div>
+  </div></div>
+</div>
+
+<div class="popt t-scifi p4" data-choice="p4" onclick="toggleSelect(this)">
+  <div class="popt-head"><span class="popt-name">P4 · Sora</span><span class="popt-note">Geometric sans with a soft curve — the most "contemporary game UI" of the four; pairs naturally with Chakra Petch.</span></div>
+  <div class="popt-stage"><div class="pwrap">
+    <div class="cap">RECAP · THE STORY SO FAR</div>
+    <div class="recap">
+      <p>The crew took on a job: recover the survey beacon past the jump limit. After 3 scenes, the mission ended in <b>success</b>.</p>
+      <p class="nar">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em></p>
+    </div>
+  </div></div>
+</div>

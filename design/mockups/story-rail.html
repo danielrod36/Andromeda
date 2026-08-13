@@ -1,0 +1,132 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&family=Chakra+Petch:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  .t-scifi { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .wrap { background:#0c0f16; border-radius: 10px; overflow: hidden; margin-bottom: 36px; }
+  .head { padding: 13px 20px 9px; }
+  .head .name { font: 700 18px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .head .thesis { font: 400 12.5px/1.45 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; }
+  .note { padding: 10px 20px 16px; font: 500 10.5px/1.7 "IBM Plex Mono", monospace; color:#7E8899; letter-spacing:.04em; border-top: 1px solid #232a3a; }
+  .note b { color:#c6cfe2; }
+
+  .scene { position: relative; overflow: hidden;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 14%, rgba(233,237,245,.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 32% 8%,  rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(2px 2px at 71% 12%, rgba(245,166,35,.4) 50%, transparent 51%),
+      linear-gradient(180deg, #0B0E17 0%, #141B31 52%, #1E2A4D 78%, #2A3A66 100%); }
+  .veil { position:absolute; inset:0; background: linear-gradient(180deg, rgba(8,10,16,.44) 0%, rgba(8,10,16,.62) 55%, rgba(8,10,16,.8) 100%); }
+  .kicker { position: absolute; top: 14px; left: 18px; font: 400 12.5px/1 "VT323", monospace; letter-spacing: .2em; color: var(--accent); z-index: 4; }
+
+  .rail { background: rgba(8,10,16,.8); border-right: 2px solid var(--line); padding: 14px 16px; overflow: hidden; position: relative; }
+  .rail-h { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .18em; color: var(--muted); margin-bottom: 12px; }
+  .rail-h::before { content: var(--motif) " "; color: var(--accent); }
+  .beat-entry { margin-bottom: 14px; }
+  .beat-entry .b-stamp { font: 400 10.5px/1 "VT323", monospace; letter-spacing: .14em; color: var(--accent); margin-bottom: 4px; }
+  .beat-entry .b-prose { font: 400 12.5px/1.55 "Atkinson Hyperlegible", sans-serif; color: var(--ink); }
+  .beat-entry.old .b-prose { color: var(--muted); }
+  .beat-entry .b-prose em { color: var(--accent); font-style: italic; }
+  .caret { color: var(--accent); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .prompt { font: 400 14px/1.6 "Atkinson Hyperlegible", sans-serif; color: var(--ink); text-align: center; text-shadow: 0 2px 10px rgba(0,0,0,.65); }
+  .prompt em { color: var(--accent); }
+  .docket { display:inline-block; font: 600 10.5px/1.5 "IBM Plex Mono", monospace; letter-spacing:.03em;
+    color: var(--bg); background: var(--accent); padding: 4px 10px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .tchoice { background: rgba(16,24,56,.85); border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 10px 14px; text-align: left; }
+  .tchoice .t { font: 600 13.5px/1.25 "Chakra Petch", sans-serif; color: var(--ink); margin-bottom: 3px; }
+  .tchoice .o { font: 500 9.5px/1.45 "IBM Plex Mono", monospace; letter-spacing: .05em; color: var(--muted); }
+  .dockbar { display: flex; gap: 12px; align-items: center; padding: 11px 18px;
+    background: rgba(8,10,16,.85); border-top: 2px solid var(--line); position: relative; z-index: 3; }
+  .ghostbtn { font: 600 12px/1 "Chakra Petch", sans-serif; color: var(--ink); background: rgba(16,24,56,.85); border: 2px solid var(--line); padding: 9px 14px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .ghostbtn.lit { border-color: var(--accent); }
+  .subnote { font: 400 11.5px/1.5 "Atkinson Hyperlegible", sans-serif; color: var(--muted); }
+
+  .chat { background: rgba(8,10,16,.88); border-left: 2px solid var(--accent); padding: 14px 16px; display: flex; flex-direction: column; }
+  .chat-h { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .18em; color: var(--accent); margin-bottom: 10px; }
+  .msg { max-width: 92%; margin-bottom: 10px; padding: 9px 12px; }
+  .msg .m-who { font: 400 10px/1 "VT323", monospace; letter-spacing: .14em; margin-bottom: 4px; }
+  .msg .m-txt { font: 400 12.5px/1.55 "Atkinson Hyperlegible", sans-serif; }
+  .msg.player { align-self: flex-end; background: rgba(16,24,56,.9); border: 2px solid var(--line); }
+  .msg.player .m-who { color: var(--muted); }
+  .msg.player .m-txt { color: var(--ink); }
+  .msg.narrator { align-self: flex-start; background: rgba(8,10,16,.7); border: 2px solid var(--accent); }
+  .msg.narrator .m-who { color: var(--accent); }
+  .msg.narrator .m-txt { color: var(--ink); }
+  .msg.narrator .m-txt em { color: var(--accent); }
+  .dircard { align-self: center; border: 2px dashed var(--accent); padding: 7px 12px; margin-bottom: 10px;
+    font: 600 10px/1.5 "IBM Plex Mono", monospace; letter-spacing: .05em; color: var(--accent); background: rgba(245,166,35,.06); }
+  .chat-input { display: flex; gap: 8px; align-items: center; margin-top: auto; background: rgba(16,24,56,.9); border: 2px solid var(--line); padding: 9px 12px; }
+  .chat-input .ph { font: 400 12.5px/1 "Atkinson Hyperlegible", sans-serif; font-style: italic; color: var(--muted); flex: 1; }
+  .chat-input .send { font: 600 11px/1 "Chakra Petch", sans-serif; color: var(--bg); background: var(--accent); padding: 7px 11px; }
+  .rules { font: 400 10px/1.5 "VT323", monospace; letter-spacing: .08em; color: var(--muted); text-align: center; margin-bottom: 10px; }
+</style>
+
+<h2>Chargen shell — story rail + narrator chat</h2>
+<p class="subtitle">State 1: the rail writes the life as the beats resolve. State 2: the narrator chat, with the steering rules made visible and the story-direction record as a canonical event chip.</p>
+
+<!-- ============ STATE 1: STORY RAIL ============ -->
+<div class="wrap">
+  <div class="head"><span class="name">State 1 — the rail writes along</span>
+    <div class="thesis">Left rail: the accumulating narrative, beat-stamped, older beats dimming. Current beat streams at its foot. The center stage is unchanged — the rail is additive.</div></div>
+  <div class="scene t-scifi" style="height: 540px; display:flex; flex-direction:column;">
+    <div class="veil"></div><div class="kicker">◤ TERM 2 — SURVEY DUTY · AGE 22</div>
+    <div style="flex:1; display:grid; grid-template-columns: 300px 1fr; min-height:0; position:relative; z-index:3; padding-top:38px; box-sizing:border-box;">
+      <div class="rail">
+        <div class="rail-h">THE STORY SO FAR</div>
+        <div class="beat-entry old"><div class="b-stamp">ORIGIN · AGE 18</div><div class="b-prose">The rain on Ruuth Prime taught her patience before the service ever could.</div></div>
+        <div class="beat-entry old"><div class="b-stamp">TERM 1 · COURIER DUTY</div><div class="b-prose">She learned the beacon line by its failures — which lights lied, which keepers talked. Commissioned by spring.</div></div>
+        <div class="beat-entry"><div class="b-stamp">TERM 2 · SURVEY DUTY</div><div class="b-prose"><em>The jump limit is not a line so much as a habit of turning back.</em> She flew past it twice. The charts she brought home were worth more than the pay<span class="caret">▌</span></div></div>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 14px; padding: 24px;">
+        <span class="docket">SEQ 0041 · SURVIVAL: 2D6(8)+1 = 9 vs 6 → SUCCESS</span>
+        <div class="prompt">Two skill rolls this term. <em>What did the deep range teach her?</em></div>
+        <div style="display:grid; grid-template-columns: repeat(3, 176px); gap: 10px;">
+          <div class="tchoice"><div class="t">Personal Development</div><div class="o">1D6 · +1 STR · +1 DEX · ATHLETICS · …</div></div>
+          <div class="tchoice"><div class="t">Service Skills</div><div class="o">1D6 · VACC SUIT · PILOT · …</div></div>
+          <div class="tchoice"><div class="t">Specialist</div><div class="o">1D6 · SENSORS · NAVIGATION · …</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="dockbar">
+      <span class="ghostbtn">✦ ASK THE ADVISOR</span>
+      <span class="ghostbtn lit">✎ TALK TO THE NARRATOR</span>
+      <span style="flex:1"></span>
+      <span class="subnote">2 skill rolls left</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ STATE 2: NARRATOR CHAT ============ -->
+<div class="wrap">
+  <div class="head"><span class="name">State 2 — talk to the narrator</span>
+    <div class="thesis">The chat slides in over the drawer zone. The player steers; the narrator answers within the rules; a direction entering canonical state is shown as its own event chip.</div></div>
+  <div class="scene t-scifi" style="height: 540px; display:flex; flex-direction:column;">
+    <div class="veil"></div><div class="kicker">◤ TERM 2 — SURVEY DUTY · AGE 22</div>
+    <div style="flex:1; display:grid; grid-template-columns: 300px 1fr 330px; min-height:0; position:relative; z-index:3; padding-top:38px; box-sizing:border-box;">
+      <div class="rail">
+        <div class="rail-h">THE STORY SO FAR</div>
+        <div class="beat-entry old"><div class="b-stamp">ORIGIN · AGE 18</div><div class="b-prose">The rain on Ruuth Prime taught her patience before the service ever could.</div></div>
+        <div class="beat-entry old"><div class="b-stamp">TERM 1 · COURIER DUTY</div><div class="b-prose">She learned the beacon line by its failures — which lights lied, which keepers talked. Commissioned by spring.</div></div>
+        <div class="beat-entry"><div class="b-stamp">TERM 2 · SURVEY DUTY — RE-TOLD</div><div class="b-prose"><em>Survey duty was exile, not assignment</em> — the kind of posting they give scouts who take falls for people. She flew it anyway.<span class="caret">▌</span></div></div>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center; padding: 24px;">
+        <div class="subnote" style="text-align:center; max-width: 30ch;">The stage waits — the current beat is being re-told with your direction.</div>
+      </div>
+      <div class="chat">
+        <div class="chat-h">✎ THE NARRATOR</div>
+        <div class="rules">THE PAST IS WRITTEN · THE PRESENT CAN BE RE-TOLD · THE FUTURE IS STEERED</div>
+        <div class="msg player"><div class="m-who">YOU</div><div class="m-txt">I pictured her academy years differently — she washed out covering for a friend.</div></div>
+        <div class="msg narrator"><div class="m-who">NARRATOR</div><div class="m-txt">Term 1 is written and stays. But a loyalty that costs her — <em>that</em> belongs in the telling. Watch the current beat.</div></div>
+        <div class="dircard">⇒ DIRECTION RECORDED · "A LOYALTY THAT COSTS HER" · SEQ 0044</div>
+        <div class="chat-input"><span class="ph">Steer the story…</span><span class="send">SEND ▸</span></div>
+      </div>
+    </div>
+    <div class="dockbar">
+      <span class="ghostbtn">✦ ASK THE ADVISOR</span>
+      <span class="ghostbtn lit">✎ CLOSE NARRATOR</span>
+      <span style="flex:1"></span>
+      <span class="subnote">2 skill rolls left</span>
+    </div>
+  </div>
+  <div class="note"><b>Wiring:</b> player message → <b>POST /narrate {"beat":"current","steering":"…"}</b> (re-tell) and/or <b>RecordStoryDirectionCommand</b> (future conditioning) · the <b>DIRECTION RECORDED</b> chip is the funnel event made visible — steering is canonical, replayable, and never re-calls the LLM on restore · shipped prose passes the mechanical-claim validator before it lands in the rail.</div>
+</div>

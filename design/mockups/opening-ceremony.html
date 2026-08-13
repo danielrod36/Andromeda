@@ -1,0 +1,76 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&family=Chakra+Petch:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  .tn { --bg:#13161D; --panel:#1A1F2A; --line:#2C3444; --ink:#E9EDF5; --muted:#7E8899; --accent:#8FA3C8; --ok:#5FC98E; --danger:#E5606C; --motif:"◆"; }
+  .t-scifi { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+
+  .oopt { margin: 0 0 40px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent;
+          transition: transform .15s ease, box-shadow .15s ease; background:#0c0f16; }
+  .oopt:hover { transform: translateY(-2px); }
+  .oopt.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .oopt-head { padding: 13px 20px 8px; }
+  .oopt-name { font: 700 17px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .oopt-name .rec { font: 400 10px/1 "IBM Plex Mono", monospace; letter-spacing:.14em; color:#5FC98E; margin-left: 10px; }
+  .oopt-thesis { font: 400 12.5px/1.5 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; max-width: 110ch; }
+  .oopt-cost { font: 500 10px/1.5 "IBM Plex Mono", monospace; color:#7E8899; letter-spacing:.06em; padding: 0 20px 12px; }
+  .oopt-cost b { color:#c6cfe2; }
+
+  .boards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 0 20px 18px; }
+  @media (max-width: 1000px) { .boards { grid-template-columns: repeat(2, 1fr); } }
+  .frame { border: 2px solid #2C3444; background: #0B0E17; min-height: 132px; padding: 10px 12px; position: relative; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .frame .cap { font: 400 10px/1 "VT323", monospace; letter-spacing: .12em; color: #7E8899; margin-bottom: 7px; }
+  .frame .art { position: absolute; inset: 0; opacity: .5; pointer-events: none;
+    background:
+      radial-gradient(1px 1px at 20% 25%, rgba(233,237,245,.6) 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 15%, rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 85% 40%, rgba(245,166,35,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 40% 55%, rgba(233,237,245,.3) 50%, transparent 51%),
+      linear-gradient(180deg, #0B0E17 0%, #16203C 70%, #24335C 100%); }
+  .frame .txt { position: relative; font: 400 12px/1.5 "Atkinson Hyperlegible", sans-serif; color: #E9EDF5; }
+  .frame .txt em { color: #F5A623; }
+  .frame .big { font: 700 15px/1.25 "Space Grotesk", sans-serif; letter-spacing: .04em; }
+  .frame .stamp { display:inline-block; font: 600 10px/1.5 "IBM Plex Mono", monospace; color:#0A0F1E; background:#F5A623; padding: 3px 8px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .frame .field-line { font: 600 13px/1.2 "Chakra Petch", sans-serif; color:#E9EDF5; border-bottom: 2px solid #2C3444; padding: 4px 2px; }
+  .frame .field-line .caret { color:#F5A623; }
+</style>
+
+<h2>The opening ceremony — three flows</h2>
+<p class="subtitle">The manifest stays as-is (immutable config wants transparency). The question is what happens around <b>BEGIN</b>. Storyboards below; engine cost noted per option.</p>
+
+<!-- ============ O1 ============ -->
+<div class="oopt" data-choice="o1" onclick="toggleSelect(this)">
+  <div class="oopt-head"><span class="oopt-name">O1 · The Ceremony<span class="rec">RECOMMENDED</span></span>
+    <div class="oopt-thesis">Manifest → <b>fate-seeding ritual</b> → world-intro cinematic → "who are you?" → chargen. The seed stops being a form field and becomes the first roll of the story: stamped like a docket, read aloud by the narrator, then the world opens over art. LLM-narrated from pack flavor; template intro ships in the pack as fallback.</div></div>
+  <div class="boards">
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 1 · FATE SEEDED</div><div class="txt"><span class="stamp">FATE SEEDED · 482991</span><br><br>The dice are already cast. Every fortune in this chronicle was written at this number.</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 2 · THE WORLD (STREAMED)</div><div class="txt"><em>The Spinward frontier does not care about you.</em> A thousand beacons burn out past the jump limit, and every one was somebody's fortune…</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 3 · WHO ARE YOU?</div><div class="txt"><span class="big">Every fortune starts with a name.</span><br><br><span class="field-line">Mara Voss<span class="caret">▌</span></span></div></div>
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 4 · LIFEPATH OPENS</div><div class="txt"><span class="big">Age 18. Homeworld: Ruuth Prime.</span><br><br>Six 2D6 wait in the pool. Your characteristics — your call.</div></div>
+  </div>
+  <div class="oopt-cost"><b>Engine cost:</b> one world-intro narration surface (prompt builder + pack-shipped template fallback — small, fits the trust boundary) · name already supported via narrative freetext</div>
+</div>
+
+<!-- ============ O2 ============ -->
+<div class="oopt" data-choice="o2" onclick="toggleSelect(this)">
+  <div class="oopt-head"><span class="oopt-name">O2 · The Storybook Manifest</span>
+    <div class="oopt-thesis">No new screens — the manifest itself gets fiction. Each section header becomes a story question ("What world will you walk?", "What do the fates demand?"), pack cards gain a mood vignette, and BEGIN reads "Begin the tale." Cheapest; still a form at heart.</div></div>
+  <div class="boards">
+    <div class="frame"><div class="art"></div><div class="cap">SECTION 01</div><div class="txt"><span class="big">What world will you walk?</span><br><br>Two cards, each with a vignette and the world humming behind it.</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">SECTION 02</div><div class="txt"><span class="big">How does the world answer?</span><br><br>Resolution profile reframed as the world's temperament.</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">SECTION 03</div><div class="txt"><span class="big">What do the fates demand?</span><br><br>Death modes as pacts: permadeath, rewind, scars.</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">COMMIT</div><div class="txt"><span class="stamp">BEGIN THE TALE ▸</span><br><br>…and straight into chargen.</div></div>
+  </div>
+  <div class="oopt-cost"><b>Engine cost:</b> pack flavor blurbs only (one optional pack.yaml field). No new surfaces</div>
+</div>
+
+<!-- ============ O3 ============ -->
+<div class="oopt" data-choice="o3" onclick="toggleSelect(this)">
+  <div class="oopt-head"><span class="oopt-name">O3 · Cold Open</span>
+    <div class="oopt-thesis">Cinematic first, config after: the game opens on the world-intro before you've configured anything, then the manifest arrives mid-flow as "the contract." Most dramatic; buries the immutable choices after an emotional high — and asks what a cinematic means before a pack is even chosen.</div></div>
+  <div class="boards">
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 1 · COLD OPEN</div><div class="txt"><em>The Spinward frontier does not care about you…</em><br><br>(neutral world prose, no pack yet)</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 2 · THE CONTRACT</div><div class="txt"><span class="big">Before your story begins —</span><br><br>the manifest, framed as the pact you sign.</div></div>
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 3 · WHO ARE YOU?</div><div class="txt"><span class="field-line">Mara Voss<span class="caret">▌</span></span></div></div>
+    <div class="frame"><div class="art"></div><div class="cap">BEAT 4 · LIFEPATH OPENS</div><div class="txt"><span class="big">Age 18…</span></div></div>
+  </div>
+  <div class="oopt-cost"><b>Engine cost:</b> same world-intro surface as O1, plus neutral (packless) intro variant · config transparency weakened</div>
+</div>

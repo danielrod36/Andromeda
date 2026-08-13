@@ -1,0 +1,138 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap&family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  .tn { --bg:#13161D; --panel:#1A1F2A; --line:#2C3444; --ink:#E9EDF5; --muted:#7E8899; --accent:#8FA3C8; --ok:#5FC98E; --danger:#E5606C; --motif:"◆"; }
+  .t-scifi   { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .t-fantasy { --bg:#17120C; --panel:#221A10; --line:#4A3A22; --ink:#F2E9D8; --muted:#9C8D76; --accent:#D9A02B; --ok:#7FA85C; --danger:#C24A52; --motif:"❧"; }
+  .t-dead    { --bg:#180F12; --panel:#221418; --line:#4A2830; --ink:#E9DCD8; --muted:#96787E; --accent:#8E3A46; --ok:#7FA85C; --danger:#E5606C; --motif:"✝"; }
+
+  .opt { margin: 0 0 46px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent;
+         transition: transform .15s ease, box-shadow .15s ease; background:#0c0f16; }
+  .opt:hover { transform: translateY(-2px); }
+  .opt.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .opt-head { padding: 13px 20px 9px; }
+  .opt-name { font: 700 18px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .opt-thesis { font: 400 12.5px/1.45 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; }
+
+  .px { background: var(--accent); padding: 2px;
+    clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)); }
+  .px-in { background: var(--bg); padding: 12px 14px; height: 100%; box-sizing: border-box; position: relative;
+    clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)); }
+
+  .chrome { display:flex; justify-content: space-between; align-items: baseline; padding: 12px 18px 10px; }
+  .chrome .title { font: 700 20px/1 "Space Grotesk", sans-serif; letter-spacing: .14em; color:#E9EDF5; }
+  .chrome .hint { font: 400 12px/1 "VT323", monospace; color: #7E8899; letter-spacing: .1em; }
+
+  /* C1: master-detail dockets */
+  .c1-grid { display: grid; grid-template-columns: 400px 1fr; gap: 16px; padding: 4px 18px 18px; }
+  .dock { display:flex; gap: 12px; align-items: stretch; margin-bottom: 10px; cursor: pointer; }
+  .dock .body { flex: 1; padding: 10px 12px; }
+  .dock .who { font: 600 15px/1.2 "Chakra Petch", sans-serif; color: var(--ink); }
+  .dock .meta { font: 500 9.5px/1.6 "IBM Plex Mono", monospace; letter-spacing: .07em; color: var(--muted); margin-top: 3px; }
+  .dock .kind { font: 400 11px/1.2 "VT323", monospace; letter-spacing: .08em; color: var(--accent); writing-mode: vertical-rl;
+    border-left: 2px dashed var(--line); padding: 4px 3px; text-align: center; align-self: stretch; display:flex; align-items:center; }
+  .dock.active { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .preview { padding: 16px 18px; }
+  .preview .who { font: 700 22px/1.1 "Space Grotesk", sans-serif; color: var(--ink); }
+  .preview .role { font: 500 10.5px/1 "IBM Plex Mono", monospace; letter-spacing: .12em; color: var(--muted); margin: 6px 0 14px; }
+  .preview h5 { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .18em; color: var(--accent); margin: 0 0 8px; }
+  .preview .recap { font: 400 14.5px/1.65 "Newsreader", serif; color: var(--ink); max-width: 58ch; }
+  .preview .recap p { margin: 0 0 8px; }
+  .preview .acts { display: flex; gap: 14px; margin-top: 16px; align-items: center; }
+  .btn { font: 600 12px/1 "Chakra Petch", sans-serif; letter-spacing: .06em; color: var(--bg); background: var(--accent); padding: 9px 16px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .micro-link { font: 400 12px/1 "VT323", monospace; letter-spacing: .08em; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+  .micro-link.bad { color: var(--danger); }
+
+  /* C2: cartridge shelf */
+  .c2-shelf { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; padding: 6px 18px 14px; }
+  @media (max-width: 1000px) { .c2-shelf { grid-template-columns: repeat(2, 1fr); } }
+  .cart { cursor: pointer; }
+  .cart .ridge { height: 16px; background: repeating-linear-gradient(90deg, var(--panel) 0 8px, var(--bg) 8px 16px); border: 2px solid var(--line); border-bottom: none; }
+  .cart .label { background: var(--panel); border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 12px; min-height: 118px; position: relative; }
+  .cart .motif { position: absolute; top: 8px; right: 10px; color: var(--accent); font-size: 14px; }
+  .cart .who { font: 600 14.5px/1.25 "Chakra Petch", sans-serif; color: var(--ink); }
+  .cart .meta { font: 500 9.5px/1.7 "IBM Plex Mono", monospace; letter-spacing: .06em; color: var(--muted); margin-top: 5px; }
+  .cart .kind { display:inline-block; font: 400 11px/1 "VT323", monospace; color: var(--bg); background: var(--accent); padding: 2px 7px; margin-top: 8px; letter-spacing: .1em; }
+  .cart.active .label { border-color: var(--accent); }
+  .c2-expand { margin: 0 18px 18px; }
+</style>
+
+<h2>Screen 2 — Chronicles (save browser)</h2>
+<p class="subtitle">Saves tint to their campaign's pack tokens (sci-fi amber, fantasy gold, dead-and-memorialized in umber-red). Autosaves ride alongside manual saves as first-class entries. Two presentations below — pick one, then we tune the docket anatomy itself.</p>
+
+<!-- ============ C1: DOCKETS + PREVIEW ============ -->
+<div class="opt tn" data-choice="c1" onclick="toggleSelect(this)">
+  <div class="opt-head"><span class="opt-name">C1 · Dockets + recap preview</span>
+    <div class="opt-thesis">Master-detail: ticket-stub save dockets on the left, story-so-far preview on the right. Optimized for "where was I?" — the recap (from <span style="font-family:'IBM Plex Mono'">GET /recap</span>) is the hero.</div></div>
+  <div class="chrome"><span class="title">◆ CHRONICLES</span><span class="hint">ESC — BACK TO TITLE</span></div>
+  <div class="c1-grid">
+    <div>
+      <div class="px t-scifi dock active"><div class="px-in body">
+        <div class="who">Mara Voss</div>
+        <div class="meta">SCOUT R2 · TERM 4 · 12,000 CR<br>THE BEACON AT RUUTH · SCENE 2</div>
+      </div><div class="kind" style="color:var(--accent)">AUTO·2H</div></div>
+      <div class="px t-fantasy dock"><div class="px-in body">
+        <div class="who">Branwen</div>
+        <div class="meta">BARD R1 · TERM 2 · 340 CROWNS<br>"THE CROSSING" · MANUAL · 3D AGO</div>
+      </div><div class="kind">MANUAL</div></div>
+      <div class="px t-dead dock"><div class="px-in body">
+        <div class="who">Rook (DEX-7)</div>
+        <div class="meta">MARINE R4 · 6 TERMS · IRONMAN<br>DIED IN SERVICE · MEMORIALIZED</div>
+      </div><div class="kind" style="color:var(--danger)">✝ R.I.P.</div></div>
+      <div class="px tn dock" style="opacity:.55"><div class="px-in body">
+        <div class="who" style="color:var(--muted)">— empty slot —</div>
+        <div class="meta">IMPORT A SAVE FILE…</div>
+      </div><div class="kind">EMPTY</div></div>
+    </div>
+    <div class="px t-scifi"><div class="px-in preview">
+      <div class="who">Mara Voss</div>
+      <div class="role">SCOUT · SECOND RANK · FOUR TERMS · SCI-FI PACK · NARRATIVE MODE</div>
+      <h5>THE STORY SO FAR</h5>
+      <div class="recap">
+        <p>The crew took on a job: recover the survey beacon past the jump limit. After 3 scenes, the mission ended in success.</p>
+        <p>Pad 9 at dusk — the tower cleared you, and warned you. Whatever Razor sold you at Duskmarket followed you home.</p>
+        <p style="color:var(--muted)">Unresolved: the beacon's debt · Razor's patience</p>
+      </div>
+      <div class="acts">
+        <span class="btn">RESUME ▸</span>
+        <span class="micro-link">DUPLICATE</span>
+        <span class="micro-link">EXPORT</span>
+        <span class="micro-link bad">DELETE</span>
+      </div>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============ C2: CARTRIDGE SHELF ============ -->
+<div class="opt tn" data-choice="c2" onclick="toggleSelect(this)">
+  <div class="opt-head"><span class="opt-name">C2 · Cartridge shelf</span>
+    <div class="opt-thesis">Saves as game carts on a shelf — ridged spine, paper label, pack-motif sticker. Selected cart docks into the reader below with the same preview. More toy-like; less information at a glance.</div></div>
+  <div class="chrome"><span class="title">◆ CHRONICLES</span><span class="hint">ESC — BACK TO TITLE</span></div>
+  <div class="c2-shelf">
+    <div class="cart t-scifi active"><div class="ridge"></div><div class="label">
+      <div class="motif">✦</div><div class="who">Mara Voss</div>
+      <div class="meta">SCOUT R2 · T4<br>BEACON AT RUUTH</div><div class="kind">AUTO·2H</div>
+    </div></div>
+    <div class="cart t-fantasy"><div class="ridge"></div><div class="label">
+      <div class="motif">❧</div><div class="who">Branwen</div>
+      <div class="meta">BARD R1 · T2<br>THE CROSSING</div><div class="kind">MANUAL</div>
+    </div></div>
+    <div class="cart t-dead"><div class="ridge"></div><div class="label">
+      <div class="motif">✝</div><div class="who">Rook</div>
+      <div class="meta">MARINE R4 · 6T<br>IRONMAN · DIED</div><div class="kind" style="background:var(--danger)">MEMORIAL</div>
+    </div></div>
+    <div class="cart tn" style="opacity:.55"><div class="ridge"></div><div class="label">
+      <div class="who" style="color:var(--muted)">empty</div>
+      <div class="meta">IMPORT SAVE…</div><div class="kind" style="background:var(--muted)">SLOT</div>
+    </div></div>
+  </div>
+  <div class="c2-expand px t-scifi"><div class="px-in preview">
+    <div class="who">Mara Voss <span style="font:400 12px/1 'VT323',monospace; color:var(--muted); letter-spacing:.1em;">— DOCKED</span></div>
+    <div class="role">SCOUT · SECOND RANK · FOUR TERMS · SCI-FI PACK · NARRATIVE MODE</div>
+    <h5>THE STORY SO FAR</h5>
+    <div class="recap">
+      <p>The crew took on a job: recover the survey beacon past the jump limit. After 3 scenes, the mission ended in success.</p>
+      <p>Pad 9 at dusk — the tower cleared you, and warned you.</p>
+    </div>
+    <div class="acts"><span class="btn">RESUME ▸</span><span class="micro-link">DUPLICATE</span><span class="micro-link">EXPORT</span><span class="micro-link bad">DELETE</span></div>
+  </div></div>
+</div>

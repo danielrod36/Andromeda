@@ -428,6 +428,29 @@ class AdventureController:
             # mission. Return the current view rather than crashing.
             logger.warning("push_for_ending called with no active mission")
             return self.get_view()
+        # B4 (M0.1): gate BEFORE any roll or scene generation. An early push
+        # must leave state, RNG streams, and the event log untouched — the
+        # old order consumed a scene_check roll and appended events before
+        # ResolveMissionCommand.validate rejected the resolution.
+        mission = self._current_mission
+        if mission.scenes_completed < mission.min_scenes:
+            remaining = mission.min_scenes - mission.scenes_completed
+            logger.warning(
+                "push_for_ending rejected: %d scene(s) short of %d",
+                remaining,
+                mission.min_scenes,
+            )
+            # B4: do NOT call get_view() here — it lazily triggers
+            # _ensure_current_scene / _build_hook_view, which consume
+            # oracle rolls. Build a minimal view instead so state, RNG
+            # streams, and the event log remain untouched.
+            return AdventureView(
+                phase=self.determine_phase(),
+                prompt=(
+                    f"The mission needs {remaining} more scene"
+                    f"{'s' if remaining != 1 else ''} before you can push for the ending."
+                ),
+            )
         self._ensure_current_scene()
         option = self._current_scene.options[0]
         scaffold = self._current_scene.scaffold

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>09 — Adventure</title><link rel="stylesheet" href="tokens.css"></head>
+<body class="t-scifi">
+<div class="screen">
+  <div class="s-head"><span class="s-name">09 · Adventure shell — scene active</span>
+    <div class="s-sub">Mission clocks, NPC chip with live disposition, the spine with an inline roll readout, odded choices, free-text slot.</div></div>
+  <div class="scene sc-port" style="min-height:620px; display:flex; flex-direction:column;">
+    <div class="veil veil-left"></div>
+    <div class="kicker">◤ THE BEACON AT RUUTH — SCENE 2</div>
+    <div style="position:relative; z-index:3; display:flex; align-items:center; gap:16px; padding:10px 18px; margin-top:30px; background:rgba(8,10,16,.8); border-bottom:2px solid var(--line);">
+      <span class="x-int" style="font-size:13px; letter-spacing:.08em;">✦ THE BEACON AT RUUTH</span>
+      <span class="clock">FIND THE BEACON <span class="cells"><span class="cell f"></span><span class="cell f"></span><span class="cell"></span></span></span>
+      <span class="clock bad">RAZOR'S PATIENCE <span class="cells"><span class="cell f"></span><span class="cell f"></span><span class="cell"></span><span class="cell"></span></span></span>
+      <span style="flex:1"></span>
+      <span class="npc-chip"><span class="n-dot"></span><span class="n-name">Dockmaster Ila Renn</span><span class="n-disp">UNFRIENDLY</span></span>
+    </div>
+    <div style="flex:1; display:flex; min-height:0; position:relative; z-index:3;">
+      <div class="spine" style="width:500px; padding:16px 18px;">
+        <div class="sp-cap">THE SPINE · LIVE</div>
+        <div class="sp-prose">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em> The Dockmaster is already watching you land.</div>
+        <div class="sp-choice">Ask the tower who paid for the warning</div>
+        <div class="readout">
+          <div class="r-top">
+            <span class="r-dice"><span class="die d30"><span class="p TL"></span><span class="p TR"></span><span class="p BL"></span><span class="p BR"></span></span><span class="die d30"><span class="p TL"></span><span class="p TR"></span><span class="p C"></span><span class="p BL"></span><span class="p BR"></span></span></span>
+            <span class="dmchips"><span class="dm pos">+1 SOC</span><span class="dm pos">+1 PERSUADE</span></span>
+            <span class="r-eq">=</span><span class="r-total">11</span><span class="r-vs">vs 8</span><span class="r-effect">+3</span>
+          </div>
+          <div class="meter">
+            <div class="zone z-miss" style="width:33%"></div><div class="zone z-weak" style="width:22%"></div><div class="zone z-strong" style="width:45%"></div>
+            <span class="zlab" style="left:8%; color:var(--danger)">MISS ≤6</span><span class="zlab" style="left:38%; color:var(--accent)">WEAK 7–9</span><span class="zlab" style="left:70%; color:var(--ok)">STRONG 10+</span>
+            <span class="mark" style="left:calc(75% - 6px)"></span><span class="markline" style="left:75%"></span>
+          </div>
+          <div class="r-verdict strong">STRONG HIT</div>
+        </div>
+        <div class="sp-prose">"Paid?" Ila Renn laughs without humor. <em>"No one paid for the warning, Voss. The warning is free. It's the ignoring it that costs."</em> She taps the manifest twice and walks away.<span class="caret">▌</span></div>
+        <div class="change"><span class="plus">+ FACT REGISTERED:</span> "ILA RENN" (NARRATIVE FACT)<br><span class="plus">+ ADVANTAGE:</span> SHE TAPPED THE MANIFEST — THE PAPERWORK KNOWS SOMETHING</div>
+      </div>
+      <div style="flex:1"></div>
+    </div>
+    <div style="position:relative; z-index:3; border-top:2px solid var(--line); background:rgba(8,10,16,.88); padding:12px 16px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:stretch;">
+        <div class="choice"><div class="t">Press her on the manifest</div><div class="o">PERSUADE · AVERAGE 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+        <div class="choice"><div class="t">Lift off now — leave the beacon, and whatever it owes you</div><div class="o">PILOT · DIFFICULT 10+ · <span class="risk">28% RISKY</span></div></div>
+        <div class="choice dim"><div class="t">Push for the ending</div><div class="req">REQUIRES 1 MORE SCENE</div></div>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:10px;">
+        <span style="flex:1; display:flex; gap:8px; align-items:center; background:rgba(16,24,56,.85); border:2px solid var(--line); padding:9px 12px;"><span class="x-micro" style="font-size:10px; letter-spacing:.1em; color:var(--accent);">✎</span><span class="x-prose" style="font-size:12.5px; font-style:italic; color:var(--muted);">In your own words — anything the rules allow…</span></span>
+        <span class="microlink">✦ ADVISOR</span>
+        <span class="microlink">✎ NARRATOR</span>
+        <span class="microlink bad">ABANDON MISSION</span>
+      </div>
+    </div>
+    <div class="strip"><span>ENGINE SYNC <span class="ok">✓</span> · SEQ 0417 · EVENT LOG CLEAN</span><span>NARRATOR ● · AUTOSAVE ✓</span></div>
+  </div>
+</div>
+
+<div class="screen">
+  <div class="s-head"><span class="s-name">09b · Hook offered — the patron's card</span>
+    <div class="s-sub">Accept adds the open thread; refuse re-rolls. The hook is pinned server-side (pending_hook) — quit mid-offer resumes the exact card.</div></div>
+  <div class="scene sc-port" style="height:500px;">
+    <div class="veil veil-std"></div><div class="kicker">◤ BETWEEN JOBS — THE OFFER</div>
+    <div style="position:relative; z-index:3; display:flex; flex-direction:column; justify-content:center; height:100%; padding:40px 20px 16px; box-sizing:border-box;">
+      <div class="glass-a" style="max-width:560px; margin:0 auto; width:100%;">
+        <div style="display:flex; gap:12px; align-items:center; border-bottom:2px solid var(--line); padding:12px 16px;">
+          <span style="width:40px; height:40px; background:linear-gradient(160deg, #2A4A7C, #14214A); border:2px solid var(--line); flex:none; position:relative;"><span style="position:absolute; left:12px; top:8px; width:14px; height:20px; background:#0A0F1E; clip-path:polygon(50% 0, 100% 30%, 100% 100%, 0 100%, 0 30%);"></span></span>
+          <span><div class="x-int" style="font-size:15px;">Administrator Vess</div><div class="x-micro" style="font-size:10px; letter-spacing:.12em; color:var(--muted); margin-top:3px;">BEACON AUTHORITY · PATRON</div></span>
+        </div>
+        <div style="padding:12px 16px;">
+          <div style="margin-bottom:10px;"><div class="x-data" style="font-size:9px; letter-spacing:.16em; color:var(--accent); margin-bottom:3px;">OBJECTIVE</div><div class="x-prose" style="font-size:13px; line-height:1.55;">Recover a survey beacon that went dark past the jump limit.</div></div>
+          <div style="margin-bottom:10px;"><div class="x-data" style="font-size:9px; letter-spacing:.16em; color:var(--accent); margin-bottom:3px;">COMPLICATION</div><div class="x-prose" style="font-size:13px; line-height:1.55;"><em style="color:var(--accent)">The beacon didn't go dark. It was switched off — by someone who signed the work order.</em></div></div>
+          <div><div class="x-data" style="font-size:9px; letter-spacing:.16em; color:var(--accent); margin-bottom:3px;">REWARD</div><div class="x-prose" style="font-size:13px; line-height:1.55;">Cr 20,000 and a clean slate with the tower.</div></div>
+        </div>
+        <div style="display:flex; gap:10px; padding:12px 16px; border-top:2px solid var(--line);">
+          <span class="btn">ACCEPT THE JOB ▸</span><span class="ghostbtn">REFUSE — LOOK ELSEWHERE</span>
+        </div>
+      </div>
+    </div>
+    <div class="strip" style="position:absolute; bottom:0; left:0; right:0;"><span>ENGINE SYNC <span class="ok">✓</span> · THE OFFER HOLDS — RESUME ANYTIME</span><span>NARRATOR ●</span></div>
+  </div>
+</div>
+
+<div class="screen">
+  <div class="s-head"><span class="s-name">09c · Free-text pending</span>
+    <div class="s-sub">Your words become an engine-known check, shown before it rolls. Accept, rephrase, or fall back to the structured options.</div></div>
+  <div class="scene sc-port" style="height:460px;">
+    <div class="veil veil-std"></div><div class="kicker">◤ THE BEACON AT RUUTH — SCENE 2 · FREE TEXT</div>
+    <div style="position:relative; z-index:3; display:flex; flex-direction:column; justify-content:center; height:100%; padding:40px 20px 16px; box-sizing:border-box;">
+      <div class="glass-a" style="max-width:620px; margin:0 auto; width:100%;">
+        <div class="x-micro" style="font-size:11px; letter-spacing:.16em; color:var(--accent); padding:12px 16px 0;">YOUR WORDS</div>
+        <div class="x-prose" style="padding:8px 16px; font-size:14px; line-height:1.5; font-style:italic;">"I slip two hundred credits across the counter and ask what page three isn't saying."</div>
+        <div class="x-micro" style="padding:0 16px; font-size:14px; color:var(--accent);">↓ INTERPRETED AS</div>
+        <div style="margin:8px 16px 12px; background:rgba(16,24,56,.9); border:2px solid var(--line); padding:12px 14px;">
+          <div class="x-int" style="font-size:15px; margin-bottom:5px;">Bribe the Dockmaster for the manifest's secret</div>
+          <div class="x-data" style="font-size:10px; letter-spacing:.05em; color:var(--muted);">PERSUADE · SOC · DIFFICULT (−2) · <span style="color:var(--danger)">28% RISKY</span> · NOT LIFE-THREATENING</div>
+          <div class="x-prose" style="font-size:11px; line-height:1.5; color:var(--muted); margin-top:6px;">The bribe is flavor; the check is the check. If you'd meant the bribe to <i>lower</i> the difficulty — that's a story worth steering (✎ narrator).</div>
+        </div>
+        <div style="display:flex; gap:10px; padding:0 16px 14px;">
+          <span class="btn">PROCEED WITH THIS CHECK ▸</span><span class="ghostbtn">REPHRASE</span><span class="microlink" style="align-self:center;">BACK TO OPTIONS</span>
+        </div>
+      </div>
+    </div>
+    <div class="strip" style="position:absolute; bottom:0; left:0; right:0;"><span>ENGINE SYNC <span class="ok">✓</span> · YOUR WORDS, PINNED — RESUME ANYTIME</span><span>HEARD BY THE NARRATOR ✓</span></div>
+  </div>
+  <div class="s-note"><b>Also in this family:</b> the dice ceremony (two pixel dice tumble over the scene, land as the readout; SPACE skips and remembers) — see 12-components for the dice and the full readout anatomy.</div>
+</div>
+</body></html>

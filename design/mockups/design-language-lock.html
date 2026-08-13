@@ -1,0 +1,153 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+<style>
+  .t-scifi   { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .t-fantasy { --bg:#17120C; --panel:#221A10; --line:#4A3A22; --ink:#F2E9D8; --muted:#9C8D76; --accent:#D9A02B; --ok:#7FA85C; --danger:#C24A52; --motif:"❧"; }
+
+  .lock { margin: 0 0 40px; border-radius: 10px; background: #10131a; overflow: hidden; border: 1px solid #232a3a; }
+  .lock-head { padding: 14px 20px 8px; }
+  .lock-name { font: 700 19px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .lock-thesis { font: 400 13px/1.45 "Inter", sans-serif; color: #98a2b8; margin-top: 5px; }
+  .lock-stage { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; padding: 14px 20px 20px; }
+  @media (max-width: 1000px) { .lock-stage { grid-template-columns: 1fr; } }
+
+  /* pixel frame system (V2 body) */
+  .px { background: var(--accent); padding: 2px;
+    clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)); }
+  .px-in { background: var(--bg); padding: 16px 18px; height: 100%; box-sizing: border-box; position: relative;
+    clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)); }
+  .px-in::after { content:""; position:absolute; inset:0; pointer-events:none;
+    background: repeating-conic-gradient(rgba(255,255,255,.026) 0% 25%, transparent 0% 50%); background-size: 4px 4px; }
+
+  .b-pack { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .18em; color: var(--muted); margin-bottom: 12px; }
+  .b-pack::before { content: var(--motif) " "; color: var(--accent); }
+  .b-strip { display:flex; justify-content:space-between; align-items:center;
+             font: 500 10px/1.5 "IBM Plex Mono", monospace; letter-spacing: .1em; color: var(--muted);
+             border: 2px solid var(--line); background: var(--panel); padding: 6px 10px; margin-bottom: 16px; }
+  .b-strip .sync { color: var(--ok); }
+  .b-prose { font: 400 16.5px/1.65 "Newsreader", Georgia, serif; color: var(--ink); max-width: 60ch; margin: 0 0 16px; }
+  .b-prose em { color: var(--accent); }
+  .b-docket { display:inline-block; font: 600 10.5px/1.5 "IBM Plex Mono", monospace; letter-spacing:.03em;
+              color: var(--bg); background: var(--accent); padding: 4px 10px; margin-bottom: 16px;
+              box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+  .b-choices { display: grid; gap: 10px; }
+  .b-choice { background: var(--panel); border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 10px 14px; }
+  .b-choice .t { font: 600 15px/1.35 "Newsreader", Georgia, serif; color: var(--ink); margin-bottom: 4px; }
+  .b-choice .o { font: 500 10px/1.4 "IBM Plex Mono", monospace; letter-spacing: .06em; color: var(--muted); }
+  .b-choice .o .ok { color: var(--ok); } .b-choice .o .risk { color: var(--danger); }
+
+  /* density proof */
+  .dense { font: 400 10.5px/1.85 "IBM Plex Mono", monospace; color: var(--muted); }
+  .dense .row { display: flex; gap: 12px; border-bottom: 1px dashed var(--line); padding: 2px 2px; }
+  .dense .seq { color: var(--accent); min-width: 62px; }
+  .dense .cmd { min-width: 148px; color: var(--ink); }
+  .dense .res .ok { color: var(--ok); } .dense .res .bad { color: var(--danger); }
+  .dense-h { font: 600 9.5px/1 "IBM Plex Mono", monospace; letter-spacing:.18em; color: var(--muted); margin-bottom: 8px; }
+
+  /* token sheet */
+  .tokens { padding: 4px 20px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .tok { background: #0c0f16; border: 1px solid #232a3a; border-radius: 6px; padding: 12px 14px;
+         font: 400 11.5px/1.75 "IBM Plex Mono", monospace; color: #8b95ab; }
+  .tok h4 { font: 600 10px/1 "IBM Plex Mono", monospace; letter-spacing: .16em; color: #c6cf e2; color:#c6cfe2; margin: 0 0 8px; }
+  .tok .sw { display:inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.15); }
+  .tok .tf { font-family: "Newsreader", serif; font-size: 15px; color: #dfe5f2; }
+  .tok .tg { font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 15px; color: #dfe5f2; }
+
+  /* micro-label variant */
+  .micro { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 20px 22px; }
+  @media (max-width: 900px) { .micro { grid-template-columns: 1fr; } }
+  .micro .opt-card { cursor: pointer; border: 2px solid transparent; border-radius: 8px; }
+  .micro .opt-card.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .micro-tag { font: 600 10px/1 "IBM Plex Mono", monospace; letter-spacing: .16em; color: #8FA3C8; margin-bottom: 8px; }
+  .vt323 { font-family: "VT323", monospace !important; font-size: 14px !important; letter-spacing: .04em !important; }
+</style>
+
+<h2>Locked candidate — V2 body × V3 voice</h2>
+<p class="subtitle">Pixel-stepped frames, dither, hard shadows — with Space Grotesk headings, Newsreader prose and choice titles, Plex Mono data. Main stage shows a fuller beat in both pack token sets; the right column proves data density survives. Two selectable details at the bottom.</p>
+
+<div class="lock">
+  <div class="lock-head">
+    <span class="lock-name">Hi-bit Console · final foundations</span>
+    <div class="lock-thesis">One adventure beat, full anatomy: pack tag → status strip → prose → docket → choices.</div>
+  </div>
+
+  <div class="lock-stage">
+    <!-- sci-fi full beat -->
+    <div class="px t-scifi"><div class="px-in">
+      <div class="b-pack">ANDROMEDA · SCI-FI PACK</div>
+      <div class="b-strip"><span>MARA VOSS · SCOUT R2 · TERM 4 · 12,000 CR</span><span class="sync">ENGINE SYNC ✓ · SEQ 0417</span></div>
+      <p class="b-prose">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em></p>
+      <div class="b-docket">SEQ 0417 · SCENE CHECK · 4+5 +2 DEX vs 8+ → SUCCESS · EFFECT 3</div>
+      <div class="b-choices">
+        <div class="b-choice"><div class="t">Ask the tower who paid for the warning</div><div class="o">PERSUADE · AVERAGE 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+        <div class="b-choice"><div class="t">Set down on Pad 9 anyway — beacon first, questions after</div><div class="o">PILOT · DIFFICULT 10+ · <span class="risk">28% RISKY</span></div></div>
+      </div>
+    </div></div>
+
+    <!-- fantasy twin + density proof -->
+    <div style="display:grid; gap:18px; align-content:start;">
+      <div class="px t-fantasy"><div class="px-in">
+        <div class="b-pack">ANDROMEDA · FANTASY PACK</div>
+        <div class="b-strip"><span>BRANWEN · BARD R1 · TERM 2 · 340 CROWNS</span><span class="sync">SYNC ✓</span></div>
+        <p class="b-prose">The ferryman sets his pole and waits. <em>"The price," he says, "depends on who asks."</em></p>
+        <div class="b-docket">SEQ 0088 · SCENE CHECK · 5+4 +1 SOC vs 8+ → SUCCESS · EFFECT 2</div>
+        <div class="b-choices">
+          <div class="b-choice"><div class="t">Parley before the crossing</div><div class="o">PERSUASION · AVERAGE 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+        </div>
+      </div></div>
+
+      <div class="px t-scifi"><div class="px-in">
+        <div class="dense-h">AUDIT VIEWER · DENSITY PROOF (PLEX MONO 10.5)</div>
+        <div class="dense">
+          <div class="row"><span class="seq">SEQ 0412</span><span class="cmd">lifepath_survival</span><span class="res">2D6 3+4 +1 = 8 vs 6 → <span class="ok">success</span></span></div>
+          <div class="row"><span class="seq">SEQ 0413</span><span class="cmd">lifepath_skill_roll</span><span class="res">1D6 = 4 → pilot +1</span></div>
+          <div class="row"><span class="seq">SEQ 0414</span><span class="cmd">scene_check</span><span class="res">2D6 1+1 +2 = 4 vs 8 → <span class="bad">miss · effect −4</span></span></div>
+          <div class="row"><span class="seq">SEQ 0415</span><span class="cmd">complication_roll</span><span class="res">2D6 = 9 → "the patrol is alerted"</span></div>
+          <div class="row"><span class="seq">SEQ 0416</span><span class="cmd">lifepath_aging</span><span class="res">2D6 6+5 −4 = 7 → <span class="ok">no effect</span></span></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- token sheet -->
+  <div class="tokens">
+    <div class="tok"><h4>PALETTE ROLES (PER PACK)</h4>
+      <span class="sw" style="background:#0A0F1E"></span>bg · <span class="sw" style="background:#101830"></span>panel · <span class="sw" style="background:#27345C"></span>line<br>
+      <span class="sw" style="background:#E6EBF7"></span>ink · <span class="sw" style="background:#7C88A8"></span>muted<br>
+      <span class="sw" style="background:#F5A623"></span>accent · <span class="sw" style="background:#46C48A"></span>ok · <span class="sw" style="background:#E5484D"></span>danger<br>
+      neutral base: graphite <span class="sw" style="background:#13161D"></span> / steel <span class="sw" style="background:#8FA3C8"></span>
+    </div>
+    <div class="tok"><h4>TYPE SCALE</h4>
+      <span class="tg">Space Grotesk 700 — screen titles, numbers</span><br>
+      <span class="tf">Newsreader 400/600 — prose, choice titles</span><br>
+      IBM Plex Mono 500/600 — dockets, odds, strips, audit
+    </div>
+    <div class="tok"><h4>FRAME SYSTEM</h4>
+      2px stepped pixel corners (accent outer / panel inner)<br>
+      dither overlay 4px grid @ ~3% · hard offset shadow 3px,45%<br>
+      dashed hairline for secondary separators
+    </div>
+    <div class="tok"><h4>MOTION PRINCIPLES</h4>
+      prose types in (skippable) · dockets stamp with 3px settle<br>
+      choices rise 8px + fade, staggered 40ms · frames flicker on boot only<br>
+      reduced-motion: all of it collapses to instant
+    </div>
+  </div>
+
+  <!-- micro-label variant -->
+  <div class="micro">
+    <div class="opt-card" data-choice="m1" onclick="toggleSelect(this)">
+      <div class="px t-scifi"><div class="px-in">
+        <div class="micro-tag">M1 · PURE PLEX (RECOMMENDED)</div>
+        <div class="b-strip"><span>ANDROMEDA · SCI-FI PACK</span><span class="sync">SEQ 0417</span></div>
+        <div class="dense" style="font-size:11px">All micro-labels in Plex Mono — one data voice everywhere, nothing competes with the pixel frames.</div>
+      </div></div>
+    </div>
+    <div class="opt-card" data-choice="m2" onclick="toggleSelect(this)">
+      <div class="px t-scifi"><div class="px-in">
+        <div class="micro-tag">M2 · VT323 SEASONING</div>
+        <div class="b-strip"><span class="vt323">ANDROMEDA · SCI-FI PACK</span><span class="sync vt323">SEQ 0417</span></div>
+        <div class="dense" style="font-size:11px">VT323 only for pack tags and SEQ stamps — a pixel whisper at label size, Plex for everything readable.</div>
+      </div></div>
+    </div>
+  </div>
+</div>
