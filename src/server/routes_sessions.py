@@ -128,13 +128,6 @@ async def get_session(session_id: str, request: Request) -> dict:
     return {"session": _session_payload(_record(request, session_id))}
 
 
-@router.get("/{session_id}/sheet")
-async def get_sheet(session_id: str, request: Request) -> dict:
-    """Return the raw game-state document (M0.6b read view for the client)."""
-    record = _record(request, session_id)
-    return record.game.state.model_dump(mode="json")
-
-
 @router.delete("/{session_id}", status_code=204)
 async def delete_session(session_id: str, request: Request) -> None:
     request.app.state.registry.delete(session_id)
