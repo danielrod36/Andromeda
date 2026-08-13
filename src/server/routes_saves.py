@@ -93,9 +93,10 @@ async def duplicate_save(name: str, req: DuplicateSaveRequest, request: Request)
     if _files_for(saves_dir, req.new_name):
         raise ApiError(409, "save_conflict", f"A save named '{req.new_name}' already exists")
     created: list[str] = []
+    source_base = resolve_save_path(saves_dir, name)
     for path in files:
         # Rename the base portion, preserving .autosave/.checkpoint suffixes.
-        suffix_tail = path.name[len(resolve_save_path(saves_dir, name).stem) :]
+        suffix_tail = path.name[len(source_base.stem) :]
         target = target_base.with_name(target_base.stem + suffix_tail)
         shutil.copy2(path, target)
         created.append(target.name)

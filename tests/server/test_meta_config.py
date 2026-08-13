@@ -21,6 +21,11 @@ class TestErrorEnvelope:
         # Task 8 adds GET /v1/sessions/{id}; unknown ids then return the
         # precise code "session_not_found".
 
+    def test_api_schema_surface_is_off(self, client):
+        """The sidecar serves no docs/redoc/openapi schema (localhost-only API)."""
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            assert client.get(path).status_code == 404
+
 
 class TestLlmStatus:
     def test_unconfigured_by_default(self, client):

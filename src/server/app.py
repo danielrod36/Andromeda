@@ -57,7 +57,7 @@ def create_app(
     ``TestModel``-backed adapter makes narration deterministic). When
     ``None`` and settings are complete, real ones are built.
     """
-    app = FastAPI(title="andromeda-sidecar", docs_url=None, redoc_url=None)
+    app = FastAPI(title="andromeda-sidecar", docs_url=None, redoc_url=None, openapi_url=None)
 
     settings = settings if settings is not None else load_settings(settings_dir)
     if adapter is None:

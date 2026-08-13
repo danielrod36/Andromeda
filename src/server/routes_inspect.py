@@ -14,6 +14,7 @@ from fastapi import APIRouter, Query, Request
 from starlette.concurrency import run_in_threadpool
 
 from src.engine.odds import compute_check_odds, format_odds_line
+from src.engine.skills import skill_display_name
 from src.game.audit_view import build_audit_view, filter_from_params
 from src.game.memorial import build_memorial, build_obituary
 from src.game.recap import build_recap
@@ -38,7 +39,6 @@ async def sheet(session_id: str, request: Request) -> dict:
     state = record.game.state
     ruleset = CepheusRuleSet()
     pack = get_pack(state.campaign.theme_pack)
-    from src.engine.skills import skill_display_name
 
     return {
         "character": state.character.model_dump(mode="json"),
@@ -86,7 +86,7 @@ async def audit(
     audit_filter = filter_from_params(
         kind=kind,
         stream=stream,
-        seq_min=str(since) if since is not None else None,
+        seq_min=since,
     )
     view = build_audit_view(
         record.game.state, audit_filter=audit_filter, page=page, per_page=per_page

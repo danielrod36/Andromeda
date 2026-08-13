@@ -91,7 +91,8 @@ async def put_llm_settings(req: LlmSettingsRequest, request: Request) -> dict:
     elif req.api_key is None:
         updated.api_key = resolve_api_key(current, settings_dir)
     elif req.api_key == "":
-        current.api_key = resolve_api_key(current, settings_dir)
+        # Explicit key removal. delete_api_key blanks the key in the store
+        # and in the on-disk copy; the reload below is the source of truth.
         delete_api_key(current, settings_dir)
         updated.key_backend = ""
     else:

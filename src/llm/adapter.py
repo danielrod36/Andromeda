@@ -40,6 +40,7 @@ from src.engine.lifepath import (
 )
 from src.engine.narration import Narrator
 from src.engine.state import GameState
+from src.engine.summary import SummaryValidator
 from src.llm.prompts import (
     SYSTEM_PROMPT,
     build_beat_prompt,
@@ -890,7 +891,7 @@ class LLMAdapter:
         prompt: str,
         state: GameState,
         *,
-        template,
+        template: Callable[[], str],
         on_attempt: AttemptCallback | None = None,
     ) -> NarrationResult:
         """Shared core for beat/world-intro narration (M0.4).
@@ -899,8 +900,6 @@ class LLMAdapter:
         mechanical-claim guard, and falls back to ``template()`` on LLM
         failure or validation rejection. Never raises.
         """
-        from src.engine.summary import SummaryValidator
-
         deps = ToolDeps(engine=None, state=None)
         try:
             result = await self._run_agent(

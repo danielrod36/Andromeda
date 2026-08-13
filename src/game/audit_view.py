@@ -205,12 +205,14 @@ def build_audit_view(
 def filter_from_params(
     kind: str | None = None,
     stream: str | None = None,
-    seq_min: str | None = None,
-    seq_max: str | None = None,
+    seq_min: str | int | None = None,
+    seq_max: str | int | None = None,
 ) -> AuditFilter:
     """Build an :class:`AuditFilter` from query-string parameters.
 
     Empty strings are treated as "no filter". Invalid integers are ignored.
+    ``seq_min``/``seq_max`` also accept pre-validated ints (e.g. from a
+    FastAPI ``Query`` param) — they pass through ``int()`` unchanged.
     """
     kinds = None
     if kind:
@@ -220,12 +222,12 @@ def filter_from_params(
     s = s or None
 
     mn: int | None = None
-    if seq_min:
+    if seq_min is not None and seq_min != "":
         with contextlib.suppress(ValueError):
             mn = int(seq_min)
 
     mx: int | None = None
-    if seq_max:
+    if seq_max is not None and seq_max != "":
         with contextlib.suppress(ValueError):
             mx = int(seq_max)
 

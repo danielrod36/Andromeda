@@ -32,6 +32,7 @@ from src.game.beats import build_beat_facts, narrator_memory
 from src.game.change_lines import derive_recent_change_lines
 from src.game.chargen.api import CONTRACT_VERSION as CHARGEN_CONTRACT
 from src.llm.adapter import LLMAdapter, NarrationResult
+from src.llm.state_view import build_curated_view
 from src.llm.status import STATUS_CONNECTION_LOST, STATUS_NARRATION_UNAVAILABLE
 from src.server.errors import ActionInFlightError, ApiError
 from src.server.models import (
@@ -325,7 +326,6 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
         facts = build_beat_facts(state.events[span[0] : span[1]])
         memory = narrator_memory(state.events)
         adapter = request.app.state.adapter or LLMAdapter()  # template when unconfigured
-        from src.llm.state_view import build_curated_view
 
         # Generic curated view: character state without scene-specific NPCs.
         # The narrate endpoint describes the JUST-RESOLVED beat (facts come from
