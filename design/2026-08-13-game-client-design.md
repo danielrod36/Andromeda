@@ -91,6 +91,9 @@ Full: pip dice + named signed DM chips (green/red) + big total + `vs target` + e
 ### 6.5 Motion & ambience
 Typewriter prose (skippable) · stamp landings · staggered choice rise (40ms) · boot flicker. Ambient backdrop: twinkling stars, 140s far-star drift, breathing planet glow, blinking horizon beacon; rare events (meteor ~1/min, bird flock ~1/2min) on jittered timers. `prefers-reduced-motion` collapses everything. Godot mapping: GPUParticles2D (stars/meteor), AnimatedSprite2D (birds), Timer-driven PointLight2D (beacon).
 
+### 6.6 Voice (copy rule)
+Player-facing copy never uses source vocabulary (no field names, class names, endpoint shapes, hashes). Instrument surfaces (status strip, boot readout) stay honest but parse as **cockpit, not code**: "REFEREE: LISTENING", "DICE STREAMS: PRIMED", "ENGINE SYNC ✓". Audit vocabulary the game deliberately teaches (SEQ, autosave, event log) is allowed because the UI explains it in place. Operator-grade detail (model names, spend caps, key backend) lives in Settings and inspector overlays; ambient strips carry only the dot.
+
 ## 7. Screen requirements (the deck, screen by screen)
 
 Each entry: purpose · primary content · endpoints. All screens render pack tokens; all overlays are read-only views that launch funnel-safe actions.
