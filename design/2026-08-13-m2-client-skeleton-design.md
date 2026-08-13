@@ -84,7 +84,7 @@ tools/get_godot.sh         # pinned Godot download (gitignored output)
 
 - **`main.tscn`:** root → `SceneBackdrop` (bottom) → `ScreenStack` → `OverlayLayer` (toasts, top).
 - **`ScreenStack`** — push/replace/pop of packed Control scenes with `screen_enter(params)` / `screen_exit()`; instant swaps in M2 (transitions are M5); ESC routes per mock ("ESC — BACK TO TITLE" etc.).
-- **`OverlayLayer`** — the toast stack (component per `12-components.html`): engine errors verbatim, degradation badges, save-conflict prompts; plus the modal root later overlays use.
+- **`OverlayLayer`** — the toast stack (component per `12-components.html`): engine errors verbatim, degradation badges, save-conflict prompts; plus the modal root — in M2 scope because Chronicles DELETE confirms modally (§7.3); later overlays reuse it.
 - **`StatusStrip`** — cockpit strip: `ENGINE SYNC ✓ · v0.1.0` left, `NARRATOR: <model> ●` right, fed by `/health` + `/v1/llm/status`. Dot only (parent §6.6); operator detail lives in Settings.
 - **`ClientSettings` autoload** — `user://settings.cfg`: text speed, ambient life, reduced motion, audio levels (persisted now; busses wired in M5), `last_played_pack` (Title tints to it on return).
 - **Boot flow** — spawn → `LISTENING` → health → Title, with real boot lines feeding the Title readout. Any failure → error card + retry.
@@ -94,29 +94,29 @@ tools/get_godot.sh         # pinned Godot download (gitignored output)
 All four render pack tokens, route ESC per mock, and show engine errors as verbatim toasts.
 
 ### 7.1 Title — `01-title.html`
-Left rail: ANDROMEDA wordmark, "WRITTEN IN THE STARS" kicker, accent rule + motif glyph, numbered menu dockets: **Continue** (annotated `<name> · <ago>` from the latest autosave; dimmed when no saves), **New Journey**, **Chronicles** (annotated `N SAVES`), **Settings**, **Quit** (dimmed per mock). Boot readout shows real `SidecarProcess` lines (`REFEREE: LISTENING · 127.0.0.1:<port>` / `SAVES: OK · DICE STREAMS: PRIMED`). Right: static `SceneBackdrop` (sc-night + planet + horizon + veil-cinema + `◤ VIEWPORT · DEEP FIELD` + location line). Pack-neutral graphite at first boot; tints to `last_played_pack` on return. Strip: `ENGINE SYNC ✓ · v0.1.0` | `NARRATOR: <model> ●`.
+Left rail: ANDROMEDA wordmark, "WRITTEN IN THE STARS" kicker, accent rule + motif glyph, numbered menu dockets: **Continue** (annotated `<name> · <ago>` from the most recently modified entry in `GET /v1/saves` — typically the autosave; dimmed when no saves), **New Journey**, **Chronicles** (annotated `N SAVES`), **Settings**, **Quit** (dimmed styling per mock, but functional: kills the sidecar and exits). Boot readout shows real `SidecarProcess` lines (`REFEREE: LISTENING · 127.0.0.1:<port>` / `SAVES: OK · DICE STREAMS: PRIMED`). Right: static `SceneBackdrop` (sc-night + planet + horizon + veil-cinema + `◤ VIEWPORT · DEEP FIELD` + location line). Pack-neutral graphite at first boot; tints to `last_played_pack` on return. Strip: `ENGINE SYNC ✓ · v0.1.0` | `NARRATOR: <model> ●`.
 
 ### 7.2 Settings — `05-settings.html`
-- **SERVER · THE NARRATOR:** provider + model dropdowns (presets from `/v1/config/providers`); API key field (masked tail + keychain backend + REPLACE; an absent key field on PUT keeps the stored key per the mock's wiring note); base URL; max retries. TEST CONNECTION → `POST /v1/settings/llm/test` with client-measured latency (`✓ CONNECTION OK · <model> · 640ms`). Key-storage backend stated visibly, including the owner-only-file fallback sentence. A provider switch clears the stored key (Step 0 server behavior); the UI says so at the moment of switch.
+- **SERVER · THE NARRATOR:** provider + model dropdowns (both populated from `/v1/config/providers` presets; no free-text model entry in M2 — the mock shows only the dropdown); API key field (masked tail + keychain backend + REPLACE; an absent key field on PUT keeps the stored key per the mock's wiring note); base URL; max retries. TEST CONNECTION → `POST /v1/settings/llm/test` with client-measured latency (`✓ CONNECTION OK · <model> · 640ms`). Key-storage backend stated visibly, including the owner-only-file fallback sentence. A provider switch clears the stored key (Step 0 server behavior); the UI says so at the moment of switch.
 - **CLIENT · READING:** text-speed segmented control (SLOW/MEDIUM/FAST/INSTANT), ambient-life toggle, reduced-motion toggle → `settings.cfg`, effective immediately.
 - **CLIENT · AUDIO:** Master/Music/Effects sliders → `settings.cfg`.
-- **SERVER · DATA:** saves summary line, OPEN CHRONICLES ▸, EXPORT ALL (loops the per-save export endpoint into a user-picked folder via native FileDialog).
+- **SERVER · DATA:** saves summary line, OPEN CHRONICLES ▸, EXPORT ALL (loops `GET /v1/saves/{name}/export` over every save, writing one `<save-name>.json` per export into a user-picked folder via native FileDialog).
 - Strip: `NARRATOR: <model> ●` | `SETTINGS SAVED` (after a successful PUT).
 
 ### 7.3 Chronicles — `02-chronicles.html`
-Docket list from `GET /v1/saves`: each docket px-framed and **tinted to its save's pack**; name + data lines (career rank · term · credits / mission · scene); vertical spine (`AUTO·2H` / `MANUAL` / `✝ R.I.P.` — dead saves tint `t-dead`). Selected docket gets the accent outline. Trailing "— empty slot — / IMPORT A SAVE FILE…" docket → native file pick → `POST /v1/saves/import` (409 → verbatim toast). Preview pane (tinted to selection): name, data strip, THE STORY SO FAR + Unresolved line — per the mock's wiring note, selecting a docket resumes the session (`POST /v1/sessions {from_save}`) and fetches `GET .../recap`. Actions: RESUME ▸, DUPLICATE (name prompt → `POST .../duplicate`), EXPORT (folder pick → `GET .../export`), DELETE (confirm modal → `DELETE /v1/saves/{name}`). RESUME lands on the matching boundary stub (M2-D8).
+Docket list from `GET /v1/saves`: each docket px-framed and **tinted to its save's pack**; name + data lines (career rank · term · credits / mission · scene); vertical spine (`AUTO·2H` / `MANUAL` / `✝ R.I.P.` — dead saves tint `t-dead`). Selected docket gets the accent outline. Trailing "— empty slot — / IMPORT A SAVE FILE…" docket → native file pick → `POST /v1/saves/import` (409 → verbatim toast). Preview pane (tinted to selection): name, data strip, THE STORY SO FAR + Unresolved line — per the mock's wiring note, selecting a docket resumes the session (`POST /v1/sessions {from_save}`) and fetches `GET .../recap`. Resume takes the **base** save name (autosave-suffixed names are rejected with 422; the saves list flags autosaves, and the client strips to the base name). Every resume creates a fresh server-side session — `SessionRegistry._open` never dedups — so the client owns **preview-session hygiene**: selecting a docket resumes that save and DELETEs the previous preview session; leaving the screen DELETEs the active preview; RESUME instead promotes the preview to the live session handed to the boundary stub (no delete). Actions: RESUME ▸, DUPLICATE (name prompt → `POST .../duplicate`), EXPORT (folder pick → `GET .../export`), DELETE (confirm modal → `DELETE /v1/saves/{name}`). RESUME lands on the matching boundary stub (M2-D8).
 
 ### 7.4 New Journey — `03-new-journey.html`
 The four-section manifest exactly as mocked: **01 CHRONICLE** (name field with accent caret; seed display + ⟳ REROLL — the seed is client-generated, determinism-as-feature; the mock shows six digits, and the plan pins the exact type/range from `CreateSessionRequest`); **02 THEME PACK** (per-pack tinted cards with motif, description, stats line from `/v1/config/packs`; selected = accent border + `▸ LOCKED IN`); **03 RESOLUTION PROFILE** (narrative/classic cards with tier-math lines); **04 DEATH MODE** (three cards, honest consequences) — profiles/death modes from `/v1/config/rulesets`. Immutability notice verbatim. Beside BEGIN, the narrator status line per mock: `NARRATOR: <model> ● · TEMPLATES IF IT EVER FAILS` / `SPEND CAP: <n> CALLS PER BEAT` (fed by `/v1/llm/status` + `/v1/settings/llm`; the plan pins where the cap number comes from). BEGIN validates (non-empty name; no save-name collision — checked client-side, server 409 → toast) → `POST /v1/sessions {kind:"chargen", name, seed, pack_id, profile, death_mode}` → the Ceremony boundary stub (M2-D8).
 
 ### 7.5 Boundary stubs (M2-D8)
-Reached from New Journey BEGIN, Title Continue, and Chronicles RESUME. Each states what arrives in which milestone ("THE CEREMONY arrives in M3" / adventure shell in M4) and renders the session's current view as formatted cockpit data — real wiring, inspectable, replaced wholesale by M3/M4. Dead saves (mock 02: ✝ dockets "resume into the memorial") land on a memorial stub naming M4.
+Reached from New Journey BEGIN, Title Continue, and Chronicles RESUME. Each states what arrives in which milestone ("THE CEREMONY arrives in M3" / adventure shell in M4) and renders the session's current view as formatted cockpit data — real wiring, inspectable, replaced wholesale by M3/M4. Dead saves (mock 02: ✝ dockets) resume server-side into adventure sessions whose view is `game_over` (Step 0 `resume()` behavior); the client detects that view and lands on the memorial stub naming M4.
 
 ## 8. Testing strategy (gdUnit4)
 
 - **Integration** (real sidecar spawned once per suite via `SidecarProcess`): every `EngineClient` route group; envelope parsing (e.g. 404 → `session_not_found`); `contract_version` presence; `StreamPump` driving a real `world_intro` in template mode (assert block sequence through `done`; close-on-skip).
 - **Unit/fake** — `FakeEngineClient` script-double (same method surface, canned view models, scriptable errors): screen logic, validation, toast routing, ESC/stack navigation, `ScreenStack` push/replace/pop.
-- **Golden layout** — one baseline screenshot per screen at a pinned window size, stored in `client/tests/golden/`; tolerance comparison; `GOLDEN_UPDATE=1` regenerates (M2-D9).
+- **Golden layout** — one baseline screenshot per screen at a pinned 1280×720 window (the mocks' 1180px content column plus margins), stored in `client/tests/golden/`; tolerance comparison; `GOLDEN_UPDATE=1` regenerates (M2-D9).
 - **Python side untouched:** ruff + the full pytest suite still gate every push.
 
 ## 9. Quality gate integration
@@ -157,6 +157,16 @@ The parent spec's M2 line, made checkable:
 6. Session create/resume lands on the honest boundary stubs.
 7. Full quality gate green: ruff, gdformat/gdlint, pytest, gdUnit4 (headless + golden).
 
-## 12. Out of scope for M2
+## 12. Execution model & plan detail standard
+
+The implementation plan for this spec is executed by subagents on a cheaper model, so the plan — not the executor — carries the thinking. The standard (same as the Step 0 plan):
+
+- **Two sources of truth only:** the mocks (`design/mockups/final/*`) and the server code (`src/server/`, `src/llm/`, `src/engine/`). Anything not in either is a gap the plan must close, not a freedom the executor may exercise.
+- **No shape guessing:** every request/response body, error code, enum value, and NDJSON block type the client touches is inlined in the plan with a `file:line` citation to the server code that produces it.
+- **No name guessing:** every GDScript class, autoload, signal, method signature, file path, and scene structure is specified in the plan. Inline code comments in the delivered GDScript explain intent as usual; the plan's detail is *in addition to* those, not a replacement.
+- **Deferred enumerations land in the plan:** the exact NDJSON block-type set (`routes_sessions.py` `_ndjson` call sites), the `CreateSessionRequest` seed type/range (`src/server/models.py`), and the narrator spend-cap source are resolved with citations when the plan is written — not at execution time.
+- **Verification is executable:** every task ends in a gate-runnable check (a gdUnit4 suite, a golden baseline, a `curl` against the real server) with the expected output stated in the plan.
+
+## 13. Out of scope for M2
 
 Ceremony, chargen beats, character reveal (M3) · adventure shell, hooks, defeat/memorial, overlays (M4) · ambient motion system, dice ceremony, sprite art, audio busses, transitions, accessibility sweep (M5) · everything in the parent spec's §12 · pixel-matching Godot output against the HTML mocks (M2-D9) · streaming consumers (StreamPump ships tested but unread until M3).
