@@ -325,20 +325,13 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
         facts = build_beat_facts(state.events[span[0] : span[1]])
         memory = narrator_memory(state.events)
         adapter = request.app.state.adapter or LLMAdapter()  # template when unconfigured
-        from src.llm.state_view import build_curated_view_for_scene
+        from src.llm.state_view import build_curated_view
 
-        # Scene-aware view: populates mission, scene NPCs, and facts (R25/R15).
-        # For chargen sessions (no adventure controller), scaffold text is empty.
-        if record.kind == "adventure":
-            adv_view = record.adventure.current_view()
-            scaffold_texts = [adv_view.scaffold_text] if adv_view.scaffold_text else []
-        else:
-            scaffold_texts = []
-        view = build_curated_view_for_scene(
-            state,
-            scaffold_texts=scaffold_texts,
-            player_input=steering or None,
-        )
+        # Generic curated view: character state without scene-specific NPCs.
+        # The narrate endpoint describes the JUST-RESOLVED beat (facts come from
+        # events in the span), not the next scene — so build_curated_view_for_scene
+        # would mismatch (it surfaces the next scene's NPCs/scaffold).
+        view = build_curated_view(state)
 
         # 4. Prose — world intro replays its record; everything else narrates.
         is_replay = False
@@ -382,7 +375,7 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
         record.last_narrated_seq = len(state.events)
 
         # 6. Stream: narration sentences → change lines → degradation badge → done.
-        change_lines = derive_recent_change_lines(state.events, since_seq=span[0])
+        change_lines = derive_recent_change_lines(state.events, since_seq=max(span[0] - 1, 0))
         badge = None
         if result.llm_failed:
             badge = (
