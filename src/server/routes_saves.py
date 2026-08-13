@@ -86,7 +86,7 @@ async def duplicate_save(name: str, req: DuplicateSaveRequest, request: Request)
     if not files:
         raise ApiError(404, "save_not_found", f"No save named '{name}'")
     target_base = resolve_save_path(saves_dir, req.new_name)
-    if target_base.exists():
+    if _files_for(saves_dir, req.new_name):
         raise ApiError(409, "save_conflict", f"A save named '{req.new_name}' already exists")
     created: list[str] = []
     for path in files:
@@ -106,7 +106,10 @@ async def export_save(name: str, request: Request) -> dict:
     # Prefer the main document; fall back to the autosave.
     main = resolve_save_path(request.app.state.saves_dir, name)
     source = main if main.exists() else files[0]
-    return json.loads(source.read_text(encoding="utf-8"))
+    try:
+        return json.loads(source.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ApiError(422, "invalid_save", f"Save file is corrupted: {exc}") from exc
 
 
 @router.post("/saves/import", status_code=201)
@@ -117,7 +120,7 @@ async def import_save(req: ImportSaveRequest, request: Request) -> dict:
     except Exception as exc:
         raise ApiError(422, "invalid_save", f"Not a valid save document: {exc}") from exc
     target = resolve_save_path(request.app.state.saves_dir, req.name)
-    if target.exists():
+    if target.exists() or _files_for(request.app.state.saves_dir, req.name):
         raise ApiError(409, "save_conflict", f"A save named '{req.name}' already exists")
     save(state, target)
     return {"name": target.stem}

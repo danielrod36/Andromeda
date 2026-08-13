@@ -78,7 +78,7 @@ def build_beat_facts(events: list[Event]) -> list[str]:
         elif ct == "set_mission_state":
             mission = c.get("mission_data") or {}
             hook = mission.get("hook") or {}
-            if hook.get("objective"):
+            if hook.get("objective") and mission.get("scenes_completed", 0) == 0:
                 facts.append(
                     f"You took the job: {hook.get('objective')} "
                     f"(patron: {hook.get('patron', 'unknown')}; reward: {hook.get('reward', 'unknown')})."
@@ -123,9 +123,13 @@ def narrator_memory(
     Returns the most recent ``prose_limit`` shipped-prose texts and
     ``direction_limit`` player directions, oldest-first within each list.
     """
-    prose = [e.changes["text"] for e in events if e.command_type == "record_narration"]
-    directions = [e.changes["text"] for e in events if e.command_type == "record_story_direction"]
+    prose = [e.changes.get("text", "") for e in events if e.command_type == "record_narration"]
+    prose = [p for p in prose if p]
+    directions = [
+        e.changes.get("text", "") for e in events if e.command_type == "record_story_direction"
+    ]
+    directions = [d for d in directions if d]
     return NarratorMemory(
-        prose=prose[-prose_limit:],
-        directions=directions[-direction_limit:],
+        prose=prose[-prose_limit:] if prose_limit else [],
+        directions=directions[-direction_limit:] if direction_limit else [],
     )

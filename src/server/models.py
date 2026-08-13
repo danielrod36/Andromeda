@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from src.llm.providers import PROVIDER_CONFIGS
 
 
 class CreateSessionRequest(BaseModel):
@@ -17,6 +19,16 @@ class CreateSessionRequest(BaseModel):
     profile: Literal["narrative", "classic"] = "narrative"
     death_mode: Literal["narrative", "ironman", "checkpoint"] = "narrative"
     from_save: str | None = None  # adventure kind: save name to load/resume
+
+    @field_validator("pack_id")
+    @classmethod
+    def pack_id_must_be_known(cls, v: str) -> str:
+        from src.themepacks import discover_packs
+
+        known = discover_packs()
+        if v not in known:
+            raise ValueError(f"Unknown pack_id '{v}'. Known: {', '.join(sorted(known))}")
+        return v
 
 
 class ChooseRequest(BaseModel):
@@ -58,6 +70,15 @@ class LlmSettingsRequest(BaseModel):
     api_key: str | None = None
     base_url: str = ""
     max_retries: int = 3
+
+    @field_validator("provider")
+    @classmethod
+    def provider_must_be_known(cls, v: str) -> str:
+        if v not in PROVIDER_CONFIGS:
+            raise ValueError(
+                f"Unknown provider '{v}'. Known: {', '.join(sorted(PROVIDER_CONFIGS))}"
+            )
+        return v
 
 
 class OddsRequest(BaseModel):

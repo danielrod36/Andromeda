@@ -184,6 +184,8 @@ class AdventureSession:
 
         envelope = json.loads(data)
         cv = envelope.get("contract_version", 0)
+        if not isinstance(cv, int):
+            raise ValueError("contract_version must be an integer")
         if cv > CONTRACT_VERSION:
             raise ValueError(
                 f"Envelope contract_version {cv} is newer than "
@@ -193,7 +195,12 @@ class AdventureSession:
         state_data = envelope.get("state")
         if state_data is None:
             raise ValueError("Envelope missing required 'state' field.")
-        state_data = migrate(state_data, from_version=state_data.get("save_version", 1))
+        if not isinstance(state_data, dict):
+            raise ValueError("Envelope 'state' must be a JSON object")
+        save_version = state_data.get("save_version", 1)
+        if not isinstance(save_version, int):
+            raise ValueError("save_version must be an integer")
+        state_data = migrate(state_data, from_version=save_version)
         state = GameState.model_validate(state_data)
 
         mgr = CheckpointManager()

@@ -9,6 +9,7 @@ on :class:`LLMSettings` is runtime-only, resolved at load.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -141,11 +142,14 @@ def load_settings(settings_dir: str | Path = DEFAULT_SETTINGS_DIR) -> LLMSetting
     store = get_keystore(settings_dir)
     legacy_key = settings.api_key  # present only in pre-M0.7 files
     if legacy_key:
-        store.set(settings.provider, legacy_key)
-        settings.key_backend = store.backend_name
-        # Rewrite scrubbed — the file must not keep the key.
-        scrubbed = settings.model_copy(update={"api_key": ""})
-        _write_settings_file(scrubbed, settings_dir)
+        try:
+            store.set(settings.provider, legacy_key)
+            settings.key_backend = store.backend_name
+            # Rewrite scrubbed — the file must not keep the key.
+            scrubbed = settings.model_copy(update={"api_key": ""})
+            _write_settings_file(scrubbed, settings_dir)
+        except Exception:
+            pass  # degrade: keep the key in-memory, don't crash startup
     elif settings.key_backend:
         settings.api_key = store.get(settings.provider)
     return settings
@@ -165,6 +169,12 @@ def save_settings(settings: LLMSettings, settings_dir: str | Path = DEFAULT_SETT
     if settings.api_key:
         store.set(settings.provider, settings.api_key)
         to_persist.key_backend = store.backend_name
+    elif to_persist.key_backend:
+        # Caller saved with an empty key — clear any previously stored entry
+        # so the old key does not resurrect on reload.
+        with contextlib.suppress(Exception):
+            store.delete(settings.provider)
+        to_persist.key_backend = ""
     return _write_settings_file(to_persist, settings_dir)
 
 

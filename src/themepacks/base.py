@@ -21,6 +21,7 @@ Referential integrity checks:
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -73,8 +74,8 @@ DEFAULT_CURRENCY_UNITS: list[str] = ["Cr", "gold crowns"]
 
 #: Keyword → mechanical disposition for ``npc_reaction`` table result text (G6).
 #: Content-name knowledge lives in the content layer (C-A12 precedent, same as
-#: LEGACY_TABLE_ROLES). Ordered: ``unfriendly`` must precede ``friendly``
-#: (substring containment).
+#: LEGACY_TABLE_ROLES). Matched as a case-insensitive prefix of the result row;
+#: every shipped row begins with its band keyword.
 NPC_REACTION_DISPOSITIONS: tuple[tuple[str, int], ...] = (
     ("hostile", -2),
     ("unfriendly", -1),
@@ -94,7 +95,7 @@ def npc_reaction_disposition(result_text: str) -> int:
     """
     text = result_text.lower()
     for keyword, value in NPC_REACTION_DISPOSITIONS:
-        if keyword in text:
+        if text.startswith(keyword):
             return value
     return 0
 
@@ -363,7 +364,7 @@ class LoadedThemePack:
         when the pack ships no ``theme:`` block — the client's built-in
         token sets are the default.
         """
-        return dict(self._theme)
+        return copy.deepcopy(self._theme)
 
     @property
     def intro_text(self) -> str:
@@ -424,7 +425,7 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
     raw_theme = manifest.get("theme")
     if raw_theme is not None and not isinstance(raw_theme, dict):
         raise PackLoadError(f"Pack theme must be a mapping; got {type(raw_theme).__name__}")
-    raw_intro = manifest.get("intro", "")
+    raw_intro = manifest.get("intro") or ""
     if not isinstance(raw_intro, str):
         raise PackLoadError(f"Pack intro must be a string; got {type(raw_intro).__name__}")
 

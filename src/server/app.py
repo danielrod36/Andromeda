@@ -18,7 +18,7 @@ from src.server.sessions import SessionRegistry
 
 
 class ActivityMiddleware:
-    """Stamp ``last_request_at`` on every HTTP request (idle watchdog feed).
+    """Stamp ``last_request_at`` and track in-flight requests (idle watchdog feed).
 
     Pure ASGI — deliberately NOT ``@app.middleware("http")``:
     BaseHTTPMiddleware buffers response bodies on some Starlette versions,
@@ -30,7 +30,15 @@ class ActivityMiddleware:
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            scope["app"].state.last_request_at = time.monotonic()
+            app = scope.get("app")
+            if app is not None and hasattr(app, "state"):
+                app.state.last_request_at = time.monotonic()
+                app.state.in_flight += 1
+                try:
+                    await self.app(scope, receive, send)
+                finally:
+                    app.state.in_flight -= 1
+                return
         await self.app(scope, receive, send)
 
 
@@ -71,6 +79,7 @@ def create_app(
     app.state.advisor = advisor
     app.state.translator = translator
     app.state.last_request_at = time.monotonic()
+    app.state.in_flight = 0
     app.state.registry = SessionRegistry(
         saves_dir=Path(saves_dir),
         settings=settings,

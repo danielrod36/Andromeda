@@ -11,6 +11,7 @@ import dataclasses
 import hashlib
 
 from fastapi import APIRouter, Query, Request
+from starlette.concurrency import run_in_threadpool
 
 from src.engine.odds import compute_check_odds, format_odds_line
 from src.game.audit_view import build_audit_view, filter_from_params
@@ -54,7 +55,9 @@ async def sheet(session_id: str, request: Request) -> dict:
 @router.get("/{session_id}/recap")
 async def recap(session_id: str, request: Request) -> dict:
     record = _record(request, session_id)
-    result = build_recap(record.game.state, adapter=request.app.state.adapter)
+    result = await run_in_threadpool(
+        build_recap, record.game.state, adapter=request.app.state.adapter
+    )
     return {"lines": result.lines, "source": result.source}
 
 

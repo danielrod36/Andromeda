@@ -24,7 +24,7 @@ from src.engine.persistence import load
 from src.game.adventure_session import AdventureSession
 from src.game.chargen.api import ChargenSession
 from src.game.saves import determine_resume_route, resolve_save_path
-from src.game.session import GameSession
+from src.game.session import GameSession, StaleWriteError
 from src.llm.settings import LLMSettings
 from src.server.errors import ApiError, SessionNotFoundError
 
@@ -81,6 +81,10 @@ class SessionRegistry:
         death_mode: str,
     ) -> SessionRecord:
         """Start a new chronicle in chargen (M0.6)."""
+        if name.endswith(AUTOSAVE_SUFFIX):
+            raise ApiError(
+                422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
+            )
         from src.engine.commands import Engine
         from src.engine.state import CampaignConfig, GameState
         from src.game.lifepath import LifepathController
@@ -115,13 +119,17 @@ class SessionRegistry:
 
     def create_adventure(self, *, name: str) -> SessionRecord:
         """Open an adventure session over an existing save (M0.6)."""
+        if name.endswith(AUTOSAVE_SUFFIX):
+            raise ApiError(
+                422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
+            )
         path = self._autosave_path(name)
         if not path.exists():
             path = self._main_path(name)
         if not path.exists():
             raise ApiError(404, "save_not_found", f"No save named '{name}'")
         state = load(path)
-        return self._open(name, state, kind="adventure")
+        return self._open(name, state, kind="adventure", source_path=path)
 
     def resume(self, *, name: str) -> SessionRecord:
         """Resume a save, inferring the kind from where the story is (M0.6).
@@ -130,6 +138,10 @@ class SessionRegistry:
         characters open as adventure sessions whose view is ``game_over`` —
         the client routes to the memorial screen.
         """
+        if name.endswith(AUTOSAVE_SUFFIX):
+            raise ApiError(
+                422, "invalid_name", f"Save names ending with '{AUTOSAVE_SUFFIX}' are reserved"
+            )
         path = self._autosave_path(name)
         if not path.exists():
             path = self._main_path(name)
@@ -138,15 +150,34 @@ class SessionRegistry:
         state = load(path)
         route = determine_resume_route(state)
         kind = "chargen" if route == "lifepath" else "adventure"
-        return self._open(name, state, kind=kind)
+        return self._open(name, state, kind=kind, source_path=path)
 
-    def _open(self, name: str, state, *, kind: str) -> SessionRecord:
+    def _open(
+        self, name: str, state, *, kind: str, source_path: Path | None = None
+    ) -> SessionRecord:
+        """Build a session from a loaded state.
+
+        Args:
+            name: Save base name (without .json).
+            state: The loaded GameState.
+            kind: "chargen" or "adventure".
+            source_path: The path the state was loaded from. The checkpoint
+                sidecar is loaded from here (so resuming from a main save
+                picks up its checkpoint). The session is then retargeted to
+                the autosave path so subsequent writes go there.
+        """
         from src.engine.commands import Engine
         from src.game.lifepath import LifepathController
         from src.themepacks import get_pack
 
+        autosave = self._autosave_path(name)
+        # Construct with the source path so the checkpoint sidecar is loaded
+        # from the correct location, then retarget to the autosave path.
+        checkpoint_path = source_path or autosave
         engine = Engine(state)
-        game = GameSession(self._autosave_path(name), settings=self._settings, engine=engine)
+        game = GameSession(checkpoint_path, settings=self._settings, engine=engine)
+        if checkpoint_path != autosave:
+            game.retarget(autosave)
         record = SessionRecord(id=uuid.uuid4().hex[:12], kind=kind, name=name, game=game)
         if kind == "chargen":
             pack = get_pack(state.campaign.theme_pack)
@@ -204,8 +235,16 @@ class SessionRegistry:
     # ------------------------------------------------------------------
 
     def autosave(self, record: SessionRecord) -> None:
-        """Write the autosave document (spec §5: after every beat)."""
-        record.game.save()  # stale-write detection + sidecar cadence inside
+        """Write the autosave document (spec §5: after every beat).
+
+        On :class:`StaleWriteError` the diverged record is evicted from the
+        registry so a stale session never lingers in ``_records``.
+        """
+        try:
+            record.game.save()  # stale-write detection + sidecar cadence inside
+        except StaleWriteError:
+            self._records.pop(record.id, None)
+            raise
 
     def save_manual(self, record: SessionRecord, name: str) -> None:
         """Write the named manual save, main-then-sidecar (spec §5).
@@ -217,6 +256,8 @@ class SessionRegistry:
         from src.engine.persistence import save
 
         main = self._main_path(name)
+        if main.exists():
+            raise ApiError(409, "save_conflict", f"A save named '{name}' already exists")
         save(record.game.state, main)
         if record.game.state.campaign.death_mode == "checkpoint":
             record.game.checkpoint_mgr.save_snapshot(main)

@@ -179,9 +179,10 @@ class NarrationResult:
             template narration. The caller should log an audit flag.
         failure_kind: When ``llm_failed`` is True, categorises the failure:
             ``"retry_exhausted"`` (LLM kept producing invalid output),
-            ``"provider_error"`` (network/API/timeout), or ``None`` (success
-            or template-only). Callers use this to select the correct
-            degraded-mode status surface.
+            ``"provider_error"`` (network/API/timeout),
+            ``"validation_rejected"`` (prose failed the mechanical-claim
+            guard), or ``None`` (success or template-only). Callers use
+            this to select the correct degraded-mode status surface.
     """
 
     prose: str

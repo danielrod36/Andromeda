@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from src.llm.keystore import FileKeyStore, get_keystore, masked_tail
 from src.llm.settings import (
     LLMSettings,
     load_settings,
     save_settings,
 )
+
+
+@pytest.fixture(autouse=True)
+def _force_file_keystore(monkeypatch):
+    """Force the file backend in tests so we never touch the real OS keychain."""
+    from src.llm.keystore import KeyringStore
+
+    monkeypatch.setattr(KeyringStore, "available", staticmethod(lambda: False))
 
 
 class TestFileKeyStore:

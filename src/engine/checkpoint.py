@@ -57,7 +57,7 @@ class CheckpointManager:
         envelopes embed ``snapshot.model_dump()`` so checkpoint-mode rewind
         survives a serialize/restore handoff.
         """
-        return self._snapshot
+        return self._snapshot.model_copy(deep=True) if self._snapshot is not None else None
 
     # ------------------------------------------------------------------
     # Snapshot capture.

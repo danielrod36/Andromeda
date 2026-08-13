@@ -26,6 +26,8 @@ async def _watchdog(server: uvicorn.Server, state, idle_timeout: int) -> None:
     """Flip ``should_exit`` when the app has been idle too long."""
     while True:
         await asyncio.sleep(15)
+        if state.in_flight > 0:
+            continue
         if time.monotonic() - state.last_request_at > idle_timeout:
             server.should_exit = True
             return

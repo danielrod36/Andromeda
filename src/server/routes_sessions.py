@@ -154,9 +154,10 @@ async def choose(session_id: str, req: ChooseRequest, request: Request) -> dict:
             result = record.chargen.choose(req.option_id, origin=req.origin)
         else:
             result = record.adventure.choose(req.option_id)
+        payload = _session_payload(record)
         request.app.state.registry.autosave(record)
         return {
-            "session": _session_payload(record),
+            "session": payload,
             "result": result.model_dump(mode="json"),
             "events": _new_events_since(record, before),
         }
@@ -179,17 +180,19 @@ async def freetext(session_id: str, req: FreetextRequest, request: Request) -> d
                     "No translator configured — set the narrator model in Settings",
                 )
             translation = await record.chargen.propose(req.text)
+            payload = _session_payload(record)
             request.app.state.registry.autosave(record)
             return {
-                "session": _session_payload(record),
+                "session": payload,
                 "record": translation.model_dump(mode="json"),
                 "events": _new_events_since(record, before),
             }
         # Adventure: classify is sync + blocking (KTD-9) — threadpool it.
         result = await run_in_threadpool(record.adventure.submit_freetext, req.text)
+        payload = _session_payload(record)
         request.app.state.registry.autosave(record)
         return {
-            "session": _session_payload(record),
+            "session": payload,
             "result": result.model_dump(mode="json"),
             "events": _new_events_since(record, before),
         }
@@ -236,8 +239,7 @@ async def suggest(session_id: str, request: Request) -> dict:
             suggestion = await advisor.suggest(choice, rules_summary)
             if suggestion is not None:
                 record_advice(record.game.engine, suggestion)
-        if suggestion is not None:
-            request.app.state.registry.autosave(record)
+        request.app.state.registry.autosave(record)
         return {"record": suggestion.model_dump(mode="json") if suggestion else None}
     finally:
         record.game.end_action()
@@ -250,8 +252,9 @@ async def set_name(session_id: str, req: NameRequest, request: Request) -> dict:
         raise ActionInFlightError("A beat is already in flight for this session")
     try:
         record.game.engine.apply(SetCharacterNameCommand(name=req.name))
+        payload = _session_payload(record)
         request.app.state.registry.autosave(record)
-        return {"session": _session_payload(record)}
+        return {"session": payload}
     finally:
         record.game.end_action()
 
@@ -259,7 +262,9 @@ async def set_name(session_id: str, req: NameRequest, request: Request) -> dict:
 @router.post("/{session_id}/promote")
 async def promote(session_id: str, request: Request) -> dict:
     record = request.app.state.registry.promote(session_id)
-    return {"session": _session_payload(record)}
+    payload = _session_payload(record)
+    request.app.state.registry.autosave(record)
+    return {"session": payload}
 
 
 # ---------------------------------------------------------------------------
@@ -320,9 +325,20 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
         facts = build_beat_facts(state.events[span[0] : span[1]])
         memory = narrator_memory(state.events)
         adapter = request.app.state.adapter or LLMAdapter()  # template when unconfigured
-        from src.llm.state_view import build_curated_view
+        from src.llm.state_view import build_curated_view_for_scene
 
-        view = build_curated_view(state)
+        # Scene-aware view: populates mission, scene NPCs, and facts (R25/R15).
+        # For chargen sessions (no adventure controller), scaffold text is empty.
+        if record.kind == "adventure":
+            adv_view = record.adventure.current_view()
+            scaffold_texts = [adv_view.scaffold_text] if adv_view.scaffold_text else []
+        else:
+            scaffold_texts = []
+        view = build_curated_view_for_scene(
+            state,
+            scaffold_texts=scaffold_texts,
+            player_input=steering or None,
+        )
 
         # 4. Prose — world intro replays its record; everything else narrates.
         is_replay = False
@@ -333,7 +349,7 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
                 if e.command_type == "record_narration" and e.changes.get("beat") == "world_intro"
             ]
             if existing and not steering:
-                prose = existing[-1].changes["text"]
+                prose = existing[-1].changes.get("text", "")
                 result = NarrationResult(
                     prose=prose, source=existing[-1].changes.get("source", "template")
                 )
@@ -366,7 +382,7 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
         record.last_narrated_seq = len(state.events)
 
         # 6. Stream: narration sentences → change lines → degradation badge → done.
-        change_lines = derive_recent_change_lines(state.events, since_seq=span[0] - 1)
+        change_lines = derive_recent_change_lines(state.events, since_seq=span[0])
         badge = None
         if result.llm_failed:
             badge = (

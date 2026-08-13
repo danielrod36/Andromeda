@@ -78,8 +78,17 @@ async def put_llm_settings(req: LlmSettingsRequest, request: Request) -> dict:
         max_retries=req.max_retries,
         key_backend=current.key_backend,
     )
-    if req.api_key is None:
-        # Keep the stored key; carry it at runtime so save can re-affirm it.
+    if current.provider != req.provider:
+        # Provider switch: don't transplant the old provider's key (an
+        # Anthropic key must never be sent to an OpenAI endpoint).  Clean
+        # up the old slot and require re-entry for the new provider.
+        delete_api_key(current, settings_dir)
+        if req.api_key is None or req.api_key == "":
+            updated.api_key = ""
+            updated.key_backend = ""
+        else:
+            updated.api_key = req.api_key
+    elif req.api_key is None:
         updated.api_key = resolve_api_key(current, settings_dir)
     elif req.api_key == "":
         current.api_key = resolve_api_key(current, settings_dir)
@@ -105,5 +114,5 @@ async def test_llm_settings(request: Request) -> dict:
     try:
         models = await fetch_available_models(settings.provider, api_key, settings.base_url or None)
         return {"ok": True, "models": models}
-    except RuntimeError as exc:
+    except Exception as exc:
         return {"ok": False, "error": str(exc)}

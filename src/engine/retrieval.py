@@ -17,7 +17,7 @@ import re
 
 from src.engine.commands import Engine
 from src.engine.scene import RatifyFactCommand
-from src.engine.state import GameState, NarrativeFact
+from src.engine.state import GameState, NarrativeFact, NpcRecord
 
 # ---------------------------------------------------------------------------
 # Configuration.
@@ -260,7 +260,10 @@ def ratify_fact_as_npc(
     # chips render.
     disposition = 0
     description = fact.description
-    if pack is not None and "npc_reaction" in pack.oracle_tables:
+    already_exists = any(
+        isinstance(e, NpcRecord) and e.name == fact.name for e in engine.state.entities
+    )
+    if not already_exists and pack is not None and "npc_reaction" in pack.oracle_tables:
         event = engine.apply(NpcReactionRollCommand())
         table = pack.oracle_tables["npc_reaction"]
         entry = lookup_table_result(table.entries.entries, event.changes["roll_total"])

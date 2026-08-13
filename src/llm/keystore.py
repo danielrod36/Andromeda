@@ -9,6 +9,7 @@ tail (``…1234``) via :func:`masked_tail`.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -96,9 +97,21 @@ class FileKeyStore:
     def _write(self, data: dict[str, str]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self._path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(self._path)
-        os.chmod(self._path, 0o600)
+        # Clean up a stale tmp file left by a previous crash.
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        content = json.dumps(data, indent=2)
+        # Create the file with 0o600 from the start so the secret is never
+        # written at default umask (0644) before chmod catches up.
+        fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+        except Exception:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
+        os.replace(tmp, self._path)
 
     def get(self, account: str) -> str:
         return self._read().get(account, "")
@@ -120,9 +133,20 @@ class FileKeyStore:
 
 
 def get_keystore(settings_dir: str | Path) -> KeyStore:
-    """Return the OS keychain when usable, else the owner-only file store."""
+    """Return the OS keychain when usable, else the owner-only file store.
+
+    On some headless systems ``keyring.get_keyring()`` returns a backend that
+    reports as available but raises on actual use (e.g. ``ChainerBackend``
+    with no working backend underneath). To avoid crashes we probe the
+    keyring with a harmless read before committing to it.
+    """
     if KeyringStore.available():
-        return KeyringStore()
+        try:
+            store = KeyringStore()
+            store._keyring.get_password(SERVICE_NAME, "__andromeda_test__")
+            return store
+        except Exception:
+            pass  # fall through to file backend
     return FileKeyStore(settings_dir)
 
 

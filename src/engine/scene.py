@@ -384,7 +384,7 @@ class CreateNpcRecordCommand(Command):
 
     def mutate(self, state: GameState, roll: RollResult | None) -> Event:
         existing = next(
-            (e for e in state.entities if isinstance(e, NpcRecord) and e.name == self.name),
+            (e for e in state.entities if isinstance(e, NpcRecord) and e.name == self.name.strip()),
             None,
         )
         if existing is not None:

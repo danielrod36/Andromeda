@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json as _json
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -50,6 +52,10 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _stale(_request: Request, exc: StaleWriteError) -> JSONResponse:
         return JSONResponse(status_code=409, content=envelope("save_conflict", str(exc)))
 
+    @app.exception_handler(_json.JSONDecodeError)
+    async def _json_decode(_request: Request, exc: _json.JSONDecodeError) -> JSONResponse:
+        return JSONResponse(status_code=400, content=envelope("bad_json", f"Malformed JSON: {exc}"))
+
     @app.exception_handler(PackLoadError)
     async def _pack(_request: Request, exc: PackLoadError) -> JSONResponse:
         return JSONResponse(status_code=422, content=envelope("invalid_config", str(exc)))
@@ -79,4 +85,6 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(KeyError)
     async def _key_error(_request: Request, exc: KeyError) -> JSONResponse:
-        return JSONResponse(status_code=422, content=envelope("invalid_choice", str(exc)))
+        return JSONResponse(
+            status_code=500, content=envelope("server_error", f"Missing key: {exc}")
+        )
