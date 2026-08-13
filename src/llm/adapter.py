@@ -42,6 +42,7 @@ from src.engine.narration import Narrator
 from src.engine.state import GameState
 from src.llm.prompts import (
     SYSTEM_PROMPT,
+    build_beat_prompt,
     build_chapter_summary_prompt,
     build_classification_prompt,
     build_full_lifepath_prompt,
@@ -50,6 +51,7 @@ from src.llm.prompts import (
     build_scene_prompt,
     build_steered_scene_prompt,
     build_term_facts,
+    build_world_intro_prompt,
 )
 from src.llm.state_view import CuratedView, build_curated_view
 from src.llm.tools import TOOL_REGISTRY, ToolDeps
@@ -814,6 +816,130 @@ class LLMAdapter:
                 llm_failed=True,
                 failure_kind=failure_kind,
             )
+
+    # ------------------------------------------------------------------
+    # Beat narration + world intro (M0.4, M0.5).
+    # ------------------------------------------------------------------
+
+    async def narrate_beat(
+        self,
+        view: CuratedView,
+        facts: list[str],
+        *,
+        state: GameState,
+        steering_text: str = "",
+        prior_prose: tuple[str, ...] | list[str] = (),
+        directions: tuple[str, ...] | list[str] = (),
+        on_attempt: AttemptCallback | None = None,
+    ) -> NarrationResult:
+        """Narrate one beat from engine-owned facts (M0.4).
+
+        The facts are locked outcomes; only prose varies. ``state`` is
+        required so the mechanical-claim guard
+        (:class:`src.engine.summary.SummaryValidator`) can validate the
+        prose before it ships — a leak falls back to template narration.
+        Never raises.
+        """
+        if not self.llm_configured:
+            return NarrationResult(
+                prose=self._template_beat(facts, steering_text=steering_text),
+                source="template",
+            )
+        prompt = build_beat_prompt(
+            view,
+            facts,
+            steering_text=steering_text,
+            prior_prose=list(prior_prose),
+            directions=list(directions),
+        )
+        return await self._run_beat_agent(
+            prompt,
+            state,
+            template=lambda: self._template_beat(facts, steering_text=steering_text),
+            on_attempt=on_attempt,
+        )
+
+    async def narrate_world_intro(
+        self,
+        view: CuratedView,
+        *,
+        pack_name: str,
+        pack_intro: str,
+        state: GameState,
+        on_attempt: AttemptCallback | None = None,
+    ) -> NarrationResult:
+        """Narrate the ceremony world introduction (M0.4).
+
+        Template fallback is the pack's own ``intro:`` text (or a generic
+        line), so the ceremony always has canonical prose. Never raises.
+        """
+        template = pack_intro.strip() or f"The world of {pack_name} awaits."
+        if not self.llm_configured:
+            return NarrationResult(prose=template, source="template")
+        prompt = build_world_intro_prompt(view, pack_name=pack_name, pack_intro=pack_intro)
+        return await self._run_beat_agent(
+            prompt,
+            state,
+            template=lambda: template,
+            on_attempt=on_attempt,
+        )
+
+    async def _run_beat_agent(
+        self,
+        prompt: str,
+        state: GameState,
+        *,
+        template,
+        on_attempt: AttemptCallback | None = None,
+    ) -> NarrationResult:
+        """Shared core for beat/world-intro narration (M0.4).
+
+        Runs the read-only scene agent, validates the prose with the
+        mechanical-claim guard, and falls back to ``template()`` on LLM
+        failure or validation rejection. Never raises.
+        """
+        from src.engine.summary import SummaryValidator
+
+        deps = ToolDeps(engine=None, state=None)
+        try:
+            result = await self._run_agent(
+                self._scene_agent, prompt, deps=deps, on_attempt=on_attempt
+            )
+            prose = result.output.prose
+            check = SummaryValidator().validate(prose, state)
+            if not check.valid:
+                logger.warning(
+                    "Beat narration failed mechanical-claim validation; shipping template: %s",
+                    check.error_summary,
+                )
+                return NarrationResult(
+                    prose=template(),
+                    source="template",
+                    llm_failed=True,
+                    failure_kind="validation_rejected",
+                )
+            return NarrationResult(prose=prose, source="llm")
+        except Exception as exc:
+            failure_kind = self._classify_failure(exc)
+            logger.warning(
+                "LLM beat narration failed (%s), falling back to template: %s",
+                failure_kind,
+                exc,
+            )
+            return NarrationResult(
+                prose=template(),
+                source="template",
+                llm_failed=True,
+                failure_kind=failure_kind,
+            )
+
+    @staticmethod
+    def _template_beat(facts: list[str], *, steering_text: str = "") -> str:
+        """Template (fallback) beat narration: the facts themselves, in order."""
+        lines = [f for f in facts if f and f.strip()]
+        if steering_text:
+            lines.append(f"(Direction: {steering_text})")
+        return " ".join(lines) or "The story continues."
 
     def classify_freetext(
         self,

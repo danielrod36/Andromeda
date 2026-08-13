@@ -246,6 +246,8 @@ class LoadedThemePack:
         option_templates: OptionTemplates | None = None,
         cascades: dict[str, CascadeData] | None = None,
         currency_units: list[str] | None = None,
+        theme: dict | None = None,
+        intro: str = "",
     ) -> None:
         self._id = pack_id
         self._name = name
@@ -262,6 +264,8 @@ class LoadedThemePack:
         self._currency_units: list[str] = (
             list(currency_units) if currency_units else list(DEFAULT_CURRENCY_UNITS)
         )
+        self._theme: dict = dict(theme) if theme else {}
+        self._intro: str = intro or ""
         # Pre-compute background skill ids (B10): skills flagged background=true.
         self._background_skills = [sid for sid, s in skills.items() if s.background]
 
@@ -351,6 +355,25 @@ class LoadedThemePack:
             return None
         return self._option_templates.complication_map
 
+    @property
+    def theme_tokens(self) -> dict:
+        """Pack-supplied UI theme hints from ``pack.yaml:theme`` (M0.4).
+
+        A free-form dict (motif glyph, accent name, ambience list). Empty
+        when the pack ships no ``theme:`` block — the client's built-in
+        token sets are the default.
+        """
+        return dict(self._theme)
+
+    @property
+    def intro_text(self) -> str:
+        """Pack-supplied world introduction from ``pack.yaml:intro`` (M0.4).
+
+        The canonical floor for the ceremony world intro; empty when the
+        pack ships none (the template fallback then uses a generic line).
+        """
+        return self._intro
+
 
 # ---------------------------------------------------------------------------
 # Data directory location.
@@ -396,6 +419,14 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         raise PackLoadError(
             f"Pack currency_units must be a list of strings; got {type(raw_units).__name__}"
         )
+
+    # --- Pack-declared UI theme hints + world intro (M0.4) ---
+    raw_theme = manifest.get("theme")
+    if raw_theme is not None and not isinstance(raw_theme, dict):
+        raise PackLoadError(f"Pack theme must be a mapping; got {type(raw_theme).__name__}")
+    raw_intro = manifest.get("intro", "")
+    if not isinstance(raw_intro, str):
+        raise PackLoadError(f"Pack intro must be a string; got {type(raw_intro).__name__}")
 
     # --- Parse careers ---
     careers: dict[str, CareerData] = {}
@@ -500,6 +531,8 @@ def validate_pack(data: dict[str, Any]) -> LoadedThemePack:
         option_templates=option_templates,
         cascades=cascades,
         currency_units=currency_units,
+        theme=raw_theme,
+        intro=raw_intro,
     )
 
 

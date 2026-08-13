@@ -46,3 +46,14 @@ injury_table:
 # Slot 6 is "surface_defense" (Surface System Defense). The legacy alias
 # "army" also resolves to this career via the career_aliases map.
 draft_table: [aerospace_defense, marines, maritime_defense, navy, scout, surface_defense]
+
+intro: >-
+  The frontier stretches out past the last chartered routes — a scatter of
+  jump lanes, free ports, and debts that outlive their debtors. Ships are
+  expensive, fuel is honest, and a traveler's word is the only collateral
+  that compounds. You have a name, a history, and a ticket off-world.
+
+theme:
+  motif: "✦"
+  accent: amber
+  ambience: [meteors, birds]

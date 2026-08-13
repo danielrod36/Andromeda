@@ -447,3 +447,81 @@ def build_translator_prompt(text: str, choice: ChoicePointView, rules_summary: s
         f"selected_option_id = null and give a plain-language reason in "
         f"rationale."
     )
+
+
+# ---------------------------------------------------------------------------
+# Beat narration + world intro prompts (M0.4, M0.5).
+# ---------------------------------------------------------------------------
+
+
+def build_beat_prompt(
+    view: CuratedView,
+    facts: list[str],
+    *,
+    steering_text: str = "",
+    prior_prose: list[str] | None = None,
+    directions: list[str] | None = None,
+) -> str:
+    """Build the user-turn prompt for beat narration (M0.4).
+
+    ``facts`` are the engine-owned outcomes of the beat (locked). Memory
+    (M0.5) carries continuity: recent shipped prose (do not repeat) and
+    standing player story directions. ``steering_text`` is the player's
+    one-off direction for THIS re-telling.
+    """
+    view_json = json.dumps(view.model_dump(), indent=2)
+    facts_block = (
+        "\n".join(f"  - {f}" for f in facts) or "  - (a quiet moment — no mechanical events)"
+    )
+
+    memory_block = ""
+    if prior_prose:
+        prose_lines = "\n".join(f'  - "{p}"' for p in prior_prose)
+        memory_block += (
+            f"\n## Recent Narration (continuity — stay consistent, do not repeat verbatim)\n"
+            f"{prose_lines}\n"
+        )
+    if directions:
+        direction_lines = "\n".join(f'  - "{d}"' for d in directions)
+        memory_block += f"\n## Standing Player Story Directions\n{direction_lines}\n"
+
+    prompt = (
+        f"## Character State\n{view_json}\n"
+        f"{memory_block}\n"
+        f"## What Just Happened (mechanical facts — locked)\n{facts_block}\n\n"
+        f"Write engaging second-person narration (2-4 sentences) for this beat. "
+        f"Faithfully reflect every fact above. Do not mention dice or game mechanics."
+    )
+    if steering_text:
+        prompt += (
+            f'\n\n## Player Steering Direction\n"{steering_text}"\n\n'
+            f"Incorporate the player's direction for tone, focus, or style. "
+            f"The facts are locked — only the prose changes."
+        )
+    return prompt
+
+
+def build_world_intro_prompt(
+    view: CuratedView,
+    *,
+    pack_name: str,
+    pack_intro: str,
+) -> str:
+    """Build the user-turn prompt for the ceremony world introduction (M0.4).
+
+    The pack's own ``intro:`` text is the canonical floor — the LLM expands
+    it into the opening passage, it never replaces its facts.
+    """
+    view_json = json.dumps(view.model_dump(), indent=2)
+    intro_block = pack_intro or (
+        "(the pack ships no introduction — establish the world from its name "
+        "and the character sheet)"
+    )
+    return (
+        f"## The World\nTheme pack: {pack_name}\n"
+        f"Pack introduction (canonical):\n{intro_block}\n\n"
+        f"## Character State\n{view_json}\n\n"
+        f"Write the opening passage of the story: 3-5 sentences of second-person "
+        f"prose introducing the world and the character's place in it. Epic but "
+        f"grounded. Do not mention dice or game mechanics."
+    )
