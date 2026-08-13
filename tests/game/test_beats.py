@@ -84,3 +84,47 @@ def test_beat_facts_cover_mission_resolution():
 
 def test_empty_slice_gives_empty_facts():
     assert build_beat_facts([]) == []
+
+
+class TestNarratorMemory:
+    """M0.5: memory derives from the event log, capped and ordered."""
+
+    def test_memory_collects_prose_and_directions(self):
+        from src.engine.commands import (
+            Engine,
+            RecordNarrationCommand,
+            RecordStoryDirectionCommand,
+        )
+        from src.engine.state import GameState
+        from src.game.beats import narrator_memory
+
+        engine = Engine(GameState.new(seed=1))
+        engine.apply(RecordNarrationCommand(text="First prose.", beat="a"))
+        engine.apply(RecordStoryDirectionCommand(text="darker", beat="a"))
+        engine.apply(RecordNarrationCommand(text="Second prose.", beat="b"))
+
+        memory = narrator_memory(engine.state.events)
+        assert memory.prose == ["First prose.", "Second prose."]
+        assert memory.directions == ["darker"]
+
+    def test_memory_caps_at_limits(self):
+        from src.engine.commands import Engine, RecordNarrationCommand
+        from src.engine.state import GameState
+        from src.game.beats import narrator_memory
+
+        engine = Engine(GameState.new(seed=1))
+        for i in range(10):
+            engine.apply(RecordNarrationCommand(text=f"Prose {i}.", beat="x"))
+
+        memory = narrator_memory(engine.state.events, prose_limit=3)
+        assert memory.prose == ["Prose 7.", "Prose 8.", "Prose 9."]
+
+    def test_memory_ignores_other_events(self):
+        from src.engine.commands import Engine, SetFlagCommand
+        from src.engine.state import GameState
+        from src.game.beats import narrator_memory
+
+        engine = Engine(GameState.new(seed=1))
+        engine.apply(SetFlagCommand(key="k", value="v"))
+        memory = narrator_memory(engine.state.events)
+        assert memory.prose == [] and memory.directions == []

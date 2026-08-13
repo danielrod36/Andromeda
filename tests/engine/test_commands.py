@@ -10,7 +10,9 @@ from src.engine.audit import EventKind, audit_rolls
 from src.engine.commands import (
     Engine,
     RecordAdviceCommand,
+    RecordNarrationCommand,
     RecordProposalCommand,
+    RecordStoryDirectionCommand,
     RollCharacteristicCommand,
     SetFlagCommand,
 )
@@ -331,3 +333,38 @@ def test_record_commands_accept_empty_payload_and_stay_json_serializable():
     e2 = engine.apply(RecordProposalCommand(payload={"weight": 0.5}))
     assert e1.kind is EventKind.SYSTEM and e2.kind is EventKind.SYSTEM
     engine.state.model_dump_json()  # must not raise
+
+
+class TestNarrationRecordCommands:
+    """M0.5: shipped prose and story directions are canonical funnel events."""
+
+    def test_record_narration_appends_prose_and_event(self):
+        state = GameState.new(seed=1)
+        engine = Engine(state)
+        event = engine.apply(
+            RecordNarrationCommand(text="The rain on Pad 9 isn't rain.", beat="scene", source="llm")
+        )
+        assert state.narrative_log[-1] == "The rain on Pad 9 isn't rain."
+        assert event.changes == {
+            "text": "The rain on Pad 9 isn't rain.",
+            "beat": "scene",
+            "source": "llm",
+        }
+
+    def test_record_narration_rejects_empty(self):
+        state = GameState.new(seed=1)
+        engine = Engine(state)
+        with pytest.raises(ValueError, match="non-empty"):
+            engine.apply(RecordNarrationCommand(text="  "))
+        assert state.narrative_log == []  # validate fired before any mutation
+
+    def test_record_story_direction_uses_scannable_prefix(self):
+        state = GameState.new(seed=1)
+        engine = Engine(state)
+        engine.apply(RecordStoryDirectionCommand(text="more paranoia, less heroics", beat="scene"))
+        assert state.narrative_log[-1] == "story_direction=more paranoia, less heroics"
+
+    def test_record_story_direction_rejects_empty(self):
+        engine = Engine(GameState.new(seed=1))
+        with pytest.raises(ValueError, match="non-empty"):
+            engine.apply(RecordStoryDirectionCommand(text=""))

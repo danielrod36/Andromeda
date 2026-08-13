@@ -9,6 +9,8 @@ textual).
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from src.engine.audit import Event
 
 #: Command types that never produce narration facts: flags, pending-state
@@ -91,3 +93,39 @@ def build_beat_facts(events: list[Event]) -> list[str]:
         # Unknown command types produce no fact — beats stay honest about
         # what the engine actually did rather than guessing.
     return facts
+
+
+# ---------------------------------------------------------------------------
+# Narrator memory (M0.5).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class NarratorMemory:
+    """Recent shipped prose + standing player directions (M0.5).
+
+    Derived from the event log (never from a side channel), so a restored
+    session remembers exactly what a never-saved session would.
+    """
+
+    prose: list[str] = field(default_factory=list)
+    directions: list[str] = field(default_factory=list)
+
+
+def narrator_memory(
+    events: list[Event],
+    *,
+    prose_limit: int = 6,
+    direction_limit: int = 3,
+) -> NarratorMemory:
+    """Scan the event log for narration records and story directions (M0.5).
+
+    Returns the most recent ``prose_limit`` shipped-prose texts and
+    ``direction_limit`` player directions, oldest-first within each list.
+    """
+    prose = [e.changes["text"] for e in events if e.command_type == "record_narration"]
+    directions = [e.changes["text"] for e in events if e.command_type == "record_story_direction"]
+    return NarratorMemory(
+        prose=prose[-prose_limit:],
+        directions=directions[-direction_limit:],
+    )
