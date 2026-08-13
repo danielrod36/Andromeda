@@ -327,6 +327,7 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
         view = build_curated_view(state)
 
         # 4. Prose — world intro replays its record; everything else narrates.
+        is_replay = False
         if req.beat == "world_intro":
             existing = [
                 e
@@ -338,6 +339,7 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
                 result = NarrationResult(
                     prose=prose, source=existing[-1].changes.get("source", "template")
                 )
+                is_replay = True
             else:
                 pack = get_pack(state.campaign.theme_pack)
                 result = await adapter.narrate_world_intro(
@@ -357,7 +359,10 @@ async def narrate(session_id: str, req: NarrateRequest, request: Request):
             )
 
         # 5. Shipped prose is canonical BEFORE the client sees a word.
-        engine.apply(RecordNarrationCommand(text=result.prose, beat=req.beat, source=result.source))
+        if not is_replay:
+            engine.apply(
+                RecordNarrationCommand(text=result.prose, beat=req.beat, source=result.source)
+            )
         registry.autosave(record)
         record.last_beat_start = span[0]
         record.last_narrated_seq = len(state.events)
