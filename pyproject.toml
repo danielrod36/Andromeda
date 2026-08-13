@@ -40,6 +40,8 @@ slow = "marks tests as slow"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# design/ holds markdown plans with Python code fences — not source code.
+exclude = ["design/"]
 
 [tool.ruff.lint]
 # Broad-but-pragmatic rule set. BLE001 is globally ignored: the LLM adapter
