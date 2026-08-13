@@ -71,6 +71,33 @@ LEGACY_CASH_DM_SKILLS: frozenset[str] = frozenset({"gambler"})
 #: Legacy default currency units. Packs may override via ``pack.currency_units``.
 DEFAULT_CURRENCY_UNITS: list[str] = ["Cr", "gold crowns"]
 
+#: Keyword → mechanical disposition for ``npc_reaction`` table result text (G6).
+#: Content-name knowledge lives in the content layer (C-A12 precedent, same as
+#: LEGACY_TABLE_ROLES). Ordered: ``unfriendly`` must precede ``friendly``
+#: (substring containment).
+NPC_REACTION_DISPOSITIONS: tuple[tuple[str, int], ...] = (
+    ("hostile", -2),
+    ("unfriendly", -1),
+    ("wary", 0),
+    ("neutral", 0),
+    ("friendly", 1),
+    ("helpful", 2),
+    ("devoted", 2),
+)
+
+
+def npc_reaction_disposition(result_text: str) -> int:
+    """Map an ``npc_reaction`` table result string to a disposition in [-2, +2].
+
+    Unknown text defaults to 0 (neutral) so a pack that rewords its reaction
+    table degrades to neutral instead of raising.
+    """
+    text = result_text.lower()
+    for keyword, value in NPC_REACTION_DISPOSITIONS:
+        if keyword in text:
+            return value
+    return 0
+
 
 def _apply_legacy_inference(data: dict[str, Any]) -> None:
     """Back-fill ``role`` / ``grants_cash_dm`` for entries that omit them.

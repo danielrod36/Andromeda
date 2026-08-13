@@ -23,7 +23,7 @@ from src.engine.commands import Command, Engine, FlagDegradationCommand
 from src.engine.dice import Roller, RollResult
 from src.engine.lifepath import lookup_table_result
 from src.engine.skills import skill_display_name, skill_level_for
-from src.engine.state import GameState, Injury, NarrativeFact
+from src.engine.state import GameState, Injury, NarrativeFact, NpcRecord
 from src.rulesets.base import OutcomeQuality, SkillTableEntry
 from src.rulesets.cepheus import CepheusRuleSet
 from src.rulesets.profiles import (
@@ -336,6 +336,80 @@ class RatifyFactCommand(Command):
             command_type=self.command_type,
             description=(f"Ratified narrative fact as NPC: {self.fact_name}"),
             changes=changes,
+        )
+
+
+class NpcReactionRollCommand(Command):
+    """Roll 2D6 on the oracle stream for a ratified NPC's reaction (G6).
+
+    Mirrors :class:`src.engine.mission.MissionTableRollCommand`: the roll
+    advances the oracle stream and is recorded for audit; the caller looks
+    up the pack's ``npc_reaction`` table with the returned total.
+    """
+
+    command_type: ClassVar[str] = "npc_reaction_roll"
+
+    def resolve(self, state: GameState, roller: Roller) -> RollResult:
+        return roller.roll("oracle", ndice=2, sides=6)
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        assert roll is not None
+        return Event(
+            kind=EventKind.ROLL,
+            command_type=self.command_type,
+            description=f"NPC reaction roll (npc_reaction): {roll.total}",
+            roll=roll,
+            changes={"table_id": "npc_reaction", "roll_total": roll.total},
+        )
+
+
+class CreateNpcRecordCommand(Command):
+    """Create the canonical :class:`NpcRecord` for a ratified fact (G6).
+
+    Idempotent by name: a second application for the same NPC records a
+    no-op event instead of duplicating the entity (the first write wins).
+    """
+
+    command_type: ClassVar[str] = "create_npc_record"
+
+    name: str
+    disposition: int = 0  # -2 hostile .. +2 allied
+    description: str = ""
+
+    def validate(self, state: GameState) -> None:
+        if not self.name or not self.name.strip():
+            raise ValueError("NPC name must be non-empty")
+        if not -2 <= self.disposition <= 2:
+            raise ValueError(f"disposition must be in [-2, +2], got {self.disposition}")
+
+    def mutate(self, state: GameState, roll: RollResult | None) -> Event:
+        existing = next(
+            (e for e in state.entities if isinstance(e, NpcRecord) and e.name == self.name),
+            None,
+        )
+        if existing is not None:
+            return Event(
+                kind=EventKind.STATE_CHANGE,
+                command_type=self.command_type,
+                description=f"NPC record already exists: {self.name}",
+                changes={"name": self.name, "already_existed": True},
+            )
+        state.entities.append(
+            NpcRecord(
+                name=self.name.strip(),
+                disposition=self.disposition,
+                description=self.description,
+            )
+        )
+        return Event(
+            kind=EventKind.STATE_CHANGE,
+            command_type=self.command_type,
+            description=f"NPC record created: {self.name} (disposition {self.disposition:+d})",
+            changes={
+                "name": self.name.strip(),
+                "disposition": self.disposition,
+                "description": self.description,
+            },
         )
 
 
@@ -712,7 +786,7 @@ class SceneEngine:
             if "NPC stats" in fact.description:
                 continue  # already ratified
             if fact.name.lower() in haystack:
-                ratify_fact_as_npc(fact, engine=self.engine)
+                ratify_fact_as_npc(fact, engine=self.engine, pack=self.pack)
                 ratified.append(fact.name)
 
         cmd = SceneCheckCommand(

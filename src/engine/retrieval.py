@@ -213,13 +213,22 @@ def ratify_fact_as_npc(
     fact: NarrativeFact,
     engine: Engine,
     ruleset=None,
+    pack=None,
 ) -> dict:
-    """Ratify a narrative fact as an NPC with mechanical stats (AE9).
+    """Ratify a narrative fact as an NPC with mechanical stats (AE9) and a
+    canonical :class:`NpcRecord` with a rolled disposition (G6).
 
     The fact remains in the entity list; this function returns the generated
     stats and marks the fact as mechanically active by updating its
     description via the command funnel. The engine uses the returned stats
     when checks target this NPC.
+
+    G6: when ``pack`` ships an ``npc_reaction`` oracle table (both shipped
+    packs do), the NPC's disposition is rolled on it — 2D6 on the oracle
+    stream through the funnel — and a canonical :class:`NpcRecord` is
+    appended to ``state.entities`` via :class:`CreateNpcRecordCommand`.
+    Without a pack/table the record is created with disposition 0 and no
+    roll is consumed (determinism parity with pre-G6 saves).
 
     The description update is always routed through the command funnel via
     :class:`RatifyFactCommand`, producing an audit event and **logging the
@@ -229,6 +238,10 @@ def ratify_fact_as_npc(
     Note: stat generation is math-neutral for now. Stats are recorded and
     logged per AE9; opposed-check math using these stats is post-v1.
     """
+    from src.engine.lifepath import lookup_table_result
+    from src.engine.scene import CreateNpcRecordCommand, NpcReactionRollCommand
+    from src.themepacks.base import npc_reaction_disposition
+
     stats = generate_npc_stats(fact.name, ruleset)
     stats_description = (
         f"[NPC stats: all characteristics {stats['characteristics'].get('STR', 7)}, "
@@ -238,6 +251,26 @@ def ratify_fact_as_npc(
         RatifyFactCommand(
             fact_name=fact.name,
             stats_description=stats_description,
+        )
+    )
+
+    # G6: roll the reaction table when the pack ships one, then create the
+    # canonical record. The NpcRecord is what build_curated_view_for_scene
+    # surfaces to the LLM (disposition label) and what the client's NPC
+    # chips render.
+    disposition = 0
+    description = fact.description
+    if pack is not None and "npc_reaction" in pack.oracle_tables:
+        event = engine.apply(NpcReactionRollCommand())
+        table = pack.oracle_tables["npc_reaction"]
+        entry = lookup_table_result(table.entries.entries, event.changes["roll_total"])
+        disposition = npc_reaction_disposition(entry.result)
+        description = entry.result
+    engine.apply(
+        CreateNpcRecordCommand(
+            name=fact.name,
+            disposition=disposition,
+            description=description,
         )
     )
     return stats

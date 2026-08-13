@@ -413,7 +413,7 @@ class TestNarrativeFactRegistration:
 
     def test_check_targeting_fact_ratifies_it(self, pack):
         """A check whose option text names an unratified fact ratifies it (AE9)."""
-        engine = make_engine([[4, 4]])  # check roll only
+        engine = make_engine([[4, 4], [6, 6]])  # check roll + npc_reaction roll (G6)
         engine.apply(RegisterFactCommand(name="Dock Officer", description="bribable"))
         se = SceneEngine(engine, pack)
         option = SceneOption(
