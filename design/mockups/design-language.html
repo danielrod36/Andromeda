@@ -1,0 +1,176 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Archivo+Black&family=Inter:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+<style>
+  .dlx { margin: 0 0 44px; border-radius: 10px; overflow: hidden; cursor: pointer;
+         transition: transform .15s ease, box-shadow .15s ease; border: 2px solid transparent; }
+  .dlx:hover { transform: translateY(-2px); }
+  .dlx.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .dlx-head { padding: 14px 20px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .dlx-name { font: 700 20px/1.1 "Space Grotesk", sans-serif; letter-spacing: .01em; }
+  .dlx-thesis { font: 400 13.5px/1.4 "Inter", sans-serif; opacity: .75; }
+  .dlx-stage { padding: 26px 28px; }
+  .dlx-tokens { padding: 12px 20px 16px; font: 400 12px/1.7 "IBM Plex Mono", monospace; opacity: .85; }
+  .dlx-tokens b { font-weight: 600; }
+  .dots { display: inline-flex; gap: 5px; vertical-align: middle; margin-right: 6px; }
+  .dot { width: 13px; height: 13px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,.25); }
+
+  /* ============ A — SHIP'S CONSOLE ============ */
+  .dla { background: #0A0F1E; color: #E6EBF7; }
+  .dla .dlx-head { background: #0D1428; border-bottom: 1px solid #1E2A4A; }
+  .dla .dlx-name { color: #F5A623; }
+  .dla .dlx-thesis { color: #8B97B8; }
+  .dla .dlx-tokens { background: #0D1428; border-top: 1px solid #1E2A4A; color: #8B97B8; }
+  .dla-stage { background:
+      radial-gradient(1px 1px at 12% 22%, rgba(230,235,247,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 68% 12%, rgba(230,235,247,.35) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 84% 34%, rgba(245,166,35,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 32% 8%, rgba(230,235,247,.3) 50%, transparent 51%),
+      radial-gradient(1px 1px at 48% 30%, rgba(230,235,247,.25) 50%, transparent 51%),
+      linear-gradient(180deg, #0A0F1E 0%, #0D1430 55%, #101B3E 100%);
+      border-radius: 6px; padding: 22px 24px; }
+  .dla-strip { display: flex; justify-content: space-between; align-items: center;
+      font: 500 11px/1 "IBM Plex Mono", monospace; letter-spacing: .14em; color: #7C88A8;
+      border: 1px solid #1E2A4A; border-radius: 3px; padding: 8px 12px; margin-bottom: 20px;
+      background: rgba(13,20,40,.7); }
+  .dla-strip .sync { color: #46C48A; }
+  .dla-prose { font: 400 17px/1.65 "Newsreader", Georgia, serif; color: #E6EBF7; max-width: 62ch; margin-bottom: 18px; }
+  .dla-prose em { color: #F5A623; font-style: italic; }
+  .dla-docket { font: 500 12px/1.6 "IBM Plex Mono", monospace; color: #0A0F1E; background: #F5A623;
+      display: inline-block; padding: 7px 14px 7px 18px; margin-bottom: 22px; border-radius: 2px;
+      clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%); letter-spacing: .04em; }
+  .dla-docket b { font-weight: 600; }
+  .dla-choices { display: grid; gap: 10px; max-width: 640px; }
+  .dla-choice { border: 1px solid #27345C; border-left: 3px solid #F5A623; border-radius: 3px;
+      padding: 12px 16px; background: rgba(19,28,56,.85); }
+  .dla-choice .t { font: 600 15px/1.3 "Space Grotesk", sans-serif; color: #E6EBF7; margin-bottom: 4px; }
+  .dla-choice .o { font: 500 11.5px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; color: #7C88A8; }
+  .dla-choice .o .ok { color: #46C48A; } .dla-choice .o .risk { color: #E5484D; }
+
+  /* ============ B — THE CHRONICLE ============ */
+  .dlb { background: #EFE7D3; color: #23282E; }
+  .dlb .dlx-head { background: #E7DCC2; border-bottom: 1px solid #D3C5A3; }
+  .dlb .dlx-name { color: #2F3E7C; font-family: "Cormorant Garamond", serif; font-size: 23px; }
+  .dlb .dlx-thesis { color: #6B6152; }
+  .dlb .dlx-tokens { background: #E7DCC2; border-top: 1px solid #D3C5A3; color: #6B6152; }
+  .dlb-stage { background:
+      radial-gradient(ellipse at 15% 10%, rgba(255,252,240,.7), transparent 55%),
+      repeating-linear-gradient(0deg, transparent 0 26px, rgba(47,62,124,.045) 26px 27px),
+      #EFE7D3;
+      border: 1px solid #D3C5A3; border-radius: 3px; padding: 24px 26px 24px 30px;
+      border-left: 4px double #B09A6A; position: relative; }
+  .dlb-folio { position: absolute; top: 10px; right: 16px; font: italic 500 11px/1 "Cormorant Garamond", serif; color: #A08B5F; }
+  .dlb-strip { font: italic 500 13px/1.4 "Cormorant Garamond", serif; color: #2F3E7C;
+      border-bottom: 1px solid #C9B98F; padding-bottom: 8px; margin-bottom: 16px; }
+  .dlb-prose { font: 400 17px/1.7 "Newsreader", Georgia, serif; color: #23282E; max-width: 62ch; margin-bottom: 18px; }
+  .dlb-prose::first-letter { font: 600 34px/1 "Cormorant Garamond", serif; color: #7A2E3A; padding-right: 2px; }
+  .dlb-marginalia { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; }
+  .dlb-stamp { font: 600 10.5px/1.5 "IBM Plex Mono", monospace; color: #7A2E3A; border: 1.5px solid #7A2E3A;
+      border-radius: 2px; padding: 5px 9px; transform: rotate(-1.6deg); background: rgba(122,46,58,.05);
+      letter-spacing: .05em; }
+  .dlb-choices { display: grid; gap: 2px; max-width: 640px; }
+  .dlb-choice { padding: 11px 14px; border-bottom: 1px solid #D3C5A3; }
+  .dlb-choice:last-child { border-bottom: none; }
+  .dlb-choice .n { font: italic 600 15px/1 "Cormorant Garamond", serif; color: #A67C2E; margin-right: 10px; }
+  .dlb-choice .t { font: 600 15.5px/1.35 "Newsreader", serif; color: #23282E; }
+  .dlb-choice .o { font: 500 11px/1 "IBM Plex Mono", monospace; letter-spacing: .05em; color: #6B6152; margin-top: 4px; padding-left: 26px; }
+  .dlb-choice .o .ok { color: #5F7161; font-weight: 600; } .dlb-choice .o .risk { color: #7A2E3A; font-weight: 600; }
+
+  /* ============ C — HI-BIT POSTER ============ */
+  .dlc { background: #F2EFE6; color: #141412; }
+  .dlc .dlx-head { background: #E9E4D4; border-bottom: 3px solid #141412; }
+  .dlc .dlx-name { color: #141412; font-family: "Archivo Black", sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  .dlc .dlx-thesis { color: #5C584C; }
+  .dlc .dlx-tokens { background: #E9E4D4; border-top: 3px solid #141412; color: #5C584C; }
+  .dlc-stage { background:
+      radial-gradient(circle at 2px 2px, rgba(20,20,18,.10) 1px, transparent 1.6px);
+      background-size: 8px 8px; background-color: #F2EFE6;
+      border: 3px solid #141412; border-radius: 2px; padding: 22px 24px; }
+  .dlc-strip { display: flex; justify-content: space-between; font: 400 13px/1 "VT323", monospace;
+      color: #F2EFE6; background: #141412; padding: 7px 10px; margin-bottom: 18px; letter-spacing: .06em; }
+  .dlc-strip .sync { color: #E8A33D; }
+  .dlc-stakes { font: 400 26px/1.15 "Archivo Black", sans-serif; color: #141412; text-transform: uppercase;
+      margin-bottom: 14px; max-width: 30ch; }
+  .dlc-stakes .red { color: #D93A2B; }
+  .dlc-prose { font: 400 15.5px/1.6 "Inter", sans-serif; color: #33312A; max-width: 66ch; margin-bottom: 18px; }
+  .dlc-docket { font: 400 14px/1.4 "VT323", monospace; color: #F2EFE6; background: #2E4BD7;
+      display: inline-block; padding: 6px 12px; margin-bottom: 20px; letter-spacing: .05em; }
+  .dlc-choices { display: grid; gap: 10px; max-width: 660px; }
+  .dlc-choice { border: 2.5px solid #141412; background: #F2EFE6; padding: 11px 14px;
+      box-shadow: 4px 4px 0 #141412; }
+  .dlc-choice .t { font: 600 14.5px/1.3 "Inter", sans-serif; color: #141412; margin-bottom: 3px; }
+  .dlc-choice .o { font: 400 13px/1 "VT323", monospace; color: #5C584C; letter-spacing: .05em; }
+  .dlc-choice .o .ok { color: #2E7D4F; } .dlc-choice .o .risk { color: #D93A2B; }
+</style>
+
+<h2>Foundations: which design language is Andromeda?</h2>
+<p class="subtitle">Same beat — a scene receipt, prose, two choices with odds — rendered three ways. Typography, texture, and component DNA are the decision here; layout comes later. Click a direction to select it, then tell me what you'd tune.</p>
+
+<!-- ==================== A ==================== -->
+<div class="dlx dla" data-choice="a" onclick="toggleSelect(this)">
+  <div class="dlx-head">
+    <span class="dlx-name">A · Ship's Console</span>
+    <span class="dlx-thesis">The game as a lovingly-maintained ship terminal: phosphor-amber instrument light over deep-space navy. Trust is rendered as hardware — every roll is a stamped ticket from the machine.</span>
+  </div>
+  <div class="dlx-stage">
+    <div class="dla-stage">
+      <div class="dla-strip"><span>MARA VOSS · SCOUT R2 · TERM 4 · 12,000 CR</span><span class="sync">ENGINE SYNC ✓ · SEQ 0417</span></div>
+      <p class="dla-prose">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — <em>clearance for Pad 9, and a warning folded inside it.</em></p>
+      <div class="dla-docket">SEQ 0417 · SCENE CHECK · <b>4 + 5 +2 DEX vs 8+</b> → SUCCESS · EFFECT 3</div>
+      <div class="dla-choices">
+        <div class="dla-choice"><div class="t">Ask the tower who paid for the warning</div><div class="o">PERSUADE · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+        <div class="dla-choice"><div class="t">Set down on Pad 9 anyway — beacon first, questions after</div><div class="o">PILOT · DIFFICULT 10+ · <span class="risk">28% RISKY</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="dlx-tokens">
+    <span class="dots"><span class="dot" style="background:#0A0F1E"></span><span class="dot" style="background:#E6EBF7"></span><span class="dot" style="background:#F5A623"></span><span class="dot" style="background:#46C48A"></span><span class="dot" style="background:#E5484D"></span></span>
+    <b>Type:</b> Space Grotesk display · Newsreader prose · IBM Plex Mono data &nbsp;|&nbsp; <b>Texture:</b> starfield, 1px pixel-stepped borders, scanline whisper &nbsp;|&nbsp; <b>Motion:</b> typewriter prose, docket stamp-in, CRT flicker on boot &nbsp;|&nbsp; <b>Signature:</b> the punched-ticket docket
+  </div>
+</div>
+
+<!-- ==================== B ==================== -->
+<div class="dlx dlb" data-choice="b" onclick="toggleSelect(this)">
+  <div class="dlx-head">
+    <span class="dlx-name">B · The Chronicle</span>
+    <span class="dlx-thesis">The campaign as a navigator's field journal: cool vellum, indigo ink, berry-red stamps. The lifepath is literally a written life — rolls live in the margin as stamped marginalia, terms as ledger entries.</span>
+  </div>
+  <div class="dlx-stage">
+    <div class="dlb-stage">
+      <div class="dlb-folio">fol. 417</div>
+      <div class="dlb-strip">Mara Voss · Scout, Second Rank · Fourth Term · 12,000 Cr</div>
+      <p class="dlb-prose">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — clearance for Pad 9, and a warning folded inside it.</p>
+      <div class="dlb-marginalia"><span class="dlb-stamp">SEQ 0417 · SCENE CHECK · 4+5 +2 DEX vs 8+ → SUCCESS · EFFECT 3</span></div>
+      <div class="dlb-choices">
+        <div class="dlb-choice"><span class="n">I.</span><span class="t">Ask the tower who paid for the warning</span><div class="o">PERSUADE · AVERAGE 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+        <div class="dlb-choice"><span class="n">II.</span><span class="t">Set down on Pad 9 anyway — beacon first, questions after</span><div class="o">PILOT · DIFFICULT 10+ · <span class="risk">28% RISKY</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="dlx-tokens">
+    <span class="dots"><span class="dot" style="background:#EFE7D3"></span><span class="dot" style="background:#23282E"></span><span class="dot" style="background:#2F3E7C"></span><span class="dot" style="background:#A67C2E"></span><span class="dot" style="background:#7A2E3A"></span></span>
+    <b>Type:</b> Cormorant display · Newsreader prose · IBM Plex Mono stamps &nbsp;|&nbsp; <b>Texture:</b> vellum grain, deckled edges, ruled lines, folios &nbsp;|&nbsp; <b>Motion:</b> ink-fade reveals, page-settle, bookmark slides &nbsp;|&nbsp; <b>Signature:</b> stamped marginalia in the journal margin
+  </div>
+</div>
+
+<!-- ==================== C ==================== -->
+<div class="dlx dlc" data-choice="c" onclick="toggleSelect(this)">
+  <div class="dlx-head">
+    <span class="dlx-name">C · Hi-bit Poster</span>
+    <span class="dlx-thesis">SNES box-art confidence: paper panels, ink-black rules, vermilion stakes. Every beat leads with an oversized typographic statement of what's at stake — Disco Elysium's white/red text, weaponized.</span>
+  </div>
+  <div class="dlx-stage">
+    <div class="dlc-stage">
+      <div class="dlc-strip"><span>MARA VOSS · SCOUT R2 · TERM 4 · 12,000 CR</span><span class="sync">ENGINE SYNC ✓</span></div>
+      <div class="dlc-stakes">THE TOWER CLEARED YOU — <span class="red">AND WARNED YOU.</span></div>
+      <p class="dlc-prose">Pad 9 at dusk. Rain that isn't rain beads on the canopy; the tower frequency crackles — clearance for Pad 9, and a warning folded inside it.</p>
+      <div class="dlc-docket">SEQ 0417 · SCENE CHECK · 4+5 +2 DEX vs 8+ → SUCCESS · EFFECT 3</div>
+      <div class="dlc-choices">
+        <div class="dlc-choice"><div class="t">Ask the tower who paid for the warning</div><div class="o">PERSUADE · AVG 8+ · <span class="ok">72% FAVORABLE</span></div></div>
+        <div class="dlc-choice"><div class="t">Set down on Pad 9 anyway — beacon first, questions after</div><div class="o">PILOT · DIFFICULT 10+ · <span class="risk">28% RISKY</span></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="dlx-tokens">
+    <span class="dots"><span class="dot" style="background:#F2EFE6"></span><span class="dot" style="background:#141412"></span><span class="dot" style="background:#D93A2B"></span><span class="dot" style="background:#2E4BD7"></span><span class="dot" style="background:#E8A33D"></span></span>
+    <b>Type:</b> Archivo Black display · Inter prose · VT323 micro-labels &nbsp;|&nbsp; <b>Texture:</b> halftone dots, 3px ink rules, offset shadows, diagonal cuts &nbsp;|&nbsp; <b>Motion:</b> hard cuts, panel wipes, stamp slams &nbsp;|&nbsp; <b>Signature:</b> the oversized stakes line
+  </div>
+</div>

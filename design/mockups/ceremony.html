@@ -1,0 +1,98 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&family=Chakra+Petch:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  .tn { --bg:#13161D; --panel:#1A1F2A; --line:#2C3444; --ink:#E9EDF5; --muted:#7E8899; --accent:#8FA3C8; --ok:#5FC98E; --danger:#E5606C; --motif:"◆"; }
+  .t-scifi   { --bg:#0A0F1E; --panel:#101830; --line:#27345C; --ink:#E6EBF7; --muted:#7C88A8; --accent:#F5A623; --ok:#46C48A; --danger:#E5484D; --motif:"✦"; }
+  .t-fantasy { --bg:#17120C; --panel:#221A10; --line:#4A3A22; --ink:#F2E9D8; --muted:#9C8D76; --accent:#D9A02B; --ok:#7FA85C; --danger:#C24A52; --motif:"❧"; }
+
+  .wrap { background:#0c0f16; border-radius: 10px; overflow: hidden; }
+  .head { padding: 13px 20px 9px; }
+  .head .name { font: 700 18px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .head .thesis { font: 400 12.5px/1.45 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; }
+  .note { padding: 10px 20px 16px; font: 500 10.5px/1.7 "IBM Plex Mono", monospace; color:#7E8899; letter-spacing:.04em; border-top: 1px solid #232a3a; }
+  .note b { color:#c6cfe2; }
+
+  .scene { position: relative; overflow: hidden;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 18%, rgba(233,237,245,.8) 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 8%,  rgba(233,237,245,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 45% 22%, rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(2px 2px at 63% 10%, rgba(143,163,200,.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 26%, rgba(233,237,245,.45) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 90% 12%, rgba(233,237,245,.6) 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 40%,  rgba(233,237,245,.3) 50%, transparent 51%),
+      linear-gradient(180deg, #0B0E17 0%, #141B31 52%, #1E2A4D 78%, #2A3A66 100%); }
+  .scene::before { content:""; position:absolute; width:130px; height:130px; border-radius:50%; top: 10%; right: 12%;
+    background: radial-gradient(circle at 34% 30%, #C97B4A 0%, #A8542E 42%, #6E3319 78%, #4A2212 100%);
+    box-shadow: 0 0 44px rgba(201,123,74,.35); }
+  .horizon { position:absolute; left:0; right:0; bottom:0; height: 30%; background: #080A10;
+    clip-path: polygon(0 62%, 6% 62%, 6% 54%, 12% 54%, 12% 66%, 20% 66%, 20% 40%, 26% 40%, 26% 30%, 30% 30%, 30% 40%, 36% 40%, 36% 58%, 44% 58%, 44% 46%, 52% 46%, 52% 24%, 55% 24%, 55% 12%, 58% 12%, 58% 24%, 62% 24%, 62% 52%, 70% 52%, 70% 62%, 78% 62%, 78% 44%, 86% 44%, 86% 58%, 100% 58%, 100% 100%, 0 100%); }
+  .veil { position:absolute; inset:0; background: linear-gradient(180deg, rgba(8,10,16,.34) 0%, rgba(8,10,16,.55) 60%, rgba(8,10,16,.78) 100%); }
+
+  .hero { height: 540px; position: relative; display: flex; flex-direction: column; }
+  .kicker { position: absolute; top: 18px; left: 22px; font: 400 13px/1 "VT323", monospace; letter-spacing: .22em; color: var(--accent); z-index: 3; }
+  .seedchip { position: absolute; top: 16px; right: 22px; z-index: 3; font: 600 10px/1.4 "IBM Plex Mono", monospace;
+    color: var(--bg); background: var(--accent); padding: 4px 10px; letter-spacing: .05em; transform: rotate(1.6deg); box-shadow: 3px 3px 0 rgba(0,0,0,.5); }
+  .cinema { position: relative; z-index: 2; flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
+  .cinema p { font: 400 19px/1.75 "Atkinson Hyperlegible", sans-serif; color: var(--ink); max-width: 58ch; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+  .cinema p em { color: var(--accent); }
+  .cinema .caret { color: var(--accent); }
+  .ceremony-foot { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 0 26px 22px; }
+  .skip { font: 400 12px/1 "VT323", monospace; letter-spacing: .12em; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+  .cont { font: 600 13px/1 "Chakra Petch", sans-serif; letter-spacing: .08em; color: var(--bg); background: var(--accent); padding: 11px 18px; box-shadow: 3px 3px 0 rgba(0,0,0,.45); }
+
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 20px 20px; }
+  @media (max-width: 900px) { .duo { grid-template-columns: 1fr; } }
+  .beat { position: relative; min-height: 240px; display: flex; flex-direction: column; }
+  .beat .cap { position: absolute; top: 14px; left: 18px; font: 400 12px/1 "VT323", monospace; letter-spacing: .18em; color: var(--accent); z-index: 3; }
+  .beat .mid { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 26px; text-align: center; }
+  .stamp-big { font: 600 13px/1.6 "IBM Plex Mono", monospace; color: var(--bg); background: var(--accent); padding: 10px 18px; letter-spacing: .08em; transform: rotate(-2deg); box-shadow: 4px 4px 0 rgba(0,0,0,.5); }
+  .stamp-sub { font: 400 14px/1.6 "Atkinson Hyperlegible", sans-serif; color: var(--ink); margin-top: 16px; max-width: 34ch; }
+  .name-q { font: 700 21px/1.2 "Space Grotesk", sans-serif; color: var(--ink); margin-bottom: 16px; }
+  .name-field { width: 280px; background: var(--panel); border: 2px solid var(--line); box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 11px 14px; text-align: left; }
+  .name-field .f-label { font: 400 10px/1 "VT323", monospace; letter-spacing: .16em; color: var(--muted); margin-bottom: 5px; }
+  .name-field .f-value { font: 600 17px/1.2 "Chakra Petch", sans-serif; color: var(--ink); }
+  .name-field .caret { color: var(--accent); }
+</style>
+
+<h2>The Ceremony — full treatment (O1)</h2>
+<p class="subtitle">Hero: the world-intro cinematic at full size. Below: the seed ritual that precedes it and the name beat that closes it (shown in fantasy tokens). Each beat auto-advances or skips; the stream is cancellable into instant text.</p>
+
+<div class="wrap">
+  <div class="head"><span class="name">Beat 2 · The World (hero)</span>
+    <div class="thesis">Full-bleed scene, world-intro prose streams in over the veil. The FATE SEEDED stamp rides the corner as continuity from Beat 1.</div></div>
+  <div class="hero scene t-scifi">
+    <div class="horizon"></div><div class="veil"></div>
+    <div class="kicker">◤ THE SPINWARD REACH — A WORLD INTRODUCTION</div>
+    <div class="seedchip">FATE SEEDED · 482991</div>
+    <div class="cinema">
+      <p><em>The Spinward frontier does not care about you.</em> A thousand beacons burn out past the jump limit, and every one of them was somebody's fortune. The patrons on Ruuth Prime pay in hard credits and softer promises, and the scouts who fly for them come home rich, or broken, or not at all. <em>You are eighteen years old, and tomorrow you will sign your name to something.</em> Tonight, the rain that isn't rain falls on Pad 9.<span class="caret">▌</span></p>
+    </div>
+    <div class="ceremony-foot"><span class="skip">SKIP — SHOW FULL TEXT</span><span class="cont">CONTINUE ▸</span></div>
+  </div>
+
+  <div class="duo">
+    <div class="beat scene t-scifi">
+      <div class="horizon"></div><div class="veil"></div>
+      <div class="cap">BEAT 1 · FATE SEEDED (AUTO-ADVANCES)</div>
+      <div class="mid">
+        <span class="stamp-big">FATE SEEDED · 482991</span>
+        <div class="stamp-sub">The dice are already cast. Every fortune in this chronicle was written at this number.</div>
+      </div>
+    </div>
+    <div class="beat t-fantasy" style="background:
+      radial-gradient(1.5px 1.5px at 18% 20%, rgba(242,233,216,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 74% 14%, rgba(242,233,216,.35) 50%, transparent 51%),
+      radial-gradient(1px 1px at 46% 44%, rgba(242,233,216,.25) 50%, transparent 51%),
+      linear-gradient(180deg, #100D08 0%, #1C1509 60%, #2A1F0E 100%);">
+      <div class="veil" style="background:linear-gradient(180deg, rgba(16,13,8,.3), rgba(16,13,8,.72));"></div>
+      <div class="cap">BEAT 3 · WHO ARE YOU? (FANTASY TOKENS)</div>
+      <div class="mid">
+        <div class="name-q">Every fortune starts with a name.</div>
+        <div class="name-field"><div class="f-label">THE NAME THE WORLD REMEMBERS</div><div class="f-value">Branwen<span class="caret">▌</span></div></div>
+        <div style="margin-top:16px;"><span class="cont">TAKE UP THE TALE ▸</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><b>Engine contract:</b> <b>POST /v1/sessions/{id}/narrate {"beat":"world_intro"}</b> streams the intro as standard narration blocks. Prompt built from pack flavor + campaign config; <b>pack-shipped template intro</b> (`intro:` block in pack.yaml) is the no-LLM fallback. Beat 3's name commits via the existing narrative-freetext path (<b>SetCharacterNameCommand</b>). Beat 4 is the chargen shell's first phase — next mock.</div>
+</div>

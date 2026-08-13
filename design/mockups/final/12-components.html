@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>12 — Components</title><link rel="stylesheet" href="tokens.css"></head>
+<body class="t-scifi">
+<div class="screen">
+  <div class="s-head"><span class="s-name">12 · Roll readout — anatomy (component reference)</span>
+    <div class="s-sub">The one way rolls are shown, at every size: pips, named DM chips, big total, target, effect, tier meter. Narrative bands above; classic single-cut below.</div></div>
+  <div style="background:var(--bg); padding:20px 22px;">
+    <div class="readout" style="border:none; padding:0; background:none;">
+      <div class="r-top">
+        <span class="r-dice"><span class="die d44"><span class="p TL"></span><span class="p TR"></span><span class="p BL"></span><span class="p BR"></span></span><span class="die d44"><span class="p TL"></span><span class="p TR"></span><span class="p C"></span><span class="p BL"></span><span class="p BR"></span></span></span>
+        <span class="dmchips"><span class="dm pos">+1 SOC</span><span class="dm pos">+1 PERSUADE</span></span>
+        <span class="r-eq">=</span><span class="r-total big">11</span><span class="r-vs">vs 8</span><span class="r-effect">EFFECT +3</span>
+      </div>
+      <div>
+        <div class="meter" style="height:22px;">
+          <div class="zone z-miss" style="width:33%"></div><div class="zone z-weak" style="width:22%"></div><div class="zone z-strong" style="width:45%"></div>
+          <span class="zlab" style="left:10%; top:5px; color:var(--danger)">MISS ≤6</span><span class="zlab" style="left:38%; top:5px; color:var(--accent)">WEAK 7–9</span><span class="zlab" style="left:72%; top:5px; color:var(--ok)">STRONG 10+</span>
+          <span class="mark" style="left:calc(75% - 7px)"></span><span class="markline" style="left:75%"></span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font:400 9px/1 'IBM Plex Mono',monospace; color:var(--muted); margin-top:3px;"><span>2</span><span>6</span><span>9</span><span>12+</span></div>
+      </div>
+      <div class="r-verdict strong" style="font-size:12px;">STRONG HIT</div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:8px; margin-top:16px;">
+      <div class="x-data" style="font-size:10.5px; line-height:1.5; color:var(--muted); border-left:2px solid var(--line); padding-left:8px;"><b style="color:var(--ink)">Dice</b> — actual pips at every size; what you rolled is never a number you must trust</div>
+      <div class="x-data" style="font-size:10.5px; line-height:1.5; color:var(--muted); border-left:2px solid var(--line); padding-left:8px;"><b style="color:var(--ink)">DM chips</b> — every modifier named + signed; green adds, red subtracts</div>
+      <div class="x-data" style="font-size:10.5px; line-height:1.5; color:var(--muted); border-left:2px solid var(--line); padding-left:8px;"><b style="color:var(--ink)">Total vs target</b> — Space Grotesk big number, SRD target beside it</div>
+      <div class="x-data" style="font-size:10.5px; line-height:1.5; color:var(--muted); border-left:2px solid var(--line); padding-left:8px;"><b style="color:var(--ink)">Tier meter</b> — narrative bands as zones; the marker shows the landing and the margin</div>
+    </div>
+  </div>
+</div>
+
+<div class="screen">
+  <div class="s-head"><span class="s-name">12b · Classic profile · table rolls · dice ceremony</span></div>
+  <div style="background:var(--bg); padding:20px 22px; display:grid; gap:18px;">
+    <div class="readout" style="border:none; padding:0; background:none;">
+      <div class="r-top">
+        <span class="r-dice"><span class="die d44"><span class="p TL"></span><span class="p C"></span><span class="p BR"></span></span><span class="die d44"><span class="p TL"></span><span class="p TR"></span><span class="p BL"></span><span class="p BR"></span></span></span>
+        <span class="dmchips"><span class="dm pos">+1 DEX</span><span class="dm pos">+2 PILOT</span><span class="dm neg">−2 DIFFICULT</span></span>
+        <span class="r-eq">=</span><span class="r-total big">8</span><span class="r-vs">vs 8</span><span class="r-effect">EFFECT +0</span>
+      </div>
+      <div>
+        <div class="meter" style="height:22px;">
+          <div class="zone z-fail" style="width:50%"></div><div class="zone z-pass" style="width:50%"></div>
+          <span class="zlab" style="left:18%; top:5px; color:var(--danger)">FAIL &lt;8</span><span class="zlab" style="left:66%; top:5px; color:var(--ok)">SUCCESS 8+</span>
+          <span class="mark" style="left:calc(50% - 7px)"></span><span class="markline" style="left:50%"></span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font:400 9px/1 'IBM Plex Mono',monospace; color:var(--muted); margin-top:3px;"><span>2</span><span>8</span><span>12+</span></div>
+      </div>
+      <div class="r-verdict strong" style="font-size:12px;">SUCCESS — ON THE LINE</div>
+    </div>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center;">
+      <div class="tbl-roll"><span class="r-dice"><span class="die d30"><span class="p TL"></span><span class="p TR"></span><span class="p BL"></span><span class="p BR"></span></span></span><span class="tr-res">BENEFIT: 1D6 = 4 → <b>HIGH PASSAGE</b></span></div>
+      <div class="tbl-roll"><span class="r-dice"><span class="die d30"><span class="p TL"></span><span class="p C"></span><span class="p BR"></span></span><span class="die d30"><span class="p TL"></span><span class="p TR"></span><span class="p BL"></span><span class="p BR"></span></span></span><span class="tr-res">SKILL TABLE: 1D6 = 7 → <b>CASCADE: GUN COMBAT</b></span></div>
+    </div>
+    <div class="scene sc-night" style="height:240px;">
+      <div class="horizon"></div><div class="veil veil-std"></div>
+      <div style="position:relative; z-index:3; height:100%; display:flex; align-items:center; justify-content:center; gap:26px;">
+        <span class="die d44" style="background:var(--accent);"><span class="p TL"></span><span class="p TR"></span><span class="p BL"></span><span class="p BR"></span></span>
+        <span class="die d44"><span class="p TL"></span><span class="p TR"></span><span class="p C"></span><span class="p BL"></span><span class="p BR"></span></span>
+        <span class="x-micro" style="position:absolute; bottom:34px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.16em; color:var(--muted);">PERSUADE · 2D6 +2 vs 8</span>
+        <span class="x-micro" style="position:absolute; bottom:14px; left:0; right:0; text-align:center; font-size:11px; letter-spacing:.12em; color:var(--muted); text-decoration:underline; text-underline-offset:3px;">SPACE — SKIP CEREMONY (REMEMBER MY CHOICE)</span>
+      </div>
+    </div>
+  </div>
+  <div class="s-note"><b>Rules:</b> pips at every size · DM chips named at full size, signed-only when compact · meter marker clamps at the edge with an overflow chip past 12+ · natural 2 / natural 12 get a crit/fumble frame on the dice · weak hits spawn the complication roll as a second readout · table rolls (aging, benefits, cost) use the meterless dice+result form.</div>
+</div>
+
+<div class="screen">
+  <div class="s-head"><span class="s-name">12c · Design tokens (summary)</span></div>
+  <div style="background:var(--bg); padding:18px 22px; display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:12px;">
+    <div class="card0" style="padding:12px 14px;"><div class="x-data" style="font-size:9.5px; letter-spacing:.16em; color:var(--muted); margin-bottom:8px;">TYPE ROLES</div>
+      <div class="x-title" style="font-size:15px;">Space Grotesk — titles, big numbers</div>
+      <div class="x-int" style="font-size:15px; margin-top:4px;">Chakra Petch — interactive titles</div>
+      <div class="x-prose" style="font-size:15px; margin-top:4px;">Atkinson Hyperlegible — prose</div>
+      <div class="x-data" style="font-size:12px; margin-top:4px;">IBM Plex Mono — data</div>
+      <div class="x-micro" style="font-size:15px; margin-top:4px;">VT323 — micro-labels</div></div>
+    <div class="card0" style="padding:12px 14px;"><div class="x-data" style="font-size:9.5px; letter-spacing:.16em; color:var(--muted); margin-bottom:8px;">PALETTE ROLES (PER PACK)</div>
+      <div class="x-data" style="font-size:11px; line-height:1.8;">bg · panel · line · ink · muted<br>accent · ok · danger + motif glyph<br>scifi ✦ amber · fantasy ❧ gold · neutral ◆ steel · dead ✝ umber</div></div>
+    <div class="card0" style="padding:12px 14px;"><div class="x-data" style="font-size:9.5px; letter-spacing:.16em; color:var(--muted); margin-bottom:8px;">FRAME SYSTEM</div>
+      <div class="x-data" style="font-size:11px; line-height:1.8;">2px stepped pixel corners (accent/panel)<br>dither overlay 4px @ ~3% · hard offset shadow 3px<br>glass panels over scenes · dashed hairlines for secondary rules</div></div>
+    <div class="card0" style="padding:12px 14px;"><div class="x-data" style="font-size:9.5px; letter-spacing:.16em; color:var(--muted); margin-bottom:8px;">MOTION + RULES</div>
+      <div class="x-data" style="font-size:11px; line-height:1.8;">typewriter prose (skippable) · stamp landings · staggered choice rise<br>everything level — no tilt · ambient layers collapse under reduced-motion<br>rolls = readouts; text dockets only for non-dice events</div></div>
+  </div>
+</div>
+</body></html>

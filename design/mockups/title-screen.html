@@ -1,0 +1,139 @@
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=VT323&display=swap" rel="stylesheet">
+<style>
+  .tn { --bg:#13161D; --panel:#1A1F2A; --line:#2C3444; --ink:#E9EDF5; --muted:#7E8899; --accent:#8FA3C8; --ok:#5FC98E; --danger:#E5606C; --motif:"◆"; }
+
+  .opt { margin: 0 0 46px; border-radius: 10px; overflow: hidden; cursor: pointer; border: 2px solid transparent;
+         transition: transform .15s ease, box-shadow .15s ease; background:#0c0f16; }
+  .opt:hover { transform: translateY(-2px); }
+  .opt.selected { border-color: #6c8cff; box-shadow: 0 0 0 3px rgba(108,140,255,.25); }
+  .opt-head { padding: 13px 20px 9px; }
+  .opt-name { font: 700 18px/1.1 "Space Grotesk", sans-serif; color:#E9EDF5; }
+  .opt-thesis { font: 400 12.5px/1.45 "Inter", sans-serif; color:#98a2b8; margin-top: 4px; }
+
+  /* ---- the scene: pure-CSS placeholder for sprite art ---- */
+  .scene { position: relative; overflow: hidden;
+    background:
+      radial-gradient(1.5px 1.5px at 12% 18%, rgba(233,237,245,.8) 50%, transparent 51%),
+      radial-gradient(1px 1px at 28% 8%,  rgba(233,237,245,.5) 50%, transparent 51%),
+      radial-gradient(1px 1px at 45% 22%, rgba(233,237,245,.4) 50%, transparent 51%),
+      radial-gradient(2px 2px at 63% 10%, rgba(143,163,200,.7) 50%, transparent 51%),
+      radial-gradient(1px 1px at 78% 26%, rgba(233,237,245,.45) 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 90% 12%, rgba(233,237,245,.6) 50%, transparent 51%),
+      radial-gradient(1px 1px at 8% 40%,  rgba(233,237,245,.3) 50%, transparent 51%),
+      radial-gradient(1px 1px at 55% 38%, rgba(233,237,245,.25) 50%, transparent 51%),
+      linear-gradient(180deg, #0B0E17 0%, #141B31 52%, #1E2A4D 78%, #2A3A66 100%);
+  }
+  .scene::before { /* planet */ content:""; position:absolute; width:150px; height:150px; border-radius:50%;
+    top: 12%; right: 14%;
+    background: radial-gradient(circle at 34% 30%, #C97B4A 0%, #A8542E 42%, #6E3319 78%, #4A2212 100%);
+    box-shadow: 0 0 44px rgba(201,123,74,.35); }
+  .scene::after { /* planet ring */ content:""; position:absolute; width:230px; height:56px;
+    top: calc(12% + 46px); right: calc(14% - 40px); border-radius: 50%;
+    border: 6px solid rgba(220,190,150,.4); border-left-color: transparent; border-right-color: transparent;
+    transform: rotate(-14deg); }
+  .horizon { position:absolute; left:0; right:0; bottom:0; height: 34%;
+    background: #080A10;
+    clip-path: polygon(0 62%, 6% 62%, 6% 54%, 12% 54%, 12% 66%, 20% 66%, 20% 40%, 26% 40%, 26% 30%, 30% 30%, 30% 40%, 36% 40%, 36% 58%, 44% 58%, 44% 46%, 52% 46%, 52% 24%, 55% 24%, 55% 12%, 58% 12%, 58% 24%, 62% 24%, 62% 52%, 70% 52%, 70% 62%, 78% 62%, 78% 44%, 86% 44%, 86% 58%, 100% 58%, 100% 100%, 0 100%); }
+  .glow { position:absolute; left:0; right:0; bottom: 32%; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(143,163,200,.55), transparent); }
+
+  .px { background: var(--accent); padding: 2px;
+    clip-path: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)); }
+  .px-in { background: var(--bg); height: 100%; box-sizing: border-box; position: relative;
+    clip-path: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)); }
+  .px-in::after { content:""; position:absolute; inset:0; pointer-events:none;
+    background: repeating-conic-gradient(rgba(255,255,255,.026) 0% 25%, transparent 0% 50%); background-size: 4px 4px; }
+
+  .wordmark { font: 700 54px/1 "Space Grotesk", sans-serif; letter-spacing: .18em; color: var(--ink); }
+  .wordmark .sub { display:block; font: 400 13px/1 "VT323", monospace; letter-spacing: .34em; color: var(--accent); margin-top: 8px; }
+  .word-rule { height: 2px; width: 210px; background: var(--accent); margin: 14px 0 4px; position: relative; }
+  .word-rule::after { content:"◆"; position:absolute; right: -22px; top: -8px; color: var(--accent); font-size: 13px; }
+
+  .menu { display: grid; gap: 9px; }
+  .mi { display: flex; align-items: baseline; gap: 10px; background: var(--panel); border: 2px solid var(--line);
+        box-shadow: 3px 3px 0 rgba(0,0,0,.45); padding: 10px 14px; }
+  .mi:hover { border-color: var(--accent); }
+  .mi .k { font: 600 10px/1 "IBM Plex Mono", monospace; color: var(--accent); letter-spacing: .1em; }
+  .mi .t { font: 600 16px/1.2 "Newsreader", serif; color: var(--ink); }
+  .mi .n { font: 400 12px/1 "VT323", monospace; color: var(--muted); margin-left: auto; letter-spacing: .06em; }
+  .mi.dim { opacity: .55; }
+
+  .strip { display:flex; justify-content: space-between; font: 500 10px/1 "IBM Plex Mono", monospace;
+           letter-spacing: .12em; color: var(--muted); border-top: 2px solid var(--line); padding: 8px 12px; background: var(--bg); }
+  .strip .ok { color: var(--ok); }
+
+  /* T1 layout: poster */
+  .t1-frame { position: relative; height: 560px; display: flex; flex-direction: column; }
+  .t1-scene { position: absolute; inset: 0; }
+  .t1-veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11,14,23,.25) 0%, rgba(11,14,23,.62) 78%, rgba(11,14,23,.86) 100%); }
+  .t1-core { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; text-align: center; }
+  .t1 .menu { width: 400px; }
+
+  /* T2 layout: console */
+  .t2-frame { height: 560px; display: grid; grid-template-columns: 400px 1fr; }
+  .t2-left { background: var(--bg); border-right: 2px solid var(--line); padding: 40px 30px 20px; display: flex; flex-direction: column; }
+  .t2-right { position: relative; }
+  .t2-viewport { position: absolute; inset: 26px 26px 44px 26px; }
+  .t2-vp-label { position: absolute; top: 12px; left: 40px; font: 400 13px/1 "VT323", monospace; letter-spacing: .2em; color: var(--accent); z-index: 3; }
+  .t2-vp-foot { position: absolute; bottom: 14px; left: 40px; font: 400 12px/1 "VT323", monospace; letter-spacing: .12em; color: var(--muted); z-index: 3; }
+</style>
+
+<h2>Screen 1 — Title</h2>
+<p class="subtitle">Pack-neutral graphite at first boot (the title tints to the last-played pack's tokens on return). The scene zone is a CSS stand-in for a hi-bit parallax backdrop — slow star drift, planet glow, silhouette skyline. Pick a layout; then we tune element by element.</p>
+
+<!-- ============ T1: POSTER ============ -->
+<div class="opt tn" data-choice="t1" onclick="toggleSelect(this)">
+  <div class="opt-head">
+    <span class="opt-name">T1 · Poster</span>
+    <div class="opt-thesis">Full-bleed scene, centered wordmark, menu as a single column of dockets. Classic JRPG confidence; the scene carries the mood.</div>
+  </div>
+  <div class="t1-frame scene t1">
+    <div class="t1-scene"><div class="horizon"></div><div class="glow"></div></div>
+    <div class="t1-veil"></div>
+    <div class="t1-core">
+      <div>
+        <div class="wordmark">ANDROMEDA<span class="sub">A DETERMINISTIC ODYSSEY</span></div>
+        <div class="word-rule" style="margin: 16px auto 0;"></div>
+      </div>
+      <div class="menu">
+        <div class="mi"><span class="k">01</span><span class="t">Continue</span><span class="n">MARA VOSS · AUTOSAVE 2H AGO</span></div>
+        <div class="mi"><span class="k">02</span><span class="t">New Journey</span><span class="n">SEED THE STARS</span></div>
+        <div class="mi"><span class="k">03</span><span class="t">Chronicles</span><span class="n">4 SAVES</span></div>
+        <div class="mi"><span class="k">04</span><span class="t">Settings</span><span class="n">LLM · AUDIO · TEXT</span></div>
+        <div class="mi dim"><span class="k">05</span><span class="t">Quit</span><span class="n">TO DESKTOP</span></div>
+      </div>
+    </div>
+    <div class="strip" style="position:relative;"><span>ENGINE SYNC <span class="ok">✓</span> · v0.1.0</span><span>NARRATOR: CLAUDE-SONNET-5 <span class="ok">●</span></span></div>
+  </div>
+</div>
+
+<!-- ============ T2: CONSOLE BOOT ============ -->
+<div class="opt tn" data-choice="t2" onclick="toggleSelect(this)">
+  <div class="opt-head">
+    <span class="opt-name">T2 · Console Boot</span>
+    <div class="opt-thesis">Asymmetric: wordmark and menu in a left console column, the scene framed as a labeled viewport. More "machine you operate"; the pixel frame gets a starring role.</div>
+  </div>
+  <div class="t2-frame tn" style="background:var(--bg);">
+    <div class="t2-left">
+      <div class="wordmark" style="font-size:40px;">ANDROMEDA<span class="sub">A DETERMINISTIC ODYSSEY</span></div>
+      <div class="word-rule"></div>
+      <div class="menu" style="margin-top: 22px;">
+        <div class="mi"><span class="k">01</span><span class="t">Continue</span><span class="n">MARA · 2H AGO</span></div>
+        <div class="mi"><span class="k">02</span><span class="t">New Journey</span></div>
+        <div class="mi"><span class="k">03</span><span class="t">Chronicles</span><span class="n">4 SAVES</span></div>
+        <div class="mi"><span class="k">04</span><span class="t">Settings</span></div>
+        <div class="mi dim"><span class="k">05</span><span class="t">Quit</span></div>
+      </div>
+      <div style="flex:1"></div>
+      <div style="font: 400 12px/1.7 'VT323', monospace; color: var(--muted); letter-spacing:.08em;">
+        SIDECAR: LISTENING 127.0.0.1:63216<br>SAVE BUS: OK · RNG STREAMS: OK
+      </div>
+    </div>
+    <div class="t2-right scene">
+      <div class="horizon"></div><div class="glow"></div>
+      <div class="t2-vp-label">◤ VIEWPORT · DEEP FIELD</div>
+      <div class="t2-vp-foot">RUUTH PRIME ORBIT · LOCAL DRIFT</div>
+    </div>
+    <div class="strip" style="grid-column: 1 / -1;"><span>ENGINE SYNC <span class="ok">✓</span> · v0.1.0</span><span>NARRATOR: CLAUDE-SONNET-5 <span class="ok">●</span></span></div>
+  </div>
+</div>
