@@ -125,7 +125,12 @@ async def list_sessions(request: Request) -> dict:
 
 @router.get("/{session_id}")
 async def get_session(session_id: str, request: Request) -> dict:
-    return {"session": _session_payload(_record(request, session_id))}
+    record = _record(request, session_id)
+    payload = _session_payload(record)
+    # current_view() may lazily generate hooks/scenes via Engine.apply,
+    # consuming oracle-stream rolls. Persist so the autosave stays in sync.
+    request.app.state.registry.autosave(record)
+    return {"session": payload}
 
 
 @router.delete("/{session_id}", status_code=204)

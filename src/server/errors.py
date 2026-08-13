@@ -70,3 +70,13 @@ def register_error_handlers(app: FastAPI) -> None:
             status_code=exc.status_code,
             content=envelope("http_error", str(exc.detail)),
         )
+
+    from fastapi.exceptions import RequestValidationError
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation(_request: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(status_code=422, content=envelope("invalid_request", str(exc)))
+
+    @app.exception_handler(KeyError)
+    async def _key_error(_request: Request, exc: KeyError) -> JSONResponse:
+        return JSONResponse(status_code=422, content=envelope("invalid_choice", str(exc)))
