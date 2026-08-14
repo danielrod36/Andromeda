@@ -69,5 +69,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Client lint
         run: tools/run_client_lint.sh
-      - name: Client tests
-        run: xvfb-run -a tools/run_client_tests.sh
+      - name: Client tests (incl. golden screenshots)
+        run: ANDROMEDA_DISPLAY=1 xvfb-run -a tools/run_client_tests.sh

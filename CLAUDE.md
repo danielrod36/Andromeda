@@ -32,6 +32,18 @@ uv run ruff check --fix src tests    # auto-fix lint errors
 
 **CI** (`.github/workflows/ci.yml`): on every PR and push to `main`, runs ruff (lint + format) and the full pytest suite across Python 3.12, 3.13, and 3.14. Deps install with `uv sync --frozen`, so keep `uv.lock` committed and re-run `uv lock` after any dependency change — a stale lockfile fails CI.
 
+### Client (Godot)
+
+```bash
+tools/get_godot.sh               # one-time: pinned Godot 4.7.1 into tools/godot/
+tools/run_client_lint.sh         # gdlint + gdformat over first-party GDScript
+tools/run_client_tests.sh        # gdUnit4 headless (golden suites self-skip)
+ANDROMEDA_DISPLAY=1 tools/run_client_tests.sh                  # with a display: incl. golden
+GOLDEN_UPDATE=1 ANDROMEDA_DISPLAY=1 tools/run_client_tests.sh  # regen golden baselines
+```
+
+The Godot project lives in `client/` (UI built in GDScript code; the only scene is `client/app/main.tscn`). GDScript changes are gated by gdlint + gdformat + gdUnit4 in the pre-push hook and CI; golden baselines compare only under a real renderer (CI's xvfb job).
+
 ## Architecture: The Engine Is the Trust Boundary
 
 The central design principle: **the LLM can never influence mechanics.** Every dice roll, state mutation, and outcome runs in deterministic Python; the LLM receives outcomes as facts and produces prose.

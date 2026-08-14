@@ -6312,10 +6312,12 @@ static func capture(screen: Control, baseline_name: String) -> Dictionary:
 		var abs_path := ProjectSettings.globalize_path(res_path)
 		var err := img.save_png(abs_path)
 		return {"match": err == OK, "stats": "baseline written to " + abs_path}
-	var baseline_tex: Texture2D = ResourceLoader.load(res_path)
-	if baseline_tex == null:
+	# Image.load (not ResourceLoader): fresh PNGs on disk have no .import
+	# sidecar yet, and ResourceLoader only sees imported resources.
+	var baseline := Image.new()
+	if baseline.load(ProjectSettings.globalize_path(res_path)) != OK:
 		return {"match": false, "stats": "no baseline at " + res_path + " — run with GOLDEN_UPDATE=1"}
-	return compare(img, baseline_tex.get_image())
+	return compare(img, baseline)
 
 
 static func compare(actual: Image, baseline: Image) -> Dictionary:

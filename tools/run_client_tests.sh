@@ -14,8 +14,13 @@ if [ ! -d client/.godot ]; then
   "$GODOT_BIN" --headless --path client --import
 fi
 
+HEADLESS_FLAG="--headless"
+if [ "${ANDROMEDA_DISPLAY:-0}" = "1" ]; then
+  HEADLESS_FLAG=""  # real renderer (xvfb-run or WSLg) — enables golden capture
+fi
+
 set +e
-"$GODOT_BIN" --headless --path client \
+"$GODOT_BIN" $HEADLESS_FLAG --path client \
   -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
   -a res://tests -c --ignoreHeadlessMode -rd /tmp/gdunit-reports
 code=$?
