@@ -267,10 +267,22 @@ func _audio_card(t: PackTheme) -> Control:
 
 func _wired_slider(key: String, t: PackTheme) -> HSlider:
 	var s := Kit.slider(float(ClientSettings.get_value(key)), t)
-	# persist on drag_ended, not value_changed — a drag fires dozens of
-	# value_changed events and each one hit the disk; the knob's own visual
-	# state needs no write (drag_ended(bool value_changed))
-	s.drag_ended.connect(func(_changed: bool) -> void: ClientSettings.set_value(key, s.value))
+	# Drags persist once on drag_ended (a drag fires dozens of value_changed
+	# — each one hit the disk). Arrow-key adjustments arrive as bare
+	# value_changed (no drag_ended) while the slider holds focus, so they
+	# persist immediately; only an in-progress drag is held back.
+	var dragging := false
+	s.drag_started.connect(func() -> void: dragging = true)
+	s.drag_ended.connect(
+		func(_changed: bool) -> void:
+			dragging = false
+			ClientSettings.set_value(key, s.value)
+	)
+	s.value_changed.connect(
+		func(_v: float) -> void:
+			if not dragging:
+				ClientSettings.set_value(key, s.value)
+	)
 	return s
 
 

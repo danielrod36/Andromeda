@@ -19,7 +19,9 @@ enum State { IDLE, CONNECTING, REQUESTING, READING_BODY }
 
 const BLOCK_TYPES := ["narration", "change", "badge", "done"]
 ## CONNECTING/REQUESTING/READING_BODY can each hang indefinitely on a wedged
-## connection. Generous — real narration with retries is slow.
+## connection. This is an INACTIVITY deadline: every delivered chunk resets
+## it, so a healthy stream running long (LLM retries in one request) is
+## never cut — only a connection silent for 180s fails.
 const STREAM_TIMEOUT_SEC := 180.0
 const _TRANSPORT_MESSAGE := "could not reach the referee — is the sidecar running?"
 
@@ -104,6 +106,7 @@ func _read_chunks() -> void:
 		var chunk := _http.read_response_body_chunk()
 		if chunk.size() == 0:
 			break
+		_stream_elapsed = 0.0  # data flowed — the stream is alive
 		_buffer.append_array(chunk)
 		_drain_lines()
 	if _state != State.READING_BODY:

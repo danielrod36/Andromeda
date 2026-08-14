@@ -59,10 +59,15 @@ func spawn(extra_args := PackedStringArray()) -> void:
 	if python == "":
 		boot_failed.emit("no .venv python found — run `uv sync` in the repo first")
 		return
-	# Millisecond-unique name: concurrent runs (live client + test suite)
-	# truncate each other's LISTENING line if they share one log file.
+	# Per-spawn unique name (ms + random): concurrent runs (live client +
+	# test suite) truncate each other's LISTENING line if they share one log
+	# file; the random suffix covers two spawns inside the same millisecond.
+	_prune_old_logs()
 	log_path = OS.get_cache_dir().path_join(
-		"andromeda-sidecar-%d.log" % (Time.get_unix_time_from_system() * 1000.0)
+		(
+			"andromeda-sidecar-%d-%d.log"
+			% [Time.get_unix_time_from_system() * 1000.0, randi() % 100000]
+		)
 	)
 	var log_file := FileAccess.open(log_path, FileAccess.WRITE)
 	if log_file != null:
@@ -160,6 +165,20 @@ func _on_health_completed(
 
 static func _sh_quote(s: String) -> String:
 	return "'" + s.replace("'", "'\\''") + "'"
+
+
+## Delete sidecar logs older than an hour. Active logs from concurrent runs
+## are seconds old, so the threshold never touches them — it only stops
+## per-spawn files from accumulating forever in the cache dir.
+static func _prune_old_logs() -> void:
+	var cache := OS.get_cache_dir()
+	var cutoff := Time.get_unix_time_from_system() - 3600.0
+	for file: String in DirAccess.get_files_at(cache):
+		if not file.begins_with("andromeda-sidecar-") or not file.ends_with(".log"):
+			continue
+		var path := cache.path_join(file)
+		if FileAccess.get_modified_time(path) < cutoff:
+			DirAccess.remove_absolute(path)
 
 
 static func _venv_python() -> String:
