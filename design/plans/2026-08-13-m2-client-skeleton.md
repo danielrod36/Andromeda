@@ -356,7 +356,9 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/resizable=false
+window/size/resizable=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
 
 [rendering]
 
