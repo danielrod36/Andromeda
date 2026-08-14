@@ -81,6 +81,11 @@ static func _stepped(r: Rect2, s1: float, s2: float) -> PackedVector2Array:
 
 
 func _draw() -> void:
+	# The corner steps need ≥16px per axis (outer steps 4/8, inner 3/6 on a
+	# rect shrunk by 2); below that the polygon degenerates to collinear
+	# points and triangulation fails. Layout can call _draw at size (0,0).
+	if size.x < 17.0 or size.y < 17.0:
+		return
 	var r := Rect2(Vector2.ZERO, size)
 	draw_colored_polygon(_stepped(r, 4.0, 8.0), ring_color)
 	draw_colored_polygon(_stepped(r.grow_individual(-2, -2, -2, -2), 3.0, 6.0), fill_color)
