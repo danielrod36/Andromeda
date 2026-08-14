@@ -97,7 +97,7 @@ Codes the client may receive (all rendered as verbatim-message toasts):
   {"kind": "chargen", "name": "1-80 chars", "seed": 482991, "pack_id": "scifi",
    "profile": "narrative", "death_mode": "narrative", "from_save": null}
   ```
-  Defaults: `kind="chargen"`, `seed=null` (server picks), `pack_id="scifi"`, `profile="narrative"`, `death_mode="narrative"`. `seed` is any JSON int; the client's REROLL sends one (Task 10 pins `randi_range(100000, 999999)`). If `from_save` is set, all other fields are ignored and the kind is inferred (routes_sessions.py:101-103). Adventure without `from_save` → 422 `invalid_config` (112-118). Success → `201 {"session": SessionEnvelope}`.
+  Defaults: `kind="chargen"`, `seed=null` (server picks), `pack_id="scifi"`, `profile="narrative"`, `death_mode="narrative"`. `seed` is any JSON int; the client's REROLL sends one (Task 10 pins `randi_range(100000, 999999)`). If `from_save` is set, routing ignores the other fields and the kind is inferred (routes_sessions.py:101-103), **but `name` is still required by pydantic** — the client sends `{"name": from_save, "from_save": from_save}`. Adventure without `from_save` → 422 `invalid_config` (112-118). Success → `201 {"session": SessionEnvelope}`.
 - `GET /v1/sessions` → `{"sessions": [{"id", "name", "kind"}]}` (routes_sessions.py:81-82, 122-124).
 - `GET /v1/sessions/{id}` → `{"session": SessionEnvelope}` (127-134). Unknown id → 404 `session_not_found`.
 - `DELETE /v1/sessions/{id}` → 204, empty body (137-139).
@@ -1444,7 +1444,7 @@ git commit -m "feat(client): M2.3 SidecarProcess — spawn/handshake/health/kill
 | config | `list_packs()` · `list_rulesets()` · `list_providers()` |
 | settings | `get_settings()` · `put_settings(payload: Dictionary)` · `test_settings()` |
 | saves | `list_saves()` · `delete_save(name)` · `duplicate_save(name, new_name)` · `export_save(name)` · `import_save(name, document: Dictionary)` |
-| sessions | `create_session(payload: Dictionary)` · `resume_session(from_save)` · `list_sessions()` · `get_session(id)` · `delete_session(id)` · `choose(id, option_id, origin := "player")` · `freetext(id, text)` · `suggest(id)` · `set_name(id, name)` · `promote(id)` · `save_session(id, name)` |
+| sessions | `create_session(payload: Dictionary)` · `resume_session(from_save)` · `list_sessions()` · `get_session(id)` · `delete_session(id)` · `choose(id, option_id, origin := "player")` · `freetext(id, text)` · `suggest(id)` · `set_character_name(id, name)` · `promote(id)` · `save_session(id, name)` |
 | inspect | `recap(id)` — the rest (`sheet`/`memorial`/`audit`/`llm_context`/`odds`/`state_hash`/`verify`) are thin wrappers for M4, integration-tested there (spec §4 note) |
 
 Per-call `HTTPRequest` allocation (create → await → free), not a pool: the client issues at most a few requests per second and pooling buys nothing but lifecycle bugs. This refines spec §4's "small pool" wording — same guarantee, simpler code.
@@ -1735,6 +1735,7 @@ static func err_result(p_status: int, p_code: String, p_message: String) -> Engi
 - [ ] **Step 4: `client/engine/engine_client.gd`** — create exactly:
 
 ```gdscript
+# gdlint: ignore=max-public-methods
 class_name EngineClient
 extends Node
 ## Typed async client for the v1 sidecar API (§A1–A8). One method per route;
@@ -1768,19 +1769,25 @@ func _request(method: HTTPClient.Method, path: String, body: Variant = null) -> 
 	var err := req.request(base_url + path, headers, method, payload)
 	if err != OK:
 		req.queue_free()
-		return EngineResult.err_result(
-			0, "transport_error", "could not reach the referee — is the sidecar running?"
-		)
+		return _transport_error()
 	var completed: Array = await req.request_completed
 	req.queue_free()
 	last_rtt_ms = Time.get_ticks_msec() - start
+	return _from_response(completed)
+
+
+static func _transport_error() -> EngineResult:
+	return EngineResult.err_result(
+		0, "transport_error", "could not reach the referee — is the sidecar running?"
+	)
+
+
+static func _from_response(completed: Array) -> EngineResult:
 	var result: int = completed[0]
 	var code: int = completed[1]
 	var raw: PackedByteArray = completed[3]
 	if result != HTTPRequest.RESULT_SUCCESS:
-		return EngineResult.err_result(
-			0, "transport_error", "could not reach the referee — is the sidecar running?"
-		)
+		return _transport_error()
 	if code == 204:
 		return EngineResult.ok_result(code, {})
 	var text := raw.get_string_from_utf8()
@@ -1790,15 +1797,16 @@ func _request(method: HTTPClient.Method, path: String, body: Variant = null) -> 
 			code, "bad_response", "the referee answered with something unreadable"
 		)
 	if code >= 400:
+		var error_code := "http_%d" % code
+		var message := text
 		if parsed is Dictionary and parsed.has("error"):
 			var envelope: Dictionary = parsed["error"]
-			return EngineResult.err_result(
-				code, str(envelope.get("code", "unknown")), str(envelope.get("message", ""))
-			)
-		return EngineResult.err_result(code, "http_%d" % code, text)
-	if parsed is Dictionary:
-		return EngineResult.ok_result(code, parsed)
-	return EngineResult.ok_result(code, {"value": parsed})
+			error_code = str(envelope.get("code", "unknown"))
+			message = str(envelope.get("message", ""))
+		return EngineResult.err_result(code, error_code, message)
+	if not (parsed is Dictionary):
+		parsed = {"value": parsed}
+	return EngineResult.ok_result(code, parsed)
 
 
 func _enc(value: String) -> String:
@@ -1904,7 +1912,13 @@ func create_session(payload: Dictionary) -> EngineResult:
 
 
 func resume_session(from_save: String) -> EngineResult:
-	return await _request(HTTPClient.METHOD_POST, "/v1/sessions", {"from_save": from_save})
+	return await _request(
+		HTTPClient.METHOD_POST,
+		"/v1/sessions",
+		# name is required by CreateSessionRequest even when from_save governs
+		# routing (§A3); the registry names the session after the save anyway.
+		{"name": from_save, "from_save": from_save}
+	)
 
 
 func list_sessions() -> EngineResult:
@@ -1937,7 +1951,7 @@ func suggest(id: String) -> EngineResult:
 	return await _request(HTTPClient.METHOD_POST, "/v1/sessions/" + _enc(id) + "/suggest", {})
 
 
-func set_name(id: String, char_name: String) -> EngineResult:
+func set_character_name(id: String, char_name: String) -> EngineResult:
 	return await _request(
 		HTTPClient.METHOD_POST, "/v1/sessions/" + _enc(id) + "/name", {"name": char_name}
 	)
@@ -3310,8 +3324,8 @@ func suggest(id: String) -> EngineResult:
 	return _record("suggest", [id])
 
 
-func set_name(id: String, char_name: String) -> EngineResult:
-	return _record("set_name", [id, char_name])
+func set_character_name(id: String, char_name: String) -> EngineResult:
+	return _record("set_character_name", [id, char_name])
 
 
 func promote(id: String) -> EngineResult:
