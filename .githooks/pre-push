@@ -20,4 +20,10 @@ uv run ruff format --check .
 printf '▶ pre-push: pytest (full suite)\n'
 uv run pytest tests/ -q
 
+printf '▶ pre-push: client lint (gdlint + gdformat)\n'
+tools/run_client_lint.sh
+
+printf '▶ pre-push: client tests (gdUnit4 headless)\n'
+tools/run_client_tests.sh
+
 printf '✓ pre-push checks passed\n'

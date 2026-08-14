@@ -30,7 +30,7 @@ Every task implicitly includes these. Do not violate them; do not re-derive them
   uv run gdlint client/
   uv run gdformat --check client/
   tools/godot/Godot_v4.7.1-stable_linux.x86_64 --headless --path client \
-    -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests -c -rd /tmp/gdunit-reports
+    -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests -c --ignoreHeadlessMode -rd /tmp/gdunit-reports
   ```
   gdUnit4 exit codes: `0` = pass, `100` = test failures, `101` = warnings-only (accept 0 and 101). Golden suites self-skip under the headless display server (Task 11).
 - **Godot binary env var:** test scripts and the pre-push hook use `GODOT_BIN` if set, else `tools/godot/Godot_v4.7.1-stable_linux.x86_64`.
@@ -430,7 +430,7 @@ fi
 set +e
 "$GODOT_BIN" --headless --path client \
   -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
-  -a res://tests -c -rd /tmp/gdunit-reports
+  -a res://tests -c --ignoreHeadlessMode -rd /tmp/gdunit-reports
 code=$?
 set -e
 
@@ -6156,7 +6156,7 @@ server source) — deliberate deviation, see plan Task 10."
 set +e
 "$GODOT_BIN" --headless --path client \
   -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
-  -a res://tests -c -rd /tmp/gdunit-reports
+  -a res://tests -c --ignoreHeadlessMode -rd /tmp/gdunit-reports
 code=$?
 set -e
 ```
