@@ -4690,8 +4690,10 @@ func _on_export_all() -> void:
 	DisplayServer.file_dialog_show(
 		"EXPORT ALL CHRONICLES — choose a folder",
 		"",
-		PackedStringArray(),
+		"",
+		false,
 		DisplayServer.FILE_DIALOG_MODE_OPEN_DIR,
+		PackedStringArray(),
 		Callable(self, "_on_export_dir")
 	)
 
@@ -5389,8 +5391,10 @@ func press_import() -> void:
 	DisplayServer.file_dialog_show(
 		"IMPORT A SAVE FILE",
 		"",
-		PackedStringArray(["*.json ; Andromeda save"]),
+		"",
+		false,
 		DisplayServer.FILE_DIALOG_MODE_OPEN_FILE,
+		PackedStringArray(["*.json ; Andromeda save"]),
 		Callable(self, "_on_import_file")
 	)
 

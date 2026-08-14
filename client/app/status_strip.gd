@@ -82,3 +82,23 @@ func _draw() -> void:
 	# rgba(8,10,16,.9) panel + 2px top border (tokens.css .strip).
 	draw_rect(Rect2(Vector2.ZERO, size), Color(8.0 / 255, 10.0 / 255, 16.0 / 255, 0.9))
 	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, 2)), pack_theme.line)
+
+
+## Mock 05 strip: narrator on the left, plain status text on the right.
+func show_narrator_left(status: Dictionary) -> void:
+	var configured := bool(status.get("configured", false))
+	if configured:
+		_left_sync.text = "NARRATOR: %s " % str(status.get("model", "")).to_upper()
+	else:
+		_left_sync.text = "NARRATOR: TEMPLATES "
+	_left_tick.text = "●" if configured else "○"
+	_left_version.text = ""
+	if pack_theme != null:
+		_left_tick.add_theme_color_override(
+			"font_color", pack_theme.ok if configured else pack_theme.muted
+		)
+
+
+func set_right_plain(text: String) -> void:
+	_right_text.text = text
+	_right_dot.text = ""

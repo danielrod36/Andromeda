@@ -325,3 +325,50 @@ static func chronicle_count(saves: Array) -> int:
 	for entry: Dictionary in saves:
 		names[str(entry.get("base_name", ""))] = true
 	return names.size()
+
+
+## Screen header (mocks 02/03/05): motif+title left, hint micro right, 2px
+## bottom rule.
+static func screen_header(
+	title_text: String, t: PackTheme, right_hint := "ESC — BACK"
+) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = t.bg
+	sb.border_width_bottom = 2
+	sb.border_color = t.line
+	sb.content_margin_left = 18
+	sb.content_margin_top = 12
+	sb.content_margin_right = 18
+	sb.content_margin_bottom = 10
+	p.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	p.add_child(row)
+	var title := Fonts.label("%s %s" % [t.motif, title_text], Fonts.title(), 20, t.ink)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
+	row.add_child(Fonts.label(right_hint, Fonts.micro_tracked(), 12, t.muted))
+	return p
+
+
+## Styled dropdown (mock 05 provider/model fields).
+static func option(items: PackedStringArray, t: PackTheme) -> OptionButton:
+	var o := OptionButton.new()
+	for item: String in items:
+		o.add_item(item)
+	o.add_theme_font_override("font", Fonts.data())
+	o.add_theme_font_size_override("font_size", 11)
+	o.add_theme_color_override("font_color", t.ink)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = t.bg
+	sb.set_border_width_all(2)
+	sb.border_color = t.line
+	sb.content_margin_left = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	for state: String in ["normal", "hover", "pressed"]:
+		o.add_theme_stylebox_override(state, sb)
+	var popup := o.get_popup()
+	popup.add_theme_font_override("font", Fonts.data())
+	popup.add_theme_font_size_override("font_size", 11)
+	return o

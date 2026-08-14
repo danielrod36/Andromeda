@@ -91,7 +91,7 @@ func _on_retry() -> void:
 ## placeholder so the wiring is inspectable.
 func _register_screens() -> void:
 	_stack.register("title", TitleScreen.new())
-	_stack.register("settings", _placeholder("SETTINGS arrives in Task 8"))
+	_stack.register("settings", SettingsScreen.new())
 	_stack.register("chronicles", _placeholder("CHRONICLES arrives in Task 9"))
 	_stack.register("new_journey", _placeholder("NEW JOURNEY arrives in Task 10"))
 	_stack.register("stub", _placeholder("SHELL STUB arrives in Task 10"))
