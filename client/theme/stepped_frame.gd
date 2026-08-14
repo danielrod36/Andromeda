@@ -26,6 +26,15 @@ func add_content(node: Control) -> void:
 	_content.add_child(node)
 
 
+## Detach + free current content children. Detaching immediately (not just
+## queue_free) lets callers re-add in the same frame without mixing live and
+## dying children.
+func clear_content() -> void:
+	for child: Node in _content.get_children():
+		_content.remove_child(child)
+		child.free()
+
+
 func set_content_margins(l: int, t: int, r: int, b: int) -> void:
 	_content.add_theme_constant_override("margin_left", l)
 	_content.add_theme_constant_override("margin_top", t)

@@ -39,6 +39,64 @@ func confirm(title: String, body: String, ok_label := "CONFIRM", cancel_label :=
 	return answer
 
 
+## Modal text prompt; await it. Returns "" when cancelled.
+func prompt(title: String, placeholder := "") -> String:
+	var modal := _PromptModal.new()
+	add_child(modal)
+	modal.setup(title, placeholder, PackThemes.current)
+	var answer: String = await modal.chosen
+	modal.queue_free()
+	return answer
+
+
+class _PromptModal:
+	extends Control
+
+	signal chosen(text: String)
+
+	func setup(title: String, placeholder: String, t: PackTheme) -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		var dim := ColorRect.new()
+		dim.color = Color(0, 0, 0, 0.6)
+		dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(dim)
+		var center := CenterContainer.new()
+		center.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(center)
+		var frame := SteppedFrame.new()
+		frame.custom_minimum_size = Vector2(420, 0)
+		frame.apply_theme(t)
+		center.add_child(frame)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 10)
+		frame.add_content(box)
+		frame.set_content_margins(16, 14, 16, 14)
+		box.add_child(Fonts.label(title, Fonts.inter(), 14, t.ink))
+		var edit := LineEdit.new()
+		edit.placeholder_text = placeholder
+		edit.add_theme_font_override("font", Fonts.data())
+		edit.text_submitted.connect(
+			func(text: String) -> void:
+				if text.strip_edges() != "":
+					chosen.emit(text.strip_edges())
+		)
+		box.add_child(edit)
+		edit.grab_focus()
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		box.add_child(row)
+		var ok_btn := Kit.btn("OK", t)
+		ok_btn.pressed.connect(
+			func() -> void:
+				if edit.text.strip_edges() != "":
+					chosen.emit(edit.text.strip_edges())
+		)
+		row.add_child(ok_btn)
+		var cancel_btn := Kit.ghost_btn("CANCEL", t)
+		cancel_btn.pressed.connect(func() -> void: chosen.emit(""))
+		row.add_child(cancel_btn)
+
+
 class _ConfirmModal:
 	extends Control
 

@@ -922,6 +922,15 @@ func add_content(node: Control) -> void:
 	_content.add_child(node)
 
 
+## Detach + free current content children. Detaching immediately (not just
+## queue_free) lets callers re-add in the same frame without mixing live and
+## dying children.
+func clear_content() -> void:
+	for child: Node in _content.get_children():
+		_content.remove_child(child)
+		child.free()
+
+
 func set_content_margins(l: int, t: int, r: int, b: int) -> void:
 	_content.add_theme_constant_override("margin_left", l)
 	_content.add_theme_constant_override("margin_top", t)
@@ -5060,7 +5069,8 @@ func _load_data() -> void:
 
 func _rebuild() -> void:
 	for child: Node in get_children():
-		child.queue_free()
+		remove_child(child)
+		child.free()
 	_spines = []
 	_build()
 
@@ -5109,7 +5119,8 @@ func _build() -> void:
 
 func _render_list() -> void:
 	for child: Node in _list_box.get_children():
-		child.queue_free()
+		_list_box.remove_child(child)
+		child.free()
 	_spines = []
 	for i: int in _saves.size():
 		_list_box.add_child(_build_docket(i))
@@ -5208,8 +5219,7 @@ func _build_import_slot() -> Control:
 
 
 func _render_preview() -> void:
-	for child: Node in _preview_frame.get_children():
-		child.queue_free()
+	_preview_frame.clear_content()
 	var t := _theme
 	if _selected >= 0 and _selected < _saves.size():
 		t = _pack_of(_saves[_selected])
@@ -5242,10 +5252,10 @@ func _render_preview() -> void:
 	del.pressed.connect(func() -> void: press_action("delete"))
 	actions.add_child(del)
 	if _selected >= 0 and _selected < _saves.size():
-		_fill_preview_text(t)
+		_fill_preview_text()
 
 
-func _fill_preview_text(t: PackTheme) -> void:
+func _fill_preview_text() -> void:
 	var entry: Dictionary = _saves[_selected]
 	var display_name := str(entry.get("character_name", ""))
 	if display_name == "":
@@ -5261,7 +5271,8 @@ func _fill_preview_text(t: PackTheme) -> void:
 
 func _render_recap(lines: Array) -> void:
 	for child: Node in _preview_prose.get_children():
-		child.queue_free()
+		_preview_prose.remove_child(child)
+		child.free()
 	var t := _pack_of(_saves[_selected]) if _selected >= 0 else _theme
 	if lines.is_empty():
 		_preview_prose.add_child(Fonts.label("No recap recorded yet.", Fonts.prose(), 13, t.muted))
@@ -5346,8 +5357,10 @@ func press_action(what: String) -> void:
 			DisplayServer.file_dialog_show(
 				"EXPORT CHRONICLE — choose a folder",
 				"",
-				PackedStringArray(),
+				"",
+				false,
 				DisplayServer.FILE_DIALOG_MODE_OPEN_DIR,
+				PackedStringArray(),
 				Callable(self, "_on_export_dir")
 			)
 		"delete":
