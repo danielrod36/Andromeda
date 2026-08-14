@@ -89,9 +89,9 @@ const _PLANET_STOPS := [[0.0, "C97B4A"], [0.42, "A8542E"], [0.78, "6E3319"], [1.
 		show_horizon = v
 		queue_redraw()
 
-var theme: PackTheme:
+var pack_theme: PackTheme:
 	set(v):
-		theme = v
+		pack_theme = v
 		queue_redraw()
 
 
@@ -116,7 +116,7 @@ func _draw_gradient(r: Rect2) -> void:
 	var stops: Array = GRADIENTS.get(scene_id, [])
 	if stops.is_empty():
 		# .sc-flat — the pack bg.
-		draw_rect(r, theme.bg if theme != null else Color("13161D"))
+		draw_rect(r, pack_theme.bg if pack_theme != null else Color("13161D"))
 		return
 	var prev_offset: float = stops[0][0]
 	var prev_color := Color(stops[0][1])
@@ -176,16 +176,16 @@ func _draw_radial(center: Vector2, radius: float, stops: Array) -> void:
 
 static func _radial_color(stops: Array, t: float) -> Color:
 	# stops: [offset, hex, alpha?] — alpha defaults to 1.
-	if t <= stops[0][0]:
+	if t <= float(stops[0][0]):
 		var c0: Color = Color(stops[0][1])
 		c0.a = stops[0][2] if stops[0].size() > 2 else 1.0
 		return c0
 	var prev: Array = stops[0]
 	for i: int in range(1, stops.size()):
 		var cur: Array = stops[i]
-		if t <= cur[0]:
-			var span: float = cur[0] - prev[0]
-			var k := (t - prev[0]) / span if span > 0.0 else 1.0
+		if t <= float(cur[0]):
+			var span: float = float(cur[0]) - float(prev[0])
+			var k: float = (t - prev[0]) / span if span > 0.0 else 1.0
 			var a0: float = prev[2] if prev.size() > 2 else 1.0
 			var a1: float = cur[2] if cur.size() > 2 else 1.0
 			var c: Color = Color(prev[1]).lerp(Color(cur[1]), k)
@@ -212,13 +212,13 @@ func _draw_veil(r: Rect2) -> void:
 	var c := Color("080A10")
 	var bands := [[0.0, 0.6, 0.34, 0.55], [0.6, 1.0, 0.55, 0.78]]
 	for band: Array in bands:
-		var y_from := r.size.y * band[0]
-		var y_to := r.size.y * band[1]
+		var y_from: float = r.size.y * band[0]
+		var y_to: float = r.size.y * band[1]
 		const SLICES := 16
 		for s: int in SLICES:
 			var t0 := float(s) / SLICES
 			var t1 := float(s + 1) / SLICES
-			var a := lerpf(band[2], band[3], (t0 + t1) * 0.5)
+			var a: float = lerpf(band[2], band[3], (t0 + t1) * 0.5)
 			var strip := Rect2(
 				0, y_from + (y_to - y_from) * t0, r.size.x, (y_to - y_from) * (t1 - t0) + 1
 			)
@@ -228,8 +228,8 @@ func _draw_veil(r: Rect2) -> void:
 
 
 func _draw_labels(r: Rect2) -> void:
-	var accent := theme.accent if theme != null else Color("8FA3C8")
-	var muted := theme.muted if theme != null else Color("7E8899")
+	var accent := pack_theme.accent if pack_theme != null else Color("8FA3C8")
+	var muted := pack_theme.muted if pack_theme != null else Color("7E8899")
 	if kicker_text != "":
 		draw_string(
 			Fonts.micro_tracked(),

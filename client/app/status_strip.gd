@@ -6,9 +6,9 @@ extends Control
 
 const CLIENT_VERSION := "0.1.0"
 
-var theme: PackTheme:
+var pack_theme: PackTheme:
 	set(v):
-		theme = v
+		pack_theme = v
 		queue_redraw()
 
 var _left_sync: Label
@@ -46,16 +46,16 @@ func _ready() -> void:
 
 
 func restyle() -> void:
-	if theme == null:
+	if pack_theme == null:
 		return
 	for label: Label in [_left_sync, _left_version, _right_text]:
 		label.add_theme_font_override("font", Fonts.data())
 		label.add_theme_font_size_override("font_size", 10)
-		label.add_theme_color_override("font_color", theme.muted)
+		label.add_theme_color_override("font_color", pack_theme.muted)
 	for label: Label in [_left_tick, _right_dot]:
 		label.add_theme_font_override("font", Fonts.data())
 		label.add_theme_font_size_override("font_size", 10)
-	_left_tick.add_theme_color_override("font_color", theme.ok)
+	_left_tick.add_theme_color_override("font_color", pack_theme.ok)
 
 
 ## status = the /v1/llm/status payload (§A2); {} renders the unconfigured state.
@@ -67,18 +67,18 @@ func refresh(status: Dictionary) -> void:
 	if configured:
 		_right_text.text = "NARRATOR: %s " % str(status.get("model", "")).to_upper()
 		_right_dot.text = "●"
-		if theme != null:
-			_right_dot.add_theme_color_override("font_color", theme.ok)
+		if pack_theme != null:
+			_right_dot.add_theme_color_override("font_color", pack_theme.ok)
 	else:
 		_right_text.text = "NARRATOR: TEMPLATES "
 		_right_dot.text = "○"
-		if theme != null:
-			_right_dot.add_theme_color_override("font_color", theme.muted)
+		if pack_theme != null:
+			_right_dot.add_theme_color_override("font_color", pack_theme.muted)
 
 
 func _draw() -> void:
-	if theme == null:
+	if pack_theme == null:
 		return
 	# rgba(8,10,16,.9) panel + 2px top border (tokens.css .strip).
 	draw_rect(Rect2(Vector2.ZERO, size), Color(8.0 / 255, 10.0 / 255, 16.0 / 255, 0.9))
-	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, 2)), theme.line)
+	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, 2)), pack_theme.line)

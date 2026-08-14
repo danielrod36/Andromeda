@@ -15,6 +15,12 @@ func register(screen_name: String, screen: Control) -> void:
 	screen.visible = false
 	add_child(screen)
 	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if screen is BaseScreen:
+		screen.navigate.connect(_on_screen_navigate)
+
+
+func _on_screen_navigate(target: String, params: Dictionary) -> void:
+	replace(target, params)
 
 
 func current_name() -> String:

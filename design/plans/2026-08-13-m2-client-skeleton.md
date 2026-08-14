@@ -1003,9 +1003,9 @@ extends Control
 		show_horizon = v
 		queue_redraw()
 
-var theme: PackTheme:
+var pack_theme: PackTheme:
 	set(v):
-		theme = v
+		pack_theme = v
 		queue_redraw()
 
 ## tokens.css .sc-* linear-gradient stops (top → bottom).
@@ -1067,7 +1067,7 @@ func _draw_gradient(r: Rect2) -> void:
 	var stops: Array = GRADIENTS.get(scene_id, [])
 	if stops.is_empty():
 		# .sc-flat — the pack bg.
-		draw_rect(r, theme.bg if theme != null else Color("13161D"))
+		draw_rect(r, pack_theme.bg if pack_theme != null else Color("13161D"))
 		return
 	var prev_offset: float = stops[0][0]
 	var prev_color := Color(stops[0][1])
@@ -2866,9 +2866,9 @@ extends Control
 
 const CLIENT_VERSION := "0.1.0"
 
-var theme: PackTheme:
+var pack_theme: PackTheme:
 	set(v):
-		theme = v
+		pack_theme = v
 		queue_redraw()
 
 var _left_sync: Label
@@ -2911,11 +2911,11 @@ func restyle() -> void:
 	for label: Label in [_left_sync, _left_version, _right_text]:
 		label.add_theme_font_override("font", Fonts.data())
 		label.add_theme_font_size_override("font_size", 10)
-		label.add_theme_color_override("font_color", theme.muted)
+		label.add_theme_color_override("font_color", pack_theme.muted)
 	for label: Label in [_left_tick, _right_dot]:
 		label.add_theme_font_override("font", Fonts.data())
 		label.add_theme_font_size_override("font_size", 10)
-	_left_tick.add_theme_color_override("font_color", theme.ok)
+	_left_tick.add_theme_color_override("font_color", pack_theme.ok)
 
 
 ## status = the /v1/llm/status payload (§A2); {} renders the unconfigured state.
@@ -2927,13 +2927,13 @@ func refresh(status: Dictionary) -> void:
 	if configured:
 		_right_text.text = "NARRATOR: %s " % str(status.get("model", "")).to_upper()
 		_right_dot.text = "●"
-		if theme != null:
-			_right_dot.add_theme_color_override("font_color", theme.ok)
+		if pack_theme != null:
+			_right_dot.add_theme_color_override("font_color", pack_theme.ok)
 	else:
 		_right_text.text = "NARRATOR: TEMPLATES "
 		_right_dot.text = "○"
-		if theme != null:
-			_right_dot.add_theme_color_override("font_color", theme.muted)
+		if pack_theme != null:
+			_right_dot.add_theme_color_override("font_color", pack_theme.muted)
 
 
 func _draw() -> void:
@@ -2941,7 +2941,7 @@ func _draw() -> void:
 		return
 	# rgba(8,10,16,.9) panel + 2px top border (tokens.css .strip).
 	draw_rect(Rect2(Vector2.ZERO, size), Color(8.0 / 255, 10.0 / 255, 16.0 / 255, 0.9))
-	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, 2)), theme.line)
+	draw_rect(Rect2(Vector2.ZERO, Vector2(size.x, 2)), pack_theme.line)
 
 - [ ] **Step 9: `client/components/kit.gd`** — create exactly. Every factory takes its `PackTheme` explicitly (per-widget tinting, mock 02). Hard offset shadows = StyleBoxFlat `shadow_size 0`, `shadow_offset (3,3)`, `shadow_color (0,0,0,0.45)`.
 
@@ -3619,6 +3619,13 @@ func before_test() -> void:
 	add_child(_screen)
 
 
+func after_test() -> void:
+	# _continue() persists ui/last_played_pack and applies the pack theme —
+	# restore both so later suites see the documented defaults.
+	ClientSettings.set_value("ui/last_played_pack", "")
+	PackThemes.apply("neutral")
+
+
 func _saves_payload() -> Dictionary:
 	return {
 		"saves": [
@@ -3815,7 +3822,7 @@ func _build() -> void:
 	_build_rail(body, t)
 
 	_backdrop = SceneBackdrop.new()
-	_backdrop.theme = t
+	_backdrop.pack_theme = t
 	_backdrop.scene_id = "night"
 	_backdrop.kicker_text = "◤ VIEWPORT · DEEP FIELD"
 	_backdrop.footer_text = "RUUTH PRIME ORBIT · LOCAL DRIFT"
@@ -3823,7 +3830,7 @@ func _build() -> void:
 	body.add_child(_backdrop)
 
 	_strip = StatusStrip.new()
-	_strip.theme = t
+	_strip.pack_theme = t
 	root.add_child(_strip)
 
 
@@ -3855,7 +3862,7 @@ func _build_rail(body: HBoxContainer, t: PackTheme) -> void:
 	col.add_child(Fonts.label("WRITTEN IN THE STARS", Fonts.micro_tracked(), 12, t.accent))
 
 	var rule := _AccentRule.new()
-	rule.theme = t
+	rule.pack_theme = t
 	col.add_child(rule)
 
 	var spacer_top := Control.new()
@@ -3917,7 +3924,7 @@ func _apply_data() -> void:
 	_set_menu_note("settings", "", true)
 	_set_menu_note("quit", "", true)
 	(_menu["quit"]["docket"] as Control).modulate.a = 0.55  # dim styling per mock
-	_strip.theme = _theme
+	_strip.pack_theme = _theme
 	_strip.restyle()
 	_strip.refresh(_status)
 
@@ -4369,7 +4376,7 @@ func _build() -> void:
 	right.add_child(_data_card(t))
 
 	_strip = StatusStrip.new()
-	_strip.theme = t
+	_strip.pack_theme = t
 	root.add_child(_strip)
 
 
@@ -5094,7 +5101,7 @@ func _build() -> void:
 	grid.add_child(_preview_frame)
 
 	_strip = StatusStrip.new()
-	_strip.theme = t
+	_strip.pack_theme = t
 	root.add_child(_strip)
 
 
@@ -5909,7 +5916,7 @@ func _build() -> void:
 	scroll.add_child(_cards_box)
 
 	_strip = StatusStrip.new()
-	_strip.theme = t
+	_strip.pack_theme = t
 	root.add_child(_strip)
 
 

@@ -90,7 +90,7 @@ func _on_retry() -> void:
 ## Task 7 replaces this with the real set. Until then the shell boots to a
 ## placeholder so the wiring is inspectable.
 func _register_screens() -> void:
-	_stack.register("title", _placeholder("TITLE arrives in Task 7"))
+	_stack.register("title", TitleScreen.new())
 	_stack.register("settings", _placeholder("SETTINGS arrives in Task 8"))
 	_stack.register("chronicles", _placeholder("CHRONICLES arrives in Task 9"))
 	_stack.register("new_journey", _placeholder("NEW JOURNEY arrives in Task 10"))

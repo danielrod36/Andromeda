@@ -2,6 +2,9 @@ class_name BaseScreen
 extends Control
 ## Screen contract for the ScreenStack (spec §6).
 
+## Emitted to navigate; ScreenStack.register auto-connects it to replace().
+signal navigate(target: String, params: Dictionary)
+
 
 ## Called by the stack when the screen becomes visible. Params come from the
 ## navigating caller ("" keys documented per screen).

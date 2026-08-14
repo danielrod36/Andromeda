@@ -291,3 +291,37 @@ class MenuDocket:
 		if dim:
 			modulate.a = 0.55
 		pressed.connect(func() -> void: docket_pressed.emit())
+
+	## Screens update the note after data loads (add / replace / remove).
+	func set_note(note: String) -> void:
+		if get_child_count() < 1:
+			return
+		var row := get_child(0)
+		# the note label is the last child when present
+		if note == "":
+			if row.get_child_count() > 2:
+				row.get_child(row.get_child_count() - 1).queue_free()
+			return
+		if row.get_child_count() > 2:
+			(row.get_child(row.get_child_count() - 1) as Label).text = note
+		else:
+			row.add_child(Fonts.label(note, Fonts.micro_tracked(), 12, _theme.muted))
+
+
+## "2H AGO"-style relative time for save mtimes (mocks 01/02).
+static func relative_mtime(mtime: float) -> String:
+	var delta := int(Time.get_unix_time_from_system() - mtime)
+	if delta < 3600:
+		return "%dM AGO" % maxi(delta / 60, 1)
+	if delta < 172800:
+		return "%dH AGO" % (delta / 3600)
+	return "%dD AGO" % (delta / 86400)
+
+
+## Distinct-chronicle count from a /v1/saves payload (autosaves share a
+## base_name with their manual save).
+static func chronicle_count(saves: Array) -> int:
+	var names := {}
+	for entry: Dictionary in saves:
+		names[str(entry.get("base_name", ""))] = true
+	return names.size()
