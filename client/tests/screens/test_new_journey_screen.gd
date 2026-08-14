@@ -6,6 +6,7 @@ var _screen: NewJourneyScreen
 
 
 func before_test() -> void:
+	ClientSettings.use_test_path()
 	_fake = auto_free(FakeEngineClient.new())
 	add_child(_fake)
 	_fake.responses["list_packs"] = (
@@ -161,23 +162,19 @@ func test_begin_rejects_name_collision() -> void:
 	assert_bool(creates.is_empty()).is_true()
 
 
+func test_begin_aborts_when_save_list_fails() -> void:
+	_fake.responses["list_saves"] = FakeEngineClient.err(500, "io", "save list unavailable")
+	_fake.responses["create_session"] = _ok_session("The Ruuth Run")
+	_screen._name_edit.text = "The Ruuth Run"
+	_screen.press_begin()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var creates := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "create_session")
+	assert_bool(creates.is_empty()).is_true()  # must not blind-create past a failed pre-check
+
+
 func test_begin_creates_session_and_navigates() -> void:
-	_fake.responses["create_session"] = (
-		FakeEngineClient
-		. ok(
-			{
-				"session":
-				{
-					"id": "new1",
-					"name": "The Ruuth Run",
-					"kind": "chargen",
-					"phase": "homeworld",
-					"view": {},
-					"contract_version": 1,
-				}
-			}
-		)
-	)
+	_fake.responses["create_session"] = _ok_session("The Ruuth Run")
 	_screen._name_edit.text = "The Ruuth Run"
 	var nav: Array = []
 	_screen.navigate.connect(
@@ -197,3 +194,45 @@ func test_begin_creates_session_and_navigates() -> void:
 	assert_bool(payload["seed"] is int).is_true()
 	assert_str(str(nav[0][0])).is_equal("stub")
 	SessionStore.clear()
+
+
+func test_begin_double_press_creates_once() -> void:
+	_fake.responses["create_session"] = _ok_session("The Ruuth Run")
+	_screen._name_edit.text = "The Ruuth Run"
+	_screen.press_begin()
+	_screen.press_begin()  # double-press during the create await
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var creates := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "create_session")
+	assert_that(creates.size()).is_equal(1)
+	SessionStore.clear()
+
+
+func test_select_card_keeps_name_edit_focus_and_caret() -> void:
+	_screen._name_edit.text = "Ruuth"
+	_screen._name_text = "Ruuth"  # text_changed fires for user edits only
+	_screen._name_edit.grab_focus()
+	_screen._name_edit.caret_column = 3
+	_screen.select_card("pack", "fantasy")
+	assert_bool(_screen._name_edit.has_focus()).is_true()
+	assert_that(_screen._name_edit.caret_column).is_equal(3)
+	assert_str(_screen._name_edit.text).is_equal("Ruuth")
+
+
+func _ok_session(name: String) -> EngineResult:
+	return (
+		FakeEngineClient
+		. ok(
+			{
+				"session":
+				{
+					"id": "new1",
+					"name": name,
+					"kind": "chargen",
+					"phase": "homeworld",
+					"view": {},
+					"contract_version": 1,
+				}
+			}
+		)
+	)

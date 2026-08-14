@@ -140,6 +140,12 @@ func apply_hint(pack_id: String, hint: Dictionary) -> void:
 		t.motif = str(hint["motif"])
 	var amb: Variant = hint.get("ambience", null)
 	if amb is Array and not amb.is_empty():
-		t.ambience = PackedStringArray(amb)
+		# Cosmetic hint only: build element-wise so a non-String entry is
+		# dropped instead of raising inside PackedStringArray's conversion.
+		var packed := PackedStringArray()
+		for element: Variant in amb:
+			if element is String:
+				packed.append(element)
+		t.ambience = packed
 	current = t
 	pack_changed.emit(current)

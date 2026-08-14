@@ -62,7 +62,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: tools/godot
-          key: godot-4.7.1-stable-linux-x86_64
+          key: godot-${{ hashFiles('tools/get_godot.sh') }}
       - name: Download Godot (skip on cache hit)
         run: tools/get_godot.sh
       - name: Install xvfb (golden screenshots need a real renderer)
@@ -70,4 +70,4 @@ jobs:
       - name: Client lint
         run: tools/run_client_lint.sh
       - name: Client tests (incl. golden screenshots)
-        run: ANDROMEDA_DISPLAY=1 xvfb-run -a tools/run_client_tests.sh
+        run: ANDROMEDA_DISPLAY=1 xvfb-run -a -s "-screen 0 1280x720x24" tools/run_client_tests.sh

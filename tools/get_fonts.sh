@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # Download the five OFL font families (tokens.css type system) into
 # client/assets/fonts/. Idempotent: re-downloads everything when run.
+# Pinned: BASE points at a fixed google/fonts commit SHA (not the mutable
+# main branch), so re-runs fetch byte-identical font files.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-BASE="https://raw.githubusercontent.com/google/fonts/main/ofl"
+BASE="https://raw.githubusercontent.com/google/fonts/bed095714162832c0a43840ab7daa65852806bdf/ofl"
 
 fetch() { # fetch <url-path> <dest-relative-to-client/assets/fonts>
   mkdir -p "client/assets/fonts/$(dirname "$2")"
-  curl -fSL "$BASE/$1" -o "client/assets/fonts/$2"
+  curl -fSL --retry 3 "$BASE/$1" -o "client/assets/fonts/$2"
 }
 
 fetch "spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf"        "spacegrotesk/SpaceGrotesk-Variable.ttf"

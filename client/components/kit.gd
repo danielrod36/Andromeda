@@ -3,8 +3,6 @@ class_name Kit
 extends RefCounted
 ## The Hi-bit Console component kit (tokens.css; spec §6). Statics only.
 
-static var _icon: ImageTexture
-
 
 static func _shadow_box(bg: Color, border: Color, border_width := 0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -69,6 +67,9 @@ static func microlink(text: String, t: PackTheme, bad := false) -> Button:
 	rule.color = color
 	rule.custom_minimum_size = Vector2(0, 1)
 	rule.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	# Bottom-anchored: offsets are measured from the bottom edge — a 1px band
+	# from -3 to -2, three pixels above the button's bottom edge.
+	rule.offset_top = -3
 	rule.offset_bottom = -2
 	rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(rule)
@@ -146,21 +147,16 @@ static func slider(value: float, t: PackTheme) -> HSlider:
 	s.add_theme_stylebox_override("grabber_area", fill)
 	var handle := StyleBoxFlat.new()
 	handle.bg_color = t.ink
+	# The stylebox's minimum size sizes the grabber (an icon override would
+	# supersede it): margins 5/5 + 7/7 = the mock's 10×14 handle.
+	handle.content_margin_left = 5
+	handle.content_margin_right = 5
+	handle.content_margin_top = 7
+	handle.content_margin_bottom = 7
 	s.add_theme_stylebox_override("grabber", handle)
 	s.add_theme_stylebox_override("grabber_highlight", handle)
 	s.add_theme_stylebox_override("grabber_pressed", handle)
-	s.add_theme_icon_override("grabber", _blank_icon())
-	s.add_theme_icon_override("grabber_highlight", _blank_icon())
-	s.add_theme_icon_override("grabber_pressed", _blank_icon())
 	return s
-
-
-static func _blank_icon() -> ImageTexture:
-	if _icon == null:
-		var img := Image.create(10, 14, false, Image.FORMAT_RGBA8)
-		img.fill(Color.WHITE)
-		_icon = ImageTexture.create_from_image(img)
-	return _icon
 
 
 ## Segmented control (mock 05 text speed): row of equal cells, selected =
@@ -209,7 +205,8 @@ class SegmentedControl:
 
 	func setup(options: PackedStringArray, selected: int, t: PackTheme) -> void:
 		_options = options
-		_selected = selected
+		if options.size() > 0:  # empty options: nothing to clamp against
+			_selected = clampi(selected, 0, options.size() - 1)
 		_theme = t
 		add_theme_constant_override("separation", 0)
 		for i: int in _options.size():

@@ -12,6 +12,7 @@ func setup(message: String, kind: String, theme: PackTheme) -> void:
 	_message = message
 	_kind = kind
 	_theme = theme
+	mouse_filter = Control.MOUSE_FILTER_IGNORE  # toasts never eat clicks
 	custom_minimum_size = Vector2(320, 34)
 	var label := Fonts.label(message, Fonts.data(), 11, theme.ink)
 	label.position = Vector2(12, 9)

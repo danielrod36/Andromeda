@@ -7,6 +7,7 @@ var _screen: TitleScreen
 
 
 func before_test() -> void:
+	ClientSettings.use_test_path()
 	_fake = auto_free(FakeEngineClient.new())
 	add_child(_fake)
 	_screen = auto_free(TitleScreen.new())
@@ -134,4 +135,32 @@ func test_continue_resumes_latest_and_navigates_to_stub() -> void:
 	assert_that(nav.size()).is_equal(1)
 	assert_str(str(nav[0][0])).is_equal("stub")
 	assert_str(str(nav[0][1]["session"]["id"])).is_equal("s1")
+	SessionStore.clear()
+
+
+func test_continue_double_press_resumes_once() -> void:
+	_fake.responses["list_saves"] = FakeEngineClient.ok(_saves_payload())
+	_fake.responses["llm_status"] = FakeEngineClient.ok(
+		{"configured": false, "model": null, "key_backend": "", "degraded_line": ""}
+	)
+	_fake.responses["resume_session"] = FakeEngineClient.ok(
+		{
+			"session":
+			{
+				"id": "s1",
+				"name": "mara",
+				"kind": "chargen",
+				"phase": "homeworld",
+				"view": {},
+				"contract_version": 1
+			}
+		}
+	)
+	await _screen.screen_enter({"boot_lines": []})
+	_screen.press_menu("continue")
+	_screen.press_menu("continue")  # double-press during the resume await
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var resumes := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "resume_session")
+	assert_that(resumes.size()).is_equal(1)
 	SessionStore.clear()

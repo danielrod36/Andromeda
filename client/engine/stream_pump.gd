@@ -18,6 +18,9 @@ signal stream_failed(message: String)
 enum State { IDLE, CONNECTING, REQUESTING, READING_BODY }
 
 const BLOCK_TYPES := ["narration", "change", "badge", "done"]
+## CONNECTING/REQUESTING/READING_BODY can each hang indefinitely on a wedged
+## connection. Generous — real narration with retries is slow.
+const STREAM_TIMEOUT_SEC := 180.0
 const _TRANSPORT_MESSAGE := "could not reach the referee — is the sidecar running?"
 
 var _http := HTTPClient.new()
@@ -26,10 +29,12 @@ var _buffer := PackedByteArray()
 var _resp_code := 0
 var _path := ""
 var _body := ""
+var _stream_elapsed := 0.0
 
 
 func start(base_url: String, session_id: String, beat := "scene", steering := "") -> void:
 	stop()
+	_stream_elapsed = 0.0
 	var rest := base_url.trim_prefix("http://").trim_prefix("https://")
 	var host := rest
 	var p := 80
@@ -58,8 +63,12 @@ func _exit_tree() -> void:
 	stop()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _state == State.IDLE:
+		return
+	_stream_elapsed += delta
+	if _stream_elapsed >= STREAM_TIMEOUT_SEC:
+		_fail_transport()
 		return
 	_http.poll()
 	match _state:
@@ -178,6 +187,8 @@ func _fail_with_envelope() -> void:
 	_state = State.IDLE
 	var message := "the referee answered with something unreadable"
 	var parsed: Variant = JSON.parse_string(text)
-	if parsed is Dictionary and parsed.has("error"):
+	# guard the VALUE type: a non-Andromeda server can answer with
+	# {"error": "<string>"} — untyped access would raise here
+	if parsed is Dictionary and parsed.get("error") is Dictionary:
 		message = str(parsed["error"].get("message", message))
 	stream_failed.emit(message)

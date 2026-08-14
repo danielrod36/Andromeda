@@ -16,12 +16,14 @@ const GRADIENTS := {
 	"dead": [[0.0, "120A0D"], [0.55, "1E1216"], [1.0, "331A20"]],
 }
 
-## tokens.css .sc-night star specks: [x%, y%, px size, alpha], color E9EDF5.
+## tokens.css .sc-night star specks: [x%, y%, radius px, alpha, color?]. The
+## size is the CSS gradient's radius; color defaults to _STAR_INK (the
+## 63%/10% speck is rgba(143,163,200,.7) = #8FA3C8).
 const NIGHT_STARS := [
 	[12.0, 18.0, 1.5, 0.8],
 	[28.0, 8.0, 1.0, 0.5],
 	[45.0, 22.0, 1.0, 0.4],
-	[63.0, 10.0, 2.0, 0.7],
+	[63.0, 10.0, 2.0, 0.7, "8FA3C8"],
 	[78.0, 26.0, 1.0, 0.45],
 	[90.0, 12.0, 1.5, 0.6],
 	[8.0, 40.0, 1.0, 0.3],
@@ -66,7 +68,6 @@ const HORIZON_POINTS := [
 const _STAR_INK := "E9EDF5"
 const _HORIZON_FILL := "080A10"
 const _HORIZON_BAND := 0.26  # bottom 26%
-const _PLANET_STOPS := [[0.0, "C97B4A"], [0.42, "A8542E"], [0.78, "6E3319"], [1.0, "4A2212"]]
 
 @export var scene_id := "night":
 	set(v):
@@ -142,19 +143,29 @@ func _draw_gradient(r: Rect2) -> void:
 func _draw_stars(r: Rect2) -> void:
 	for speck: Array in NIGHT_STARS:
 		var pos := Vector2(r.size.x * speck[0] / 100.0, r.size.y * speck[1] / 100.0)
-		var side: float = speck[2]
+		# CSS `radial-gradient(Npx Npx ...)` — N is the radius; the speck's
+		# drawn size is the diameter.
+		var side: float = float(speck[2]) * 2.0
 		var c := Color(_STAR_INK)
+		if speck.size() > 4:
+			c = Color(str(speck[4]))
 		c.a = speck[3]
 		draw_rect(Rect2(pos - Vector2(side, side) * 0.5, Vector2(side, side)), c)
 
 
 func _draw_planet(r: Rect2) -> void:
-	# 130px radial-gradient circle, top 8% right 10% (tokens.css .planet),
-	# with a 44px glow halo behind it.
+	# 130px radial-gradient circle, top 8% right 10% (tokens.css .planet), with
+	# a 44px glow halo behind it: box-shadow rgba(201,123,74,.35) reaching
+	# 65+44=109px from the center. Flat .35 out to the body edge, fading to 0
+	# at the halo edge — the body overdraws the middle, leaving the edge ring.
 	var center := Vector2(r.size.x * 0.90 - 65.0, r.size.y * 0.08 + 65.0)
-	_draw_radial(center, 87.0, [[0.0, Color("C97B4A"), 0.35], [1.0, Color("C97B4A"), 0.0]])
+	var glow := Color("C97B4A")
+	_draw_radial(center, 109.0, [[0.0, glow, 0.35], [65.0 / 109.0, glow, 0.35], [1.0, glow, 0.0]])
+	# `circle at 34% 30%`: the highlight sits up-left of the body center —
+	# (0.34 − 0.5)·130 = −20.8, (0.30 − 0.5)·130 = −26.
+	var light_offset := Vector2(-130.0 * 0.16, -130.0 * 0.20)
 	_draw_radial(
-		center,
+		center + light_offset,
 		65.0,
 		[
 			[0.0, Color("C97B4A"), 1.0],

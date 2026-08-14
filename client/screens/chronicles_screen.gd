@@ -13,6 +13,11 @@ var _saves: Array = []
 var _selected := -1
 var _preview_id := ""
 var _preview_session: Dictionary = {}
+## Generation token: every screen_exit/_load_data/select_docket entry bumps it,
+## so a superseded or exited selection discards its late await results.
+var _select_epoch := 0
+## Captured when the export dialog OPENS — _selected may be stale by close time.
+var _export_base_name := ""
 
 var _list_box: VBoxContainer
 var _spines: Array = []
@@ -35,14 +40,15 @@ func esc_target() -> String:
 
 func screen_enter(_params: Dictionary) -> void:
 	# The stack keeps this instance alive across visits; without the reset,
-	# select_docket(0) would early-return on the persisted _selected and a
-	# promoted/escaped preview session would go stale (spec §7.3).
+	# RESUME could promote the previous visit's preview session and the list
+	# would briefly render against the stale selection (spec §7.3).
 	_selected = -1
 	_preview_session = {}
 	await _load_data()
 
 
 func screen_exit() -> void:
+	_select_epoch += 1  # in-flight selection coroutines must discard their results
 	if _preview_id != "":
 		_cleanup_preview()  # fire-and-forget (spec §7.3)
 
@@ -60,7 +66,11 @@ func _on_pack_changed(t: PackTheme) -> void:
 
 
 func _load_data() -> void:
+	_select_epoch += 1  # any in-flight selection works on a stale list
+	var epoch := _select_epoch
 	var res: EngineResult = await _client().list_saves()
+	if epoch != _select_epoch:
+		return  # superseded (another reload or screen_exit) — a newer pass renders
 	if res.ok:
 		_saves = res.data.get("saves", [])
 		_saves.sort_custom(
@@ -320,8 +330,8 @@ func _on_docket_pressed(index: int) -> void:
 
 
 func select_docket(index: int) -> void:
-	if index == _selected:
-		return
+	_select_epoch += 1  # this selection supersedes any in-flight one
+	var epoch := _select_epoch
 	_selected = index
 	for i: int in _list_box.get_child_count() - 1:  # last child is the import slot
 		var outline := _list_box.get_child(i).get_child(0) as _SelectionOutline
@@ -332,15 +342,30 @@ func select_docket(index: int) -> void:
 	_render_preview()
 	if index < 0 or index >= _saves.size():
 		return
+	# Capture before awaiting: the list may re-sort (or shrink) while we wait.
+	var entry: Dictionary = _saves[index]
+	var base := str(entry["base_name"])
 	await _cleanup_preview()
-	var base := str(_saves[index]["base_name"])
+	if epoch != _select_epoch:
+		return  # superseded (new selection, reload, or screen_exit)
 	var res: EngineResult = await _client().resume_session(base)
+	if epoch != _select_epoch:
+		# Late result — discard it, and don't leak the preview it created.
+		if res.ok:
+			var late_id := str(res.data["session"].get("id", ""))
+			if late_id != _preview_id:  # a newer selection may already own it
+				await _client().delete_session(late_id)
+		return
+	if index >= _saves.size():
+		return  # the list shrank while we awaited
 	if not res.ok:
 		Services.overlay.toast_error(res)
 		return
 	_preview_session = res.data["session"]
 	_preview_id = str(_preview_session.get("id", ""))
 	var recap_res: EngineResult = await _client().recap(_preview_id)
+	if epoch != _select_epoch or index >= _saves.size():
+		return  # superseded, or the list shrank while we awaited
 	if recap_res.ok:
 		_render_recap(recap_res.data.get("lines", []))
 	else:
@@ -370,9 +395,11 @@ func press_action(what: String) -> void:
 			SessionStore.set_current(_preview_session)
 			_preview_id = ""  # promoted — screen_exit must not delete it
 			var pack_id := str(entry.get("theme_pack", "neutral"))
+			# Navigate first: applying the pack before leaving rebuilds this
+			# screen while it is still the visible one (visible flicker).
+			navigate.emit("stub", {"session": _preview_session})
 			ClientSettings.set_value("ui/last_played_pack", pack_id)
 			PackThemes.apply(pack_id)
-			navigate.emit("stub", {"session": _preview_session})
 		"duplicate":
 			var entered: String = await Services.overlay.prompt(
 				"DUPLICATE AS…", "new chronicle name"
@@ -385,6 +412,7 @@ func press_action(what: String) -> void:
 				return
 			await _load_data()
 		"export":
+			_export_base_name = str(entry["base_name"])  # _selected may go stale
 			DisplayServer.file_dialog_show(
 				"EXPORT CHRONICLE — choose a folder",
 				"",
@@ -416,14 +444,24 @@ func press_action(what: String) -> void:
 
 
 func _on_export_dir(status: bool, paths: PackedStringArray, _selected_filter: int) -> void:
-	if not status or paths.is_empty() or _selected < 0:
+	var base := _export_base_name
+	_export_base_name = ""  # one-shot, captured when the dialog was opened
+	if not status or paths.is_empty() or base == "":
 		return
-	var entry: Dictionary = _saves[_selected]
-	var res: EngineResult = await _client().export_save(str(entry["base_name"]))
+	var res: EngineResult = await _client().export_save(base)
 	if not res.ok:
 		Services.overlay.toast_error(res)
 		return
-	var path: String = paths[0].path_join(str(entry["base_name"]) + ".json")
+	var path: String = paths[0].path_join(base + ".json")
+	if FileAccess.file_exists(path):
+		var overwrite: bool = await Services.overlay.confirm(
+			"OVERWRITE %s?" % path.get_file(),
+			"A file with this name already exists in that folder.",
+			"OVERWRITE",
+			"SKIP"
+		)
+		if not overwrite:
+			return
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		Services.overlay.toast("could not write " + path, "bad")

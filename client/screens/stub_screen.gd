@@ -17,7 +17,7 @@ func esc_target() -> String:
 func screen_enter(params: Dictionary) -> void:
 	_session = params.get("session", {})
 	var kind := str(_session.get("kind", ""))
-	var view: Dictionary = _session.get("view", {})
+	var view: Dictionary = _view()
 	if kind == "chargen":
 		_title = "THE CEREMONY arrives in M3"
 	elif bool(view.get("game_over", false)):
@@ -29,6 +29,13 @@ func screen_enter(params: Dictionary) -> void:
 
 func title_text() -> String:
 	return _title
+
+
+## The server sends view: null once chargen completes (spec §A3) — guard the
+## present-but-null case; Dictionary.get only defaults on a missing key.
+func _view() -> Dictionary:
+	var raw: Variant = _session.get("view")
+	return raw if raw is Dictionary else {}
 
 
 func _rebuild() -> void:
@@ -74,7 +81,7 @@ func _rebuild() -> void:
 			)
 		)
 	)
-	var prompt := str(_session.get("view", {}).get("prompt", ""))
+	var prompt := str(_view().get("prompt", ""))
 	if prompt != "":
 		box.add_child(Fonts.label(prompt, Fonts.prose(), 13, t.ink))
 	var scroll := ScrollContainer.new()

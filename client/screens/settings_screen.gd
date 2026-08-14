@@ -45,6 +45,10 @@ func esc_target() -> String:
 
 
 func screen_enter(_params: Dictionary) -> void:
+	# A stale replace-key mode surviving re-entry would pop the REMOVE-KEY
+	# confirm (and delete the stored key) on a routine SAVE — always start
+	# fresh.
+	_replace_key_mode = false
 	await _load_data()
 
 
@@ -72,8 +76,10 @@ func _load_data() -> void:
 		_status = status_res.data
 	var saves_res: EngineResult = await _client().list_saves()
 	var saves: Array = saves_res.data.get("saves", []) if saves_res.ok else []
+	if not saves_res.ok:
+		Services.overlay.toast_error(saves_res)
 	_rebuild()
-	_populate(saves)
+	_populate(saves, saves_res.ok)
 
 
 # --- view -------------------------------------------------------------------
@@ -261,7 +267,10 @@ func _audio_card(t: PackTheme) -> Control:
 
 func _wired_slider(key: String, t: PackTheme) -> HSlider:
 	var s := Kit.slider(float(ClientSettings.get_value(key)), t)
-	s.value_changed.connect(func(v: float) -> void: ClientSettings.set_value(key, v))
+	# persist on drag_ended, not value_changed — a drag fires dozens of
+	# value_changed events and each one hit the disk; the knob's own visual
+	# state needs no write (drag_ended(bool value_changed))
+	s.drag_ended.connect(func(_changed: bool) -> void: ClientSettings.set_value(key, s.value))
 	return s
 
 
@@ -291,7 +300,7 @@ func _data_card(t: PackTheme) -> Control:
 # --- data -------------------------------------------------------------------
 
 
-func _populate(saves: Array) -> void:
+func _populate(saves: Array, saves_ok := true) -> void:
 	_provider_option.clear()
 	for p: Dictionary in _providers:
 		_provider_option.add_item(str(p["label"]))
@@ -305,7 +314,8 @@ func _populate(saves: Array) -> void:
 	_retries_edit.text = str(int(_settings.get("max_retries", 3)))
 	_update_key_status()
 	_storage_status.text = _storage_line()
-	_data_line.text = "saves/ · %d chronicles · autosaves on" % Kit.chronicle_count(saves)
+	var count: String = str(Kit.chronicle_count(saves)) if saves_ok else "—"
+	_data_line.text = "saves/ · %s chronicles · autosaves on" % count
 	_strip.show_narrator_left(_status)
 	_strip.set_right_plain("")
 
@@ -458,17 +468,39 @@ func _on_export_dir(status: bool, paths: PackedStringArray, _selected_filter: in
 	var names := {}
 	for entry: Dictionary in saves_res.data.get("saves", []):
 		names[str(entry["base_name"])] = true
+	# One confirm for the whole batch when target files already exist —
+	# declining aborts before anything is written or overwritten.
+	var existing := 0
+	for save_name: String in names.keys():
+		if FileAccess.file_exists(dir.path_join(save_name + ".json")):
+			existing += 1
+	if existing > 0:
+		var overwrite: bool = await Services.overlay.confirm(
+			"OVERWRITE EXISTING FILES?",
+			"%d file(s) already exist in that folder — overwrite?" % existing,
+			"OVERWRITE",
+			"CANCEL"
+		)
+		if not overwrite:
+			return
+	# A single failed export must not abort the batch — count it and continue.
 	var exported := 0
+	var failed := 0
 	for save_name: String in names.keys():
 		var res: EngineResult = await _client().export_save(save_name)
 		if not res.ok:
 			Services.overlay.toast_error(res)
-			return
+			failed += 1
+			continue
 		var f := FileAccess.open(dir.path_join(save_name + ".json"), FileAccess.WRITE)
 		if f == null:
 			Services.overlay.toast("could not write into " + dir, "bad")
-			return
+			failed += 1
+			continue
 		f.store_string(JSON.stringify(res.data))
 		f.close()
 		exported += 1
-	Services.overlay.toast("EXPORTED %d CHRONICLES → %s" % [exported, dir], "ok")
+	Services.overlay.toast(
+		"EXPORTED %d/%d CHRONICLES → %s" % [exported, names.size(), dir],
+		"bad" if failed > 0 else "ok"
+	)

@@ -6,6 +6,7 @@ extends Node
 ## — `await` on a plain value returns it immediately, so screens' await
 ## callsites work unchanged.
 
+var base_url := ""
 var responses := {}
 var calls: Array = []
 var contract_chargen := 1
@@ -22,8 +23,27 @@ static func err(status: int, code: String, msg: String) -> EngineResult:
 	return EngineResult.err_result(status, code, msg)
 
 
-func contract_matches(_session: Dictionary) -> bool:
-	return true
+func setup(p_base_url: String) -> void:
+	base_url = p_base_url
+
+
+# --- contract ---------------------------------------------------------------
+
+
+func refresh_contracts() -> EngineResult:
+	return _record("refresh_contracts", [])
+
+
+## Mirrors EngineClient.contract_matches (§A2/A3): the session's
+## contract_version must equal the negotiated version for its kind.
+func contract_matches(session: Dictionary) -> bool:
+	var version := int(session.get("contract_version", -1))
+	match str(session.get("kind", "")):
+		"chargen":
+			return version == contract_chargen
+		"adventure":
+			return version == contract_adventure
+	return false
 
 
 func _record(method: String, args: Array) -> EngineResult:
@@ -136,3 +156,34 @@ func save_session(id: String, save_name: String) -> EngineResult:
 
 func recap(id: String) -> EngineResult:
 	return _record("recap", [id])
+
+
+# --- inspect (§A8) ----------------------------------------------------------
+
+
+func sheet(id: String) -> EngineResult:
+	return _record("sheet", [id])
+
+
+func memorial(id: String) -> EngineResult:
+	return _record("memorial", [id])
+
+
+func audit(id: String, params: Dictionary) -> EngineResult:
+	return _record("audit", [id, params])
+
+
+func llm_context(id: String) -> EngineResult:
+	return _record("llm_context", [id])
+
+
+func odds(id: String, skill: String, characteristic: String, difficulty: String) -> EngineResult:
+	return _record("odds", [id, skill, characteristic, difficulty])
+
+
+func state_hash(id: String) -> EngineResult:
+	return _record("state_hash", [id])
+
+
+func verify(id: String) -> EngineResult:
+	return _record("verify", [id])

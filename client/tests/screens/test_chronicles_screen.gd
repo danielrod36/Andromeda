@@ -65,6 +65,7 @@ func _envelope(save_name: String) -> Dictionary:
 
 
 func before_test() -> void:
+	ClientSettings.use_test_path()
 	_fake = auto_free(FakeEngineClient.new())
 	add_child(_fake)
 	_fake.responses["list_saves"] = FakeEngineClient.ok(_saves_payload())

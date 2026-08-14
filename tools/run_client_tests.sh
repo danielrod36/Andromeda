@@ -3,6 +3,12 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
+# Unique report dir per run: concurrent runs can't race and nothing
+# lingers. gdUnit resolves -rd against the project dir (client/), so the
+# reports land at client${REPORT_DIR}; the trap removes both paths.
+REPORT_DIR="$(mktemp -d /tmp/gdunit-reports.XXXXXX)"
+trap 'rm -rf "$REPORT_DIR" "client${REPORT_DIR}"' EXIT
+
 GODOT_BIN="${GODOT_BIN:-tools/godot/Godot_v4.7.1-stable_linux.x86_64}"
 if [ ! -x "$GODOT_BIN" ]; then
   echo "Godot binary not found at $GODOT_BIN — run tools/get_godot.sh first" >&2
@@ -22,7 +28,7 @@ fi
 set +e
 "$GODOT_BIN" $HEADLESS_FLAG --path client \
   -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
-  -a res://tests -c --ignoreHeadlessMode -rd /tmp/gdunit-reports
+  -a res://tests -c --ignoreHeadlessMode -rd "$REPORT_DIR"
 code=$?
 set -e
 

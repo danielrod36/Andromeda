@@ -17,6 +17,7 @@ signal booted(base_url: String, port: int)
 signal boot_failed(reason: String)
 
 const BOOT_TIMEOUT_SEC := 15.0
+const HEALTH_TIMEOUT_SEC := 10.0
 
 var pid := -1
 var port := 0
@@ -30,11 +31,25 @@ var _health_request: HTTPRequest
 
 
 func spawn(extra_args := PackedStringArray()) -> void:
-	var override := OS.get_environment("ANDROMEDA_SIDECAR_URL").strip_edges()
-	if override != "":
+	var raw_override := OS.get_environment("ANDROMEDA_SIDECAR_URL").strip_edges()
+	if raw_override != "":
+		var override := raw_override
+		if not override.contains("://"):
+			override = "http://" + override
+		var rest := override.trim_prefix("http://").trim_prefix("https://")
+		var host := rest
+		var parsed_port := 0
+		if rest.contains(":"):
+			host = rest.get_slice(":", 0)
+			parsed_port = int(rest.get_slice(":", 1))
+		if host == "" or parsed_port <= 0:
+			boot_failed.emit(
+				"ANDROMEDA_SIDECAR_URL must be http://<host>:<port> — got '%s'" % raw_override
+			)
+			return
 		attached_external = true
 		base_url = override.rstrip("/")
-		port = int(base_url.get_slice(":", base_url.get_slice_count(":") - 1))
+		port = parsed_port
 		_health_check()
 		return
 	# Exec the venv python DIRECTLY — `uv run` spawns python as a child, so
@@ -44,7 +59,11 @@ func spawn(extra_args := PackedStringArray()) -> void:
 	if python == "":
 		boot_failed.emit("no .venv python found — run `uv sync` in the repo first")
 		return
-	log_path = OS.get_cache_dir().path_join("andromeda-sidecar.log")
+	# Millisecond-unique name: concurrent runs (live client + test suite)
+	# truncate each other's LISTENING line if they share one log file.
+	log_path = OS.get_cache_dir().path_join(
+		"andromeda-sidecar-%d.log" % (Time.get_unix_time_from_system() * 1000.0)
+	)
 	var log_file := FileAccess.open(log_path, FileAccess.WRITE)
 	if log_file != null:
 		log_file.store_string("")
@@ -113,6 +132,10 @@ func _health_check() -> void:
 	_health_request = HTTPRequest.new()
 	add_child(_health_request)
 	_health_request.request_completed.connect(_on_health_completed)
+	# HTTPRequest.timeout defaults to 0 (never times out) — a wedged server
+	# would hang boot forever. RESULT_TIMEOUT lands in the result != SUCCESS
+	# branch of _on_health_completed as a boot_failed.
+	_health_request.timeout = HEALTH_TIMEOUT_SEC
 	var err := _health_request.request(base_url + "/health")
 	if err != OK:
 		_health_request.queue_free()

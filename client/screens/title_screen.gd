@@ -22,6 +22,7 @@ var _boot_lines: Array = []
 var _saves: Array = []
 var _status: Dictionary = {}
 var _menu := {}  # action -> {docket, note, enabled}
+var _continuing := false
 var _boot_label: Label
 var _strip: StatusStrip
 var _backdrop: SceneBackdrop
@@ -260,27 +261,46 @@ func _on_menu_pressed(action: String) -> void:
 
 
 func _continue() -> void:
+	if _continuing:  # a second press during the resume await must not double-run
+		return
+	_continuing = true
 	var latest := {}
 	for entry: Dictionary in _saves:
 		if latest.is_empty() or float(entry["mtime"]) > float(latest["mtime"]):
 			latest = entry
 	if latest.is_empty():
+		_continuing = false
 		return
 	var res: EngineResult = await _client().resume_session(str(latest["base_name"]))
 	if not res.ok:
 		Services.overlay.toast_error(res)
+		_continuing = false
 		return
 	var session: Dictionary = res.data["session"]
 	if not _client().contract_matches(session):
+		# Report the contract of the session's kind, not always chargen's.
+		var engine_version: int = (
+			_client().contract_adventure
+			if str(session.get("kind", "")) == "adventure"
+			else _client().contract_chargen
+		)
 		Services.overlay.toast(
 			(
 				"contract drift: chronicle v%d, engine v%d — update the client"
-				% [int(session.get("contract_version", -1)), _client().contract_chargen]
+				% [int(session.get("contract_version", -1)), engine_version]
 			),
 			"bad"
 		)
+		_continuing = false
 		return
 	SessionStore.set_current(session)
+	_reset_continuing.call_deferred()  # one-shot: a same-frame re-press stays blocked
+	navigate.emit("stub", {"session": session})
+	# Apply the pack after navigating: applying first rebuilds this screen
+	# while it is still the visible one (visible flicker).
 	ClientSettings.set_value("ui/last_played_pack", str(latest.get("theme_pack", "")))
 	PackThemes.apply(str(latest.get("theme_pack", "neutral")))
-	navigate.emit("stub", {"session": session})
+
+
+func _reset_continuing() -> void:
+	_continuing = false

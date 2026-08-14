@@ -9,6 +9,7 @@ var _fake: FakeEngineClient
 
 
 func before_test() -> void:
+	ClientSettings.use_test_path()  # before the headless guard — always applies
 	if not GoldenAssert.supported():
 		return
 	_fake = auto_free(FakeEngineClient.new())

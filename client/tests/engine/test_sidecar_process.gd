@@ -66,3 +66,19 @@ func test_env_override_attaches_without_spawning() -> void:
 	assert_bool(second.attached_external).is_true()
 	assert_that(second.pid).is_equal(-1)
 	first.kill()
+
+
+func test_env_override_rejects_url_without_port() -> void:
+	# No scheme and no port — normalization prepends http:// but a missing
+	# explicit port must still fail boot instead of attaching to port 80.
+	OS.set_environment("ANDROMEDA_SIDECAR_URL", "localhost")
+	var sp: SidecarProcess = auto_free(SidecarProcess.new())
+	add_child(sp)
+	var outcome := {"reason": ""}
+	sp.boot_failed.connect(func(msg: String) -> void: outcome["reason"] = msg)
+	sp.spawn()
+	OS.set_environment("ANDROMEDA_SIDECAR_URL", "")
+	assert_str(outcome["reason"]).contains("ANDROMEDA_SIDECAR_URL")
+	assert_str(outcome["reason"]).contains("localhost")
+	assert_bool(sp.attached_external).is_false()
+	assert_that(sp.pid).is_equal(-1)

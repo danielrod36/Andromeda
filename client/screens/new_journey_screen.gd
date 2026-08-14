@@ -56,6 +56,7 @@ var _status: Dictionary = {}
 var _max_retries := 3
 var _name_text := ""
 var _seed_value := 0
+var _submitting := false
 
 var _name_edit: LineEdit
 var _seed_label: Label
@@ -100,14 +101,20 @@ func _load_data() -> void:
 	else:
 		Services.overlay.toast_error(packs_res)
 	var rules_res: EngineResult = await _client().list_rulesets()
-	if rules_res.ok and not Array(rules_res.data.get("rulesets", [])).is_empty():
+	if not rules_res.ok:
+		Services.overlay.toast_error(rules_res)
+	elif not Array(rules_res.data.get("rulesets", [])).is_empty():
 		_ruleset = rules_res.data["rulesets"][0]
 	var status_res: EngineResult = await _client().llm_status()
 	if status_res.ok:
 		_status = status_res.data
+	else:
+		Services.overlay.toast_error(status_res)
 	var settings_res: EngineResult = await _client().get_settings()
 	if settings_res.ok:
 		_max_retries = int(settings_res.data.get("max_retries", 3))
+	else:
+		Services.overlay.toast_error(settings_res)
 	_render_cards()
 
 
@@ -382,22 +389,40 @@ func select_card(kind: String, id: String) -> void:
 			selected_profile = id
 		"death":
 			selected_death = id
+	# The rebuild destroys the name LineEdit — carry focus and caret across so
+	# a card click mid-edit doesn't drop input/IME state (text survives via
+	# _name_text).
+	var had_focus := _name_edit.has_focus()
+	var caret := _name_edit.caret_column
 	_render_cards()
+	if had_focus:
+		_name_edit.grab_focus()
+		_name_edit.caret_column = caret
 
 
 func press_begin() -> void:
+	if _submitting:  # a second press during the await chain must not double-run
+		return
+	_submitting = true
 	var save_name := _name_edit.text.strip_edges()
 	if save_name == "":
 		Services.overlay.toast("NAME THE CHRONICLE FIRST", "bad")
+		_submitting = false
 		return
 	var saves_res: EngineResult = await _client().list_saves()
-	if saves_res.ok:
-		for entry: Dictionary in saves_res.data.get("saves", []):
-			if str(entry.get("base_name", "")).to_lower() == save_name.to_lower():
-				Services.overlay.toast(
-					"A CHRONICLE NAMED %s EXISTS — pick another name" % save_name.to_upper(), "bad"
-				)
-				return
+	if not saves_res.ok:
+		# Never fall through to create on a failed pre-check — that would
+		# blind-create and clobber an existing chronicle's autosave.
+		Services.overlay.toast_error(saves_res)
+		_submitting = false
+		return
+	for entry: Dictionary in saves_res.data.get("saves", []):
+		if str(entry.get("base_name", "")).to_lower() == save_name.to_lower():
+			Services.overlay.toast(
+				"A CHRONICLE NAMED %s EXISTS — pick another name" % save_name.to_upper(), "bad"
+			)
+			_submitting = false
+			return
 	var res: EngineResult = await (
 		_client()
 		. create_session(
@@ -413,18 +438,33 @@ func press_begin() -> void:
 	)
 	if not res.ok:
 		Services.overlay.toast_error(res)
+		_submitting = false
 		return
 	var session: Dictionary = res.data["session"]
 	if not _client().contract_matches(session):
+		# Report the contract of the session's kind, not always chargen's.
+		var engine_version: int = (
+			_client().contract_adventure
+			if str(session.get("kind", "")) == "adventure"
+			else _client().contract_chargen
+		)
 		Services.overlay.toast(
 			(
 				"contract drift: chronicle v%d, engine v%d — update the client"
-				% [int(session.get("contract_version", -1)), _client().contract_chargen]
+				% [int(session.get("contract_version", -1)), engine_version]
 			),
 			"bad"
 		)
+		_submitting = false
 		return
 	SessionStore.set_current(session)
+	_reset_submitting.call_deferred()  # one-shot: a same-frame re-press stays blocked
+	navigate.emit("stub", {"session": session})
+	# Apply the pack after navigating: applying first rebuilds this screen
+	# while it is still the visible one (visible flicker).
 	ClientSettings.set_value("ui/last_played_pack", selected_pack)
 	PackThemes.apply(selected_pack)
-	navigate.emit("stub", {"session": session})
+
+
+func _reset_submitting() -> void:
+	_submitting = false

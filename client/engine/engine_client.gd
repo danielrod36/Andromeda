@@ -6,6 +6,10 @@ extends Node
 ## once, in _request. One HTTPRequest node per call — a few requests/second
 ## never justifies pool lifecycle risk.
 
+## Bounds a wedged request without hurrying legitimately slow calls —
+## suggest/test_settings run multi-second LLM/provider round-trips.
+const REQUEST_TIMEOUT_SEC := 60.0
+
 var base_url := ""
 var contract_chargen := 0
 var contract_adventure := 0
@@ -23,6 +27,7 @@ func setup(p_base_url: String) -> void:
 func _request(method: HTTPClient.Method, path: String, body: Variant = null) -> EngineResult:
 	var req := HTTPRequest.new()
 	add_child(req)
+	req.timeout = REQUEST_TIMEOUT_SEC
 	var headers := PackedStringArray()
 	var payload := ""
 	if body != null:
@@ -62,7 +67,10 @@ static func _from_response(completed: Array) -> EngineResult:
 	if code >= 400:
 		var error_code := "http_%d" % code
 		var message := text
-		if parsed is Dictionary and parsed.has("error"):
+		# Guard the VALUE type: a non-Andromeda server can answer with
+		# {"error": "<string>"} or null — untyped access would raise here and
+		# the awaiting coroutine would never resume.
+		if parsed is Dictionary and parsed.get("error") is Dictionary:
 			var envelope: Dictionary = parsed["error"]
 			error_code = str(envelope.get("code", "unknown"))
 			message = str(envelope.get("message", ""))
