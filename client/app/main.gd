@@ -93,8 +93,8 @@ func _register_screens() -> void:
 	_stack.register("title", TitleScreen.new())
 	_stack.register("settings", SettingsScreen.new())
 	_stack.register("chronicles", ChroniclesScreen.new())
-	_stack.register("new_journey", _placeholder("NEW JOURNEY arrives in Task 10"))
-	_stack.register("stub", _placeholder("SHELL STUB arrives in Task 10"))
+	_stack.register("new_journey", NewJourneyScreen.new())
+	_stack.register("stub", StubScreen.new())
 
 
 func _placeholder(text: String) -> Control:
