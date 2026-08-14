@@ -50,3 +50,6 @@ docs/
 # Godot client (M2)
 client/.godot/
 tools/godot/
+
+# gdUnit4 HTML/XML reports (written under client/tmp by -rd)
+client/tmp/

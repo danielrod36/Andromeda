@@ -16,3 +16,10 @@ window/size/resizable=false
 
 renderer/rendering_method="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
+
+[autoload]
+
+PackThemes="*res://theme/pack_themes.gd"
+ClientSettings="*res://app/client_settings.gd"
+SessionStore="*res://engine/session_store.gd"
+Services="*res://app/services.gd"

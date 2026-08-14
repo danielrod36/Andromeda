@@ -471,6 +471,7 @@ Verify: `uv run gdlint --version` prints a version; `uv run gdformat --version` 
 ```
 # Godot client (M2)
 client/.godot/
+client/tmp/
 tools/godot/
 ```
 
@@ -2563,6 +2564,7 @@ extends Node
 
 var sidecar: SidecarProcess
 var client: EngineClient
+var overlay: OverlayLayer
 
 
 func shutdown() -> void:
@@ -2817,8 +2819,6 @@ class _ConfirmModal:
 
 	signal chosen(answer: bool)
 
-	var _answer := false
-
 	func setup(title: String, body: String, ok_label: String, cancel_label: String, theme: PackTheme) -> void:
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		var dim := ColorRect.new()
@@ -2852,7 +2852,6 @@ class _ConfirmModal:
 		row.add_child(cancel_btn)
 
 	func _answer(value: bool) -> void:
-		_answer = value
 		chosen.emit(value)
 ```
 
@@ -2947,9 +2946,12 @@ func _draw() -> void:
 - [ ] **Step 9: `client/components/kit.gd`** — create exactly. Every factory takes its `PackTheme` explicitly (per-widget tinting, mock 02). Hard offset shadows = StyleBoxFlat `shadow_size 0`, `shadow_offset (3,3)`, `shadow_color (0,0,0,0.45)`.
 
 ```gdscript
+# gdlint: ignore=max-public-methods
 class_name Kit
 extends RefCounted
 ## The Hi-bit Console component kit (tokens.css; spec §6). Statics only.
+
+static var _icon: ImageTexture
 
 
 static func _shadow_box(bg: Color, border: Color, border_width := 0) -> StyleBoxFlat:
@@ -3100,9 +3102,6 @@ static func slider(value: float, t: PackTheme) -> HSlider:
 	return s
 
 
-static var _icon: ImageTexture
-
-
 static func _blank_icon() -> ImageTexture:
 	if _icon == null:
 		var img := Image.create(10, 14, false, Image.FORMAT_RGBA8)
@@ -3236,14 +3235,13 @@ class MenuDocket:
 			row.add_child(Fonts.label(note, Fonts.micro_tracked(), 12, t.muted))
 		if dim:
 			modulate.a = 0.55
-			disabled = true
-		else:
-			pressed.connect(func() -> void: docket_pressed.emit())
+		pressed.connect(func() -> void: docket_pressed.emit())
 ```
 
 - [ ] **Step 10: `client/tests/engine/fake_engine_client.gd`** — create exactly:
 
 ```gdscript
+# gdlint: ignore=max-public-methods
 class_name FakeEngineClient
 extends Node
 ## Test double for EngineClient (spec §8): same method surface, canned
@@ -3255,6 +3253,8 @@ var responses := {}
 var calls: Array = []
 var contract_chargen := 1
 var contract_adventure := 1
+## Deterministic latency for the settings status line.
+var last_rtt_ms := 12
 
 
 static func ok(data: Dictionary) -> EngineResult:
@@ -3398,6 +3398,7 @@ var _boot_error: Control
 func _ready() -> void:
 	_overlay = OverlayLayer.new()
 	add_child(_overlay)
+	Services.overlay = _overlay
 	_stack = ScreenStack.new()
 	_stack.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_stack)
@@ -3419,8 +3420,9 @@ func _boot() -> void:
 		Services.client = EngineClient.new()
 		add_child(Services.client)
 	_boot_lines = ["REFEREE: WAKING…"]
-	Services.sidecar.boot_failed.connect(_on_boot_failed)
-	Services.sidecar.booted.connect(_on_booted)
+	# one-shot so a RETRY after failure can't double-fire the handlers
+	Services.sidecar.boot_failed.connect(_on_boot_failed, CONNECT_ONE_SHOT)
+	Services.sidecar.booted.connect(_on_booted, CONNECT_ONE_SHOT)
 	Services.sidecar.spawn()
 
 
@@ -3483,13 +3485,16 @@ func _register_screens() -> void:
 
 
 func _placeholder(text: String) -> Control:
-	var c := CenterContainer.new()
+	var c := Control.new()
 	var t := PackThemes.current
 	var bg := ColorRect.new()
 	bg.color = t.bg
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	c.add_child(bg)
-	c.add_child(Fonts.label(text, Fonts.micro_tracked(), 13, t.muted))
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	c.add_child(center)
+	center.add_child(Fonts.label(text, Fonts.micro_tracked(), 13, t.muted))
 	return c
 ```
 
