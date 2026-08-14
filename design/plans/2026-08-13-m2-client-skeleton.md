@@ -1317,7 +1317,7 @@ var _elapsed := 0.0
 var _health_request: HTTPRequest
 
 
-func spawn() -> void:
+func spawn(extra_args := PackedStringArray()) -> void:
 	var override := OS.get_environment("ANDROMEDA_SIDECAR_URL").strip_edges()
 	if override != "":
 		attached_external = true
@@ -1330,8 +1330,11 @@ func spawn() -> void:
 	if log_file != null:
 		log_file.store_string("")
 		log_file.close()
-	var cmd := "cd %s && exec uv run python -m src.server --port 0 > %s 2>&1" % [
-		_sh_quote(Paths.repo_root()), _sh_quote(log_path)
+	var quoted_args := PackedStringArray()
+	for arg: String in extra_args:
+		quoted_args.append(_sh_quote(arg))
+	var cmd := "cd %s && exec uv run python -m src.server --port 0 %s > %s 2>&1" % [
+		_sh_quote(Paths.repo_root()), " ".join(quoted_args), _sh_quote(log_path)
 	]
 	pid = OS.create_process("bash", ["-c", cmd])
 	if pid == -1:
@@ -1463,13 +1466,23 @@ var _sidecar: SidecarProcess
 var _client: EngineClient
 
 
-func before_all() -> void:
+func before() -> void:
+	# Isolated settings/saves: the dev machine may have a real LLM key stored
+	# — tests must never read or write real settings (a provider switch
+	# deletes the stored key server-side) or touch real saves.
+	var iso := OS.get_cache_dir().path_join(
+		"andromeda-m2-itest-%d" % int(Time.get_unix_time_from_system() * 1000.0)
+	)
+	DirAccess.make_dir_recursive_absolute(iso.path_join("settings"))
+	DirAccess.make_dir_recursive_absolute(iso.path_join("saves"))
 	_sidecar = SidecarProcess.new()
 	add_child(_sidecar)
 	var outcome := {"ok": false, "reason": ""}
 	_sidecar.booted.connect(func(_url: String, _p: int) -> void: outcome["ok"] = true)
 	_sidecar.boot_failed.connect(func(reason: String) -> void: outcome["reason"] = reason)
-	_sidecar.spawn()
+	_sidecar.spawn(
+		PackedStringArray(["--settings-dir", iso.path_join("settings"), "--saves-dir", iso.path_join("saves")])
+	)
 	var waited := 0.0
 	while not outcome["ok"] and outcome["reason"] == "" and waited < 20.0:
 		await get_tree().create_timer(0.1).timeout
@@ -1481,7 +1494,7 @@ func before_all() -> void:
 	_client.setup(_sidecar.base_url)
 
 
-func after_all() -> void:
+func after() -> void:
 	_sidecar.kill()
 
 
@@ -2085,12 +2098,22 @@ var _sidecar: SidecarProcess
 var _client: EngineClient
 
 
-func before_all() -> void:
+func before() -> void:
+	# Isolated settings/saves: the dev machine may have a real LLM key stored
+	# — tests must never use it (live calls + credits) and never touch real
+	# saves. Template narration is the deterministic contract (§A4).
+	var iso := OS.get_cache_dir().path_join(
+		"andromeda-m2-pump-%d" % int(Time.get_unix_time_from_system() * 1000.0)
+	)
+	DirAccess.make_dir_recursive_absolute(iso.path_join("settings"))
+	DirAccess.make_dir_recursive_absolute(iso.path_join("saves"))
 	_sidecar = SidecarProcess.new()
 	add_child(_sidecar)
 	var outcome := {"ok": false}
 	_sidecar.booted.connect(func(_url: String, _p: int) -> void: outcome["ok"] = true)
-	_sidecar.spawn()
+	_sidecar.spawn(
+		PackedStringArray(["--settings-dir", iso.path_join("settings"), "--saves-dir", iso.path_join("saves")])
+	)
 	var waited := 0.0
 	while not outcome["ok"] and waited < 20.0:
 		await get_tree().create_timer(0.1).timeout
@@ -2102,7 +2125,7 @@ func before_all() -> void:
 	_client.setup(_sidecar.base_url)
 
 
-func after_all() -> void:
+func after() -> void:
 	_sidecar.kill()
 
 
@@ -2153,25 +2176,26 @@ func test_world_intro_streams_the_block_sequence() -> void:
 	await _cleanup(session["id"], session["name"])
 
 
-func test_stop_midstream_is_silent() -> void:
+func test_stop_is_silent() -> void:
+	# Close-on-skip contract: stop() closes the stream without emitting
+	# stream_finished and emits nothing afterward. (Template-mode streams
+	# complete in a few frames, so "mid-stream" isn't reproducible here —
+	# stopping before the first block is the deterministic check.)
 	var session := await _new_session()
 	var pump: StreamPump = auto_free(StreamPump.new())
 	add_child(pump)
 	var blocks: Array = []
 	var finished := {"called": false}
+	var failed := {"message": ""}
 	pump.block_received.connect(func(t: String, _c: String) -> void: blocks.append(t))
 	pump.stream_finished.connect(func() -> void: finished["called"] = true)
+	pump.stream_failed.connect(func(msg: String) -> void: failed["message"] = msg)
 	pump.start(_sidecar.base_url, session["id"], "world_intro")
-	var waited := 0.0
-	while blocks.is_empty() and waited < 30.0:
-		await get_tree().create_timer(0.1).timeout
-		waited += 0.1
-	assert_bool(not blocks.is_empty()).is_true()
 	pump.stop()
-	var count_at_stop := blocks.size()
 	await get_tree().create_timer(0.5).timeout
-	assert_that(blocks.size()).is_equal(count_at_stop)
+	assert_that(blocks).is_empty()
 	assert_bool(finished["called"]).is_false()
+	assert_str(failed["message"]).is_empty()
 	await _cleanup(session["id"], session["name"])
 
 
@@ -2289,15 +2313,18 @@ func _send_request() -> void:
 
 
 func _read_chunks() -> void:
-	while _http.get_status() == HTTPClient.STATUS_BODY:
+	while _http.get_status() == HTTPClient.STATUS_BODY and _state == State.READING_BODY:
 		var chunk := _http.read_response_body_chunk()
 		if chunk.size() == 0:
 			break
 		_buffer.append_array(chunk)
 		_drain_lines()
+	if _state != State.READING_BODY:
+		return  # done-block already finished the stream
 	match _http.get_status():
 		HTTPClient.STATUS_DISCONNECTED:
-			# Body closed by the server — the stream is over.
+			# The server closed the connection. Without a `done` block this is
+			# abnormal (200) or an error envelope (non-200).
 			if _resp_code == 200:
 				_drain_lines(true)
 				_state = State.IDLE
@@ -2336,6 +2363,20 @@ func _emit_line(line: String) -> void:
 	var content := str(parsed.get("content", ""))
 	if block_type in BLOCK_TYPES:
 		block_received.emit(block_type, content)
+		if block_type == "done":
+			# `done` is the protocol terminator (§A4) — finish on it, not on
+			# TCP teardown. HTTP/1.1 keep-alive keeps the socket open after
+			# the body; waiting for a close that only comes at the server's
+			# keep-alive timeout would stall the stream ~5s and read as a
+			# connection error.
+			_finish()
+
+
+func _finish() -> void:
+	_http.close()
+	_state = State.IDLE
+	_buffer = PackedByteArray()
+	stream_finished.emit()
 
 
 func _fail_transport() -> void:

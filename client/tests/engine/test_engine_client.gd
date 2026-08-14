@@ -10,12 +10,24 @@ var _client: EngineClient
 
 
 func before() -> void:
+	# Isolated settings/saves: the dev machine may have a real LLM key stored
+	# — tests must never read or write real settings (a provider switch
+	# deletes the stored key server-side) or touch real saves.
+	var iso := OS.get_cache_dir().path_join(
+		"andromeda-m2-itest-%d" % int(Time.get_unix_time_from_system() * 1000.0)
+	)
+	DirAccess.make_dir_recursive_absolute(iso.path_join("settings"))
+	DirAccess.make_dir_recursive_absolute(iso.path_join("saves"))
 	_sidecar = SidecarProcess.new()
 	add_child(_sidecar)
 	var outcome := {"ok": false, "reason": ""}
 	_sidecar.booted.connect(func(_url: String, _p: int) -> void: outcome["ok"] = true)
 	_sidecar.boot_failed.connect(func(reason: String) -> void: outcome["reason"] = reason)
-	_sidecar.spawn()
+	_sidecar.spawn(
+		PackedStringArray(
+			["--settings-dir", iso.path_join("settings"), "--saves-dir", iso.path_join("saves")]
+		)
+	)
 	var waited := 0.0
 	while not outcome["ok"] and outcome["reason"] == "" and waited < 20.0:
 		await get_tree().create_timer(0.1).timeout
