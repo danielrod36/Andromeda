@@ -1300,8 +1300,9 @@ class_name SidecarProcess
 extends Node
 ## Owns the Python sidecar lifecycle (spec §4).
 ##
-## Spawn: `bash -c "cd <repo> && exec uv run python -m src.server --port 0
-## > <log> 2>&1"` — the `exec` keeps the returned PID pointed at the server,
+## Spawn: `bash -c "cd <repo> && exec <venv-python> -m src.server --port 0
+## > <log> 2>&1"` — the venv python is exec'd directly (uv run would spawn a
+## child the kill can't reach); the `exec` keeps the returned PID pointed at the server,
 ## and the log redirect avoids Godot's unmaintained stdio-pipe path (parent
 ## spec D2). Boot completes when the log prints `LISTENING <port>` and a
 ## GET /health returns {"status": "ok"} (§A2).
@@ -1340,11 +1341,18 @@ func spawn(extra_args := PackedStringArray()) -> void:
 	if log_file != null:
 		log_file.store_string("")
 		log_file.close()
+	# Exec the venv python DIRECTLY — `uv run` spawns python as a child, so
+	# killing the returned pid would orphan the server. With exec, bash is
+	# replaced and the returned pid IS the server process.
+	var python := _venv_python()
+	if python == "":
+		boot_failed.emit("no .venv python found — run `uv sync` in the repo first")
+		return
 	var quoted_args := PackedStringArray()
 	for arg: String in extra_args:
 		quoted_args.append(_sh_quote(arg))
-	var cmd := "cd %s && exec uv run python -m src.server --port 0 %s > %s 2>&1" % [
-		_sh_quote(Paths.repo_root()), " ".join(quoted_args), _sh_quote(log_path)
+	var cmd := "cd %s && exec %s -m src.server --port 0 %s > %s 2>&1" % [
+		_sh_quote(Paths.repo_root()), _sh_quote(python), " ".join(quoted_args), _sh_quote(log_path)
 	]
 	pid = OS.create_process("bash", ["-c", cmd])
 	if pid == -1:

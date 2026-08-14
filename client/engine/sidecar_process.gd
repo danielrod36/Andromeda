@@ -37,6 +37,13 @@ func spawn(extra_args := PackedStringArray()) -> void:
 		port = int(base_url.get_slice(":", base_url.get_slice_count(":") - 1))
 		_health_check()
 		return
+	# Exec the venv python DIRECTLY — `uv run` spawns python as a child, so
+	# killing the returned pid would orphan the server. With exec, bash is
+	# replaced and the returned pid IS the server process.
+	var python := _venv_python()
+	if python == "":
+		boot_failed.emit("no .venv python found — run `uv sync` in the repo first")
+		return
 	log_path = OS.get_cache_dir().path_join("andromeda-sidecar.log")
 	var log_file := FileAccess.open(log_path, FileAccess.WRITE)
 	if log_file != null:
@@ -46,8 +53,13 @@ func spawn(extra_args := PackedStringArray()) -> void:
 	for arg: String in extra_args:
 		quoted_args.append(_sh_quote(arg))
 	var cmd := (
-		"cd %s && exec uv run python -m src.server --port 0 %s > %s 2>&1"
-		% [_sh_quote(Paths.repo_root()), " ".join(quoted_args), _sh_quote(log_path)]
+		"cd %s && exec %s -m src.server --port 0 %s > %s 2>&1"
+		% [
+			_sh_quote(Paths.repo_root()),
+			_sh_quote(python),
+			" ".join(quoted_args),
+			_sh_quote(log_path),
+		]
 	)
 	pid = OS.create_process("bash", ["-c", cmd])
 	if pid == -1:
@@ -59,6 +71,7 @@ func spawn(extra_args := PackedStringArray()) -> void:
 
 func kill() -> void:
 	if pid > 0 and not attached_external:
+		# The spawn execs the venv python, so this pid IS the server.
 		OS.kill(pid)
 	pid = -1
 
@@ -124,3 +137,11 @@ func _on_health_completed(
 
 static func _sh_quote(s: String) -> String:
 	return "'" + s.replace("'", "'\\''") + "'"
+
+
+static func _venv_python() -> String:
+	for candidate: String in [".venv/bin/python3", ".venv/bin/python"]:
+		var path := Paths.repo_root().path_join(candidate)
+		if FileAccess.file_exists(path):
+			return path
+	return ""

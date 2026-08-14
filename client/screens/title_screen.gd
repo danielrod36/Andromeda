@@ -76,7 +76,8 @@ func _load_data() -> void:
 
 func _rebuild() -> void:
 	for child: Node in get_children():
-		child.queue_free()
+		remove_child(child)
+		child.free()
 	_menu = {}
 	_build()
 	_apply_data()

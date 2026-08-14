@@ -100,12 +100,15 @@ func _read_chunks() -> void:
 	if _state != State.READING_BODY:
 		return  # done-block already finished the stream
 	match _http.get_status():
-		HTTPClient.STATUS_DISCONNECTED:
-			# The server closed the connection. Without a `done` block this is
-			# abnormal (200) or an error envelope (non-200).
+		HTTPClient.STATUS_DISCONNECTED, HTTPClient.STATUS_CONNECTED:
+			# The body is over (server closed, or keep-alive left the socket
+			# open). Without a `done` block this is abnormal (200) or an error
+			# envelope (non-200) — don't wait for a TCP close that may only
+			# come at the server's keep-alive timeout.
 			if _resp_code == 200:
 				_drain_lines(true)
 				_state = State.IDLE
+				_http.close()
 				stream_finished.emit()
 			else:
 				_fail_with_envelope()
@@ -171,6 +174,7 @@ func _fail_transport() -> void:
 func _fail_with_envelope() -> void:
 	var text := _buffer.get_string_from_utf8()
 	_buffer = PackedByteArray()
+	_http.close()
 	_state = State.IDLE
 	var message := "the referee answered with something unreadable"
 	var parsed: Variant = JSON.parse_string(text)

@@ -23,8 +23,20 @@ func test_spawn_listen_health_kill() -> void:
 	assert_bool(outcome["ok"]).is_true()
 	assert_that(sp.port).is_greater(0)
 	assert_str(sp.base_url).starts_with("http://127.0.0.1:")
+	var spawned_pid := sp.pid
 	sp.kill()
 	assert_that(sp.pid).is_equal(-1)
+	# kill must reap the WHOLE tree (bash→uv→python): OS.kill on the returned
+	# pid orphans the python child. Poll until the group leader is gone.
+	var gone := false
+	for i: int in 50:
+		var probe := []
+		var exit_code := OS.execute("kill", ["-0", str(spawned_pid)], probe)
+		if exit_code != 0:
+			gone = true
+			break
+		await get_tree().create_timer(0.1).timeout
+	assert_bool(gone).is_true()
 
 
 func test_env_override_attaches_without_spawning() -> void:

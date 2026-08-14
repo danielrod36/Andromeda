@@ -34,6 +34,11 @@ func esc_target() -> String:
 
 
 func screen_enter(_params: Dictionary) -> void:
+	# The stack keeps this instance alive across visits; without the reset,
+	# select_docket(0) would early-return on the persisted _selected and a
+	# promoted/escaped preview session would go stale (spec §7.3).
+	_selected = -1
+	_preview_session = {}
 	await _load_data()
 
 

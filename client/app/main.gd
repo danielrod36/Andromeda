@@ -29,13 +29,19 @@ func _boot() -> void:
 	if Services.sidecar == null:
 		Services.sidecar = SidecarProcess.new()
 		add_child(Services.sidecar)
+	else:
+		Services.sidecar.kill()  # a failed attempt may still be spawning
 	if Services.client == null:
 		Services.client = EngineClient.new()
 		add_child(Services.client)
 	_boot_lines = ["REFEREE: WAKING…"]
-	# one-shot so a RETRY after failure can't double-fire the handlers
-	Services.sidecar.boot_failed.connect(_on_boot_failed, CONNECT_ONE_SHOT)
-	Services.sidecar.booted.connect(_on_booted, CONNECT_ONE_SHOT)
+	# drop any stale connections from a previous attempt (one-shot per
+	# signal leaves the unfired one connected — a RETRY would double-fire)
+	for sig: Signal in [Services.sidecar.boot_failed, Services.sidecar.booted]:
+		for conn: Dictionary in sig.get_connections():
+			sig.disconnect(conn["callable"])
+	Services.sidecar.boot_failed.connect(_on_boot_failed)
+	Services.sidecar.booted.connect(_on_booted)
 	Services.sidecar.spawn()
 
 
@@ -87,8 +93,7 @@ func _on_retry() -> void:
 	_boot()
 
 
-## Task 7 replaces this with the real set. Until then the shell boots to a
-## placeholder so the wiring is inspectable.
+## The M2 screen set (Tasks 7-10); M3/M4 replace the stubs.
 func _register_screens() -> void:
 	_stack.register("title", TitleScreen.new())
 	_stack.register("settings", SettingsScreen.new())
