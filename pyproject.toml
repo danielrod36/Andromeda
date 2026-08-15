@@ -62,6 +62,7 @@ quote-style = "double"
 
 [dependency-groups]
 dev = [
+    "gdtoolkit>=4.5.0",
     "httpx>=0.28",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
