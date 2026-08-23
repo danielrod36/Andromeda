@@ -8,7 +8,7 @@ Andromeda — a single-player CYOA RPG where a **deterministic rules engine** ow
 
 ## Commands
 
-This project uses **uv** (not pip/venv directly), despite the README's pip instructions. A `uv.lock` and `.venv` are committed-ish; use `uv run` so the environment stays in sync.
+This project uses **uv** (not pip/venv directly). `uv.lock` is committed; use `uv run` so the environment stays in sync.
 
 ```bash
 uv run pytest tests/ -q              # full suite
@@ -28,9 +28,9 @@ uv run ruff format --check src tests # format check (apply with `ruff format`)
 uv run ruff check --fix src tests    # auto-fix lint errors
 ```
 
-**Pre-push hook** (`.githooks/pre-push`): runs `ruff check`, `ruff format --check`, and the **full** pytest suite before a push is accepted — any failure aborts the push so broken code never reaches the remote. It's the tracked, shared hook (via `core.hooksPath`); new clones need one line: `git config core.hooksPath .githooks`. Bypass in a genuine emergency with `git push --no-verify`.
+**Pre-push hook** (`.githooks/pre-push`): runs `ruff check`, `ruff format --check`, the **full** pytest suite, and the client gate (gdlint + gdformat + headless gdUnit4) before a push is accepted — any failure aborts the push so broken code never reaches the remote. It's the tracked, shared hook (via `core.hooksPath`); new clones need one line: `git config core.hooksPath .githooks`. Bypass in a genuine emergency with `git push --no-verify`.
 
-**CI** (`.github/workflows/ci.yml`): on every PR and push to `main`, runs ruff (lint + format) and the full pytest suite across Python 3.12, 3.13, and 3.14. Deps install with `uv sync --frozen`, so keep `uv.lock` committed and re-run `uv lock` after any dependency change — a stale lockfile fails CI.
+**CI** (`.github/workflows/ci.yml`): on every PR and push to `main`, runs ruff (lint + format), the full pytest suite across Python 3.12, 3.13, and 3.14, and a client job (gdlint + gdformat + gdUnit4 incl. golden screenshots under xvfb). Deps install with `uv sync --frozen`, so keep `uv.lock` committed and re-run `uv lock` after any dependency change — a stale lockfile fails CI.
 
 ### Client (Godot)
 
@@ -89,9 +89,9 @@ The adapter is the single integration point with the LLM (Pydantic AI). It enfor
 
 Single JSON documents, atomic writes (temp file + `os.replace`). Schema versioning via `save_version` + a stepwise migration chain (`_MIGRATIONS`). No pickle, no SQLite.
 
-### Game controller (`src/game/`)
+### Game controller (`src/game/`) and server sidecar (`src/server/`)
 
-Headless controller layer over the engine. `LifepathController` drives chargen phases, `GameSession` manages the adventure loop. Client surfaces (TUI, web) have been removed; the controller is the API that future client surfaces will build on. The engine package has **zero game imports** — keep it that way.
+Headless controller layer over the engine. `LifepathController` drives chargen phases, `GameSession`/`AdventureSession` manage the adventure loop. The FastAPI sidecar in `src/server/` (sessions, saves, settings, inspect routes, NDJSON narration stream) wraps these controllers — it is the API surface the Godot client (`client/`) spawns and consumes over 127.0.0.1; the client renders server view models and holds zero game truth. The engine package has **zero game imports** — keep it that way.
 
 ## Key Invariants (don't break these)
 

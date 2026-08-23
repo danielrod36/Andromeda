@@ -9,11 +9,17 @@ Built on Cepheus Engine (2D6 sci-fi TTRPG) mechanics — used under the Open Gam
 ```bash
 uv sync
 uv run pytest tests/ -v
+
+tools/get_godot.sh          # one-time: fetch the pinned Godot 4.7.1
+tools/run_client_lint.sh    # gdlint + gdformat over first-party GDScript
+tools/run_client_tests.sh   # gdUnit4 headless suite (golden needs a display)
 ```
+
+See `CLAUDE.md` for the full toolchain (pre-push hook, CI, golden baselines).
 
 ## Status
 
-Client surfaces (TUI, web) have been removed. The headless game controller (`src/game/`) is the API that future client surfaces will build on.
+Milestone progress (per `design/2026-08-13-game-client-design.md` §11): **M1** — engine + server contract — and **M2** — the Godot client skeleton — have shipped; Title, Chronicles, New Journey, and Settings run end-to-end against the Python sidecar. Next up: **M3**, the character-creation vertical.
 
 ## Architecture
 
@@ -22,6 +28,8 @@ Client surfaces (TUI, web) have been removed. The headless game controller (`src
 - **Theme packs** (`src/themepacks/`) — YAML content data (careers, skills, oracle tables)
 - **Game controller** (`src/game/`) — headless controller layer (`LifepathController`, `GameSession`) over the engine
 - **LLM** (`src/llm/`) — Pydantic AI adapter for narration with tool-call-only mutations
+- **Server** (`src/server/`) — FastAPI sidecar the client spawns locally: session, saves, settings, and inspect routes plus NDJSON narration streaming; owns autosave and keyring-backed key storage
+- **Client** (`client/`) — Godot 4.7.1 app; spawns the sidecar, speaks HTTP/NDJSON over 127.0.0.1, renders server view models only (the client holds zero game truth)
 
 ## Design Principle
 
