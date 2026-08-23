@@ -24,6 +24,9 @@ func test_inner_polygon_matches_px_in_clip_path() -> void:
 
 func test_apply_theme_sets_colors() -> void:
 	var frame: SteppedFrame = auto_free(SteppedFrame.new())
+	# _content is built in the field initializer but only parented in
+	# _ready(); out of the tree it would outlive auto_free(frame).
+	frame._content.free()
 	var t := PackTheme.new()
 	t.accent = Color("F5A623")
 	t.panel = Color("101830")
