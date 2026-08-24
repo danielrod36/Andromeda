@@ -16,7 +16,7 @@
 {id, name, kind: "chargen"|"adventure", phase: str, view: ChoicePointView|AdventureView|null, contract_version: int}
 ```
 
-When `phase == "complete"`, `view` is `null` (server sessions.py semantics). After S1 the envelope also carries `seed: int` (`GameState.seed`, state.py:167).
+When `phase == "complete"`, `view` is `null` (server sessions.py semantics). After S1 the envelope also carries `seed: int` (`GameState.seed`, state.py:167) and `death_mode: str` (`state.campaign.death_mode` — C7's crisis-card label source).
 
 ### ChoicePointView (`src/engine/lifepath_choices.py:37-46`)
 
@@ -163,7 +163,7 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 
 ### C9 — Narrator chat + advisor panel
 
-- [ ] Narrator chat (mockup 06c): third-column panel — steering rules line printed (`THE PAST IS WRITTEN · THE PRESENT CAN BE RE-TOLD · THE FUTURE IS STEERED`), chat bubbles (YOU right / NARRATOR left), `⇒ DIRECTION RECORDED · "{text}" · SEQ {n}` dashed chip, input row with SEND. **Chip data source:** the narrate stream carries no events and `record_story_direction` has no change-line, so after the stream completes the BeatDirector fetches `GET /v1/sessions/{id}/audit?since={last_seen_seq}` (the client tracks `last_seen_seq` from prior choose-response `events`); the returned `record_story_direction` event supplies `changes.text` + `seq`. Sending = `narrate_only(current_beat, steering)`; stage shows the re-tell subnote while streaming; rail stamps the beat RE-TOLD.
+- [ ] Narrator chat (mockup 06c): third-column panel — steering rules line printed (`THE PAST IS WRITTEN · THE PRESENT CAN BE RE-TOLD · THE FUTURE IS STEERED`), chat bubbles (YOU right / NARRATOR left), `⇒ DIRECTION RECORDED · "{text}" · SEQ {n}` dashed chip, input row with SEND. **Chip data source + cursor discipline:** the narrate stream carries no events and `record_story_direction` has no change-line, so after the stream completes the BeatDirector fetches `GET /v1/sessions/{id}/audit?since={last_seen_seq}` and renders chips from returned `record_story_direction` events (`changes.text` + `seq`). `last_seen_seq` advances to **max(seq) of every events source** — choose-response `events` *and* each audit response — so consecutive steers of the same beat (no intervening choose) never duplicate chips and the first fetch never over-sweeps the log. Sending = `narrate_only(current_beat, steering)`; stage shows the re-tell subnote while streaming; rail stamps the beat RE-TOLD.
 - [ ] Advisor panel (`push`, mockup 12): `ASK THE ADVISOR` → `suggest()` → SuggestionRecord card: selected option highlighted, rationale prose, alternatives as `why_not` lines, **mandatory provenance line** (`model_id` or `HEURISTIC — OFFLINE` when model_id empty; context_hash tail). 422 `advisor_unavailable` → dock button dims with reason (spec §9). Apply = choose the selected option through the funnel (provenance already recorded server-side).
 - [ ] Tests: chat send → steering in narrate args; direction chip rendered from the audit fetch (fake returns the `record_story_direction` event); advisor card fields; dim states on 422.
 - **Commit:** `feat(client): narrator chat + advisor panel with provenance (M3-C9)`
