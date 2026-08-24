@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: implemented** — merged as PR #41 (merge commit `fe7705d`, 2026-08-13); CI green on `main`. Convention: plan checkboxes record the execution-time checklist and are not retro-ticked after merge — the merged code and its tests are the source of truth.
+
 **Goal:** Close the engine's two pre-client items (B4, G6), give the adventure loop a versioned session contract, add beat narration + story steering, move the LLM key into the OS keychain, and ship the FastAPI sidecar the Godot client will talk to — fully testable with pytest + curl, zero Godot code.
 
 **Architecture:** All work stays inside the existing funnel architecture: every mutation is a `Command` through `Engine.apply`, every roll rides a named RNG stream, the LLM only narrates. The server is a new `src/server/` package (FastAPI, NDJSON streaming) wrapping `ChargenSession` (existing) and `AdventureSession` (new, Task 3), owning autosave and key storage server-side. Spec: `design/2026-08-13-game-client-design.md` §4 (M0.1–M0.7) and §5 (API surface).

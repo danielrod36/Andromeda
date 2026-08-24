@@ -47,6 +47,9 @@ docs/
 # Internal agent scratch (briefs/reports/diffs — not part of the public release)
 .superpowers/
 
+# Claude Code local settings
+.claude/
+
 # Godot client (M2)
 client/.godot/
 tools/godot/

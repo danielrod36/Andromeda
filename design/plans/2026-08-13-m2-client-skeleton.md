@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: implemented** — merged as PR #42 (squash commit `bd56839`, 2026-08-15); CI green on `main`. Convention: plan checkboxes record the execution-time checklist and are not retro-ticked after merge — the merged code and its tests are the source of truth.
+
 **Goal:** Build the Godot 4.7.1 client skeleton — sidecar lifecycle, EngineClient + StreamPump, ScreenStack, token-driven theme — with Title, Chronicles, New Journey, and Settings working end-to-end against the real Python sidecar, per `design/2026-08-13-m2-client-skeleton-design.md` (the spec) and the mocks in `design/mockups/final/`.
 
 **Architecture:** Monorepo: a new `client/` Godot project alongside `src/`. Godot spawns the FastAPI sidecar (`uv run python -m src.server --port 0`, cwd = repo root), reads one `LISTENING <port>` line from a log-file redirect, then speaks HTTP/NDJSON over 127.0.0.1. All UI is constructed in GDScript code (no hand-authored `.tscn` layouts beyond a minimal `main.tscn`); theme comes from code-built `PackTheme` resources matching `design/mockups/final/tokens.css` byte-for-byte. The client holds zero game truth — every render comes from server view models.

@@ -20,6 +20,14 @@ func _ready() -> void:
 	add_child(_content)
 
 
+func _notification(what: int) -> void:
+	# _content is born in the field initializer but parented only in
+	# _ready(); if we die off-tree it would outlive us. Parented children
+	# are freed with the frame automatically — never double-free.
+	if what == NOTIFICATION_PREDELETE and _content.get_parent() != self:
+		_content.free()
+
+
 ## Themed content container; margins default to 2 (the ring) until
 ## set_content_margins is called.
 func add_content(node: Control) -> void:
