@@ -24,12 +24,20 @@ func test_inner_polygon_matches_px_in_clip_path() -> void:
 
 func test_apply_theme_sets_colors() -> void:
 	var frame: SteppedFrame = auto_free(SteppedFrame.new())
-	# _content is built in the field initializer but only parented in
-	# _ready(); out of the tree it would outlive auto_free(frame).
-	frame._content.free()
 	var t := PackTheme.new()
 	t.accent = Color("F5A623")
 	t.panel = Color("101830")
 	frame.apply_theme(t)
 	assert_that(frame.ring_color).is_equal(Color("F5A623"))
 	assert_that(frame.fill_color).is_equal(Color("101830"))
+
+
+func test_off_tree_frame_frees_unparented_content() -> void:
+	# Regression: _content is created in the field initializer but parented
+	# only in _ready(); freeing an off-tree frame used to orphan it (the
+	# gdUnit run exited 101 with a leaked CanvasItem RID). SteppedFrame now
+	# frees unparented content on PREDELETE — this pins that contract.
+	var frame := SteppedFrame.new()
+	var content: MarginContainer = frame._content
+	frame.free()
+	assert_bool(is_instance_valid(content)).is_false()

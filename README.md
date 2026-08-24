@@ -42,6 +42,6 @@ Andromeda is dual-licensed (see [`NOTICE.md`](NOTICE.md)):
 - **Code, tests, and the original fantasy theme pack** — MIT ([`LICENSE`](LICENSE)).
 - **Sci-fi theme pack** (`src/themepacks/data/scifi/`) — Open Game License v1.0a ([`LICENSE.OGL`](LICENSE.OGL)), as Open Game Content derived from the Cepheus Engine System Reference Document.
 
-## Status & Trademarks
+## Trademarks
 
 Andromeda is an independent, unofficial project. "Cepheus Engine" and "Samardan Press" are trademarks of **Jason "Flynn" Kemp**; this project is **not affiliated with or endorsed by** Jason "Flynn" Kemp or Samardan Press. Cepheus Engine SRD content is used under the OGL 1.0a.
