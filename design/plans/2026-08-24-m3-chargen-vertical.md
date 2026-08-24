@@ -54,7 +54,7 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 
 ### Narrate (routes_sessions.py:296-398)
 
-`POST /narrate {beat, steering?}` → NDJSON lines `{"type": "narration"|"change"|"badge"|"done", "content"}`. Beats: `world_intro` (replays its record unless steered), `chargen_beat` (per-phase facts), `chargen_close` (reveal's closing passage). Steering lands first via `RecordStoryDirectionCommand` — a steered direction appears in `events` as a `record_story_direction` event (SEQ-bearing) and renders as the mockup's dashed "⇒ DIRECTION RECORDED" chip. Shipped prose is canonical (`RecordNarrationCommand`) before the client sees a word.
+`POST /narrate {beat, steering?}` → NDJSON lines `{"type": "narration"|"change"|"badge"|"done", "content"}` — the stream carries **no events array**. Beats: `world_intro` (replays its record unless steered), `chargen_beat` (per-phase facts), `chargen_close` (reveal's closing passage). Steering lands first via `RecordStoryDirectionCommand` — a steered direction becomes a SEQ-bearing `record_story_direction` event in the server log, but it has **no change-line formatter** (`_FORMATTERS`, src/game/change_lines.py:209-239) and never appears in the stream, so the client fetches it via `GET /audit?since={last_seq}` after the stream completes (C9 mechanism). Shipped prose is canonical (`RecordNarrationCommand`) before the client sees a word.
 
 ### Client seams (M2, all existing)
 
@@ -76,9 +76,9 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 
 ## Tasks
 
-### S1 — Expose the seed in the SessionEnvelope (+ the two M2-deferred integration tests)
+### S1 — Expose `seed` + `death_mode` in the SessionEnvelope (+ the two M2-deferred integration tests)
 
-- [ ] `src/server/routes_sessions.py` `_session_payload`: add `"seed": record.game.state.seed` (additive; no contract bump — additive fields per M1 convention). Update the envelope contract test in `tests/server/test_sessions.py`.
+- [ ] `src/server/routes_sessions.py` `_session_payload`: add `"seed": record.game.state.seed` and `"death_mode": record.game.state.campaign.death_mode` (additive; no contract bump — additive fields per M1 convention). Update the envelope contract test in `tests/server/test_sessions.py`.
 - [ ] `tests/server/test_persistence_contract.py` (or `test_sessions.py`): the M2-deferred **promote integration test** — scripted chargen to `complete` via real `choose` calls (deterministic seed + fixed option sequence), then `POST /promote` → envelope `kind == "adventure"`, phase is the adventure's first view; promote before complete → 422 `invalid_phase`.
 - [ ] Same file: **narrate replay test** — `world_intro` twice without steering returns identical prose (record replay, no second LLM call); with steering it re-tells (new record).
 - **Commit:** `feat(server): seed in SessionEnvelope + promote/world-intro integration tests (M3-S1)`
@@ -114,7 +114,7 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 - [ ] New `client/screens/ceremony_screen.gd` + registry in `main.gd`. Three beats on one scene (mockup 04):
   1. **FATE SEEDED** — docket `FATE SEEDED · {seed}` (envelope after S1), auto-advances (~1.2s) —
   2. **WORLD INTRO** — `beat_director.narrate_only("world_intro")`, typewriter over the scene, SKIP / CONTINUE once done —
-  3. **THE NAME** — `OverlayLayer.prompt` or inline card; commits via `set_character_name` → then `replace("chargen")`. Empty name keeps START disabled. (No uniqueness pre-check: character names carry no constraint — NewJourney's duplicate check is about *save* names at create time, which the ceremony never touches.)
+  3. **THE NAME** — `OverlayLayer.prompt` or inline card; commits via `set_character_name` → then `replace("chargen")`. Empty name keeps START disabled; input capped at 80 chars (`SetCharacterNameCommand` rejects longer, src/engine/commands.py:294-295, surfacing as 422 `invalid_choice`). No uniqueness pre-check — character names carry no uniqueness constraint, and NewJourney's duplicate check is about *save* names at create time, which the ceremony never touches.
 - [ ] Retarget `new_journey_screen.gd` BEGIN: `navigate` to `"ceremony"` (was `"stub"`); stub stays registered for M4.
 - [ ] ESC → `title` with confirm (abandon). Session cleanup: deleting via `delete_session` on confirm-abandon.
 - [ ] Tests: `client/tests/screens/test_ceremony_screen.gd` — beat sequencing with canned world_intro blocks, name commit calls `set_character_name` with the typed value, ESC confirm path, BEGIN lands on ceremony (update `test_new_journey_screen.gd`).
@@ -148,7 +148,7 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 ### C7 — Bespoke stages III: aging, crisis, mishap
 
 - [ ] `run_aging`: table-roll readout (2D6 − terms → table result), then `choose_aging_reduction`: slot tokens (ASSIGNING dashed / PENDING solid), stat rows with `cur → new` previews, crisis-bound row bordered danger (mockup 07b).
-- [ ] `choose_crisis_resolution`: cost readout (1D6 → CR{n}k), pay vs scar cards — pay dims with shortfall (`REQUIRES … YOU HAVE …`), scar card is death-mode aware: `narrative` → "Accept the scar"; `ironman` → "ACCEPT DEATH" and choosing it ends the life (server truth drives the label from `death_mode` in the envelope's campaign — expose via S1's envelope work if absent; else read from the NewJourney-chosen config held in `SessionStore` create payload. Pin: label from server data, never client state).
+- [ ] `choose_crisis_resolution`: cost readout (1D6 → CR{n}k), pay vs scar cards — pay dims with shortfall (`REQUIRES … YOU HAVE …`), scar card is death-mode aware: `narrative` → "Accept the scar"; `ironman` → "ACCEPT DEATH" and choosing it ends the life. The label reads `death_mode` **from the SessionEnvelope** (exposed in S1) — server data only, which also covers sessions resumed from saves that never passed through New Journey. No client-held fallback (pin 6).
 - [ ] `mishap_roll` / `choose_injury_stat`: table-roll readout + stat pick with previews.
 - [ ] Tests: slot flow, crisis card states per death mode, injury previews.
 - **Commit:** `feat(client): aging, crisis, mishap stages (M3-C7)`
@@ -163,9 +163,9 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 
 ### C9 — Narrator chat + advisor panel
 
-- [ ] Narrator chat (mockup 06c): third-column panel — steering rules line printed (`THE PAST IS WRITTEN · THE PRESENT CAN BE RE-TOLD · THE FUTURE IS STEERED`), chat bubbles (YOU right / NARRATOR left), `⇒ DIRECTION RECORDED · "{text}" · SEQ {n}` dashed chip from `record_story_direction` events in the narrate response, input row with SEND; sending = `narrate_only(current_beat, steering)`; stage shows the re-tell subnote while streaming; rail stamps the beat RE-TOLD.
+- [ ] Narrator chat (mockup 06c): third-column panel — steering rules line printed (`THE PAST IS WRITTEN · THE PRESENT CAN BE RE-TOLD · THE FUTURE IS STEERED`), chat bubbles (YOU right / NARRATOR left), `⇒ DIRECTION RECORDED · "{text}" · SEQ {n}` dashed chip, input row with SEND. **Chip data source:** the narrate stream carries no events and `record_story_direction` has no change-line, so after the stream completes the BeatDirector fetches `GET /v1/sessions/{id}/audit?since={last_seen_seq}` (the client tracks `last_seen_seq` from prior choose-response `events`); the returned `record_story_direction` event supplies `changes.text` + `seq`. Sending = `narrate_only(current_beat, steering)`; stage shows the re-tell subnote while streaming; rail stamps the beat RE-TOLD.
 - [ ] Advisor panel (`push`, mockup 12): `ASK THE ADVISOR` → `suggest()` → SuggestionRecord card: selected option highlighted, rationale prose, alternatives as `why_not` lines, **mandatory provenance line** (`model_id` or `HEURISTIC — OFFLINE` when model_id empty; context_hash tail). 422 `advisor_unavailable` → dock button dims with reason (spec §9). Apply = choose the selected option through the funnel (provenance already recorded server-side).
-- [ ] Tests: chat send → steering in narrate args; direction chip from events; advisor card fields; dim states on 422.
+- [ ] Tests: chat send → steering in narrate args; direction chip rendered from the audit fetch (fake returns the `record_story_direction` event); advisor card fields; dim states on 422.
 - **Commit:** `feat(client): narrator chat + advisor panel with provenance (M3-C9)`
 
 ### C10 — Goldens, integration smoke, gates
