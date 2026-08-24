@@ -95,8 +95,8 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
   func skip() -> void                  # close stream, emit full-text block, unlock
   func narrate_only(beat: String, steering := "") -> void   # ceremony/reveal/steered re-tell
   ```
-  Skips close the StreamPump and synthesize a `done`. Template mode needs no branching — blocks arrive the same (spec §3). Errors mid-pipeline surface via `beat_failed` and re-enable input; `ActionInFlightError` (422 `action_in_flight`) renders as a toast and returns to IDLE.
-- [ ] `client/tests/engine/test_beat_director.gd` with `FakeEngineClient` + a fake pump: happy path, skip mid-stream, transport error after choose (envelope retained, choices unlock), 422 handling.
+  Skips close the StreamPump and synthesize a `done`. Template mode needs no branching — blocks arrive the same (spec §3). Errors mid-pipeline surface via `beat_failed` and re-enable input; `ActionInFlightError` maps to **409** `action_in_flight` (src/server/errors.py:47-49 — not 422) and renders as a toast, returning the director to IDLE.
+- [ ] `client/tests/engine/test_beat_director.gd` with `FakeEngineClient` + a fake pump: happy path, skip mid-stream, transport error after choose (envelope retained, choices unlock), 409 `action_in_flight` + 422 handling.
 - **Commit:** `feat(client): BeatDirector choose→narrate pipeline (M3-C1)`
 
 ### C2 — Readout + shell primitives
@@ -114,7 +114,7 @@ ChoiceOptionView = {option_id, label, description, preview: [str], odds_line: st
 - [ ] New `client/screens/ceremony_screen.gd` + registry in `main.gd`. Three beats on one scene (mockup 04):
   1. **FATE SEEDED** — docket `FATE SEEDED · {seed}` (envelope after S1), auto-advances (~1.2s) —
   2. **WORLD INTRO** — `beat_director.narrate_only("world_intro")`, typewriter over the scene, SKIP / CONTINUE once done —
-  3. **THE NAME** — `OverlayLayer.prompt` or inline card; commits via `set_character_name` → then `replace("chargen")`. Empty name keeps START disabled; name duplicate pre-check toast as in NewJourney.
+  3. **THE NAME** — `OverlayLayer.prompt` or inline card; commits via `set_character_name` → then `replace("chargen")`. Empty name keeps START disabled. (No uniqueness pre-check: character names carry no constraint — NewJourney's duplicate check is about *save* names at create time, which the ceremony never touches.)
 - [ ] Retarget `new_journey_screen.gd` BEGIN: `navigate` to `"ceremony"` (was `"stub"`); stub stays registered for M4.
 - [ ] ESC → `title` with confirm (abandon). Session cleanup: deleting via `delete_session` on confirm-abandon.
 - [ ] Tests: `client/tests/screens/test_ceremony_screen.gd` — beat sequencing with canned world_intro blocks, name commit calls `set_character_name` with the typed value, ESC confirm path, BEGIN lands on ceremony (update `test_new_journey_screen.gd`).
