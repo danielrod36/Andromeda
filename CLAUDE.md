@@ -32,6 +32,8 @@ uv run ruff check --fix src tests    # auto-fix lint errors
 
 **CI** (`.github/workflows/ci.yml`): on every PR and push to `main`, runs ruff (lint + format), the full pytest suite across Python 3.12, 3.13, and 3.14, and a client job (gdlint + gdformat + gdUnit4 incl. golden screenshots under xvfb). Deps install with `uv sync --frozen`, so keep `uv.lock` committed and re-run `uv lock` after any dependency change — a stale lockfile fails CI.
 
+**Kilo Code Review** (GitHub App, no repo config): auto-triggers on every PR push — never request/re-run it manually. The account uses a BYOK API key (different provider), so reviews are expected to cost nothing; if a run fails with "insufficient credits", that's a Kilo-side metering glitch to check in the Kilo dashboard (follow the check's details URL), not a repo or diff problem.
+
 ### Client (Godot)
 
 ```bash
