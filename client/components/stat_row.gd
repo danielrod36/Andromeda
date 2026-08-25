@@ -93,21 +93,31 @@ func clear_preview() -> void:
 	_value_label.add_theme_color_override("font_color", _theme.accent if _drop else _theme.ink)
 
 
-## Value in a display string ("9", "\u22121") — NaN when not numeric.
+## Value in a display string ("9", "\u22121") — NAN when not numeric (no
+## baseline set yet; set_preview then colors neutrally).
 static func _num_from(text: String) -> float:
-	return text.replace("\u2212", "-").to_float()
+	var normalized := text.replace("\u2212", "-")
+	return normalized.to_float() if normalized.is_valid_float() else NAN
 
 
-## Sign of the chip text: "DM +1"/"+1" → 1, "−2"/"DM -3" → -1, "DM +0"/"" → 0.
+## Sign of the FIRST number token in the chip text: "DM +1"/"+1" → 1,
+## "\u22122"/"DM -3" → -1, "DM +0"/""/"DM +0 -2" → 0. Only the leading
+## signed integer counts — later tokens never flip it.
 static func _dm_sign(text: String) -> int:
-	var digits := ""
-	var first_digit_at := -1
-	for i: int in text.length():
-		if text[i].is_valid_int():
-			digits += text[i]
-			if first_digit_at == -1:
-				first_digit_at = i
-	if digits == "" or digits.to_int() == 0:
+	var s := text.replace("\u2212", "-").strip_edges()
+	var i := 0
+	while i < s.length() and not (s[i].is_valid_int() or s[i] == "+" or s[i] == "-"):
+		i += 1
+	if i >= s.length():
 		return 0
-	var prefix := text.left(first_digit_at)
-	return -1 if prefix.contains("\u2212") or prefix.contains("-") else 1
+	var negative := false
+	if s[i] == "+" or s[i] == "-":
+		negative = s[i] == "-"
+		i += 1
+	var digits := ""
+	while i < s.length() and s[i].is_valid_int():
+		digits += s[i]
+		i += 1
+	if digits.is_empty() or digits.to_int() == 0:
+		return 0
+	return -1 if negative else 1

@@ -121,8 +121,11 @@ func test_full_form_renders_dice_chips_total_target_and_verdict() -> void:
 func test_full_form_failure_verdict_is_danger() -> void:
 	var r := _fresh_readout()
 	r.show_full(FUMBLE_ROLL, FUMBLE_RECEIPT)
-	var verdict: Label = _top_row(r).get_child(5)
-	assert_str(verdict.text).is_equal("FAILURE")
+	var verdict: Label = null
+	for node: Node in _top_row(r).get_children():
+		if node is Label and (node as Label).text == "FAILURE":
+			verdict = node
+	assert_that(verdict).is_not_null()
 	assert_that(verdict.get_theme_color("font_color")).is_equal(_t.danger)
 
 
@@ -222,3 +225,62 @@ func test_presentation_tree_never_swallows_clicks() -> void:
 	assert_int(top.mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
 	for node: Node in top.get_children():
 		assert_int(node.mouse_filter).is_equal(Control.MOUSE_FILTER_IGNORE)
+
+
+func test_zero_dm_receipt_parses_with_verdict_and_no_chip() -> void:
+	# The server omits +DM(0) entirely (lifepath.py:1785) — the DM segment
+	# must be optional or every zero-DM roll loses its verdict.
+	var zero_dm := "Survival: 2D6(8)=9 vs 6 -> success"
+	var parsed := RollReadout.parse_receipt(zero_dm)
+	assert_int(int(parsed["dm"])).is_equal(0)
+	assert_int(int(parsed["total"])).is_equal(9)
+	assert_int(int(parsed["target"])).is_equal(6)
+	assert_str(str(parsed["outcome"])).is_equal("success")
+	var r := _fresh_readout()
+	r.show_full(SURVIVAL_ROLL, zero_dm)
+	var texts := _label_texts(r)
+	assert_bool(texts.has("vs 6")).is_true()
+	assert_bool(texts.has("SUCCESS")).is_true()
+	assert_bool(not texts.has("+0")).is_true()  # zero DM renders no chip
+
+
+func test_reenlistment_shape_parses_and_keeps_text_target() -> void:
+	# `Re-enlistment: 2D6=7 vs 6 -> success` and the `vs —` variant.
+	var parsed := RollReadout.parse_receipt("Re-enlistment: 2D6=7 vs 6 -> success")
+	assert_str(str(parsed["label"])).is_equal("Re-enlistment")
+	assert_int(int(parsed["dm"])).is_equal(0)
+	assert_int(int(parsed["total"])).is_equal(7)
+	var dash := RollReadout.parse_receipt("Re-enlistment: 2D6=7 vs \u2014 -> success")
+	assert_str(str(dash["target"])).is_equal("\u2014")  # non-numeric stays text
+	var r := _fresh_readout()
+	r.show_full(
+		{"stream": "lifepath", "ndice": 2, "sides": 6, "modifiers": 0, "rolls": [3, 4], "total": 7},
+		"Re-enlistment: 2D6=7 vs \u2014 -> success"
+	)
+	assert_bool(_label_texts(r).has("vs \u2014")).is_true()
+
+
+func test_non_2d6_rolls_never_get_natural_frames() -> void:
+	# 3D6 summing 12 (or a lone die showing 2) is not a natural — no frame.
+	var three_d := {
+		"stream": "cascade", "ndice": 3, "sides": 6, "modifiers": 0, "rolls": [3, 4, 5], "total": 12
+	}
+	var r := _fresh_readout()
+	r.show_full(three_d, "Cascade: 2D6(12)=12 vs 8 -> success")
+	assert_str(r._frame_mode).is_equal("line")
+
+
+func test_back_to_back_show_calls_never_overlap_tweens() -> void:
+	var r := _fresh_readout()
+	r.show_full(SURVIVAL_ROLL, SURVIVAL_RECEIPT)
+	r.show_full(FUMBLE_ROLL, FUMBLE_RECEIPT)  # kills the first landing
+	await get_tree().create_timer(0.3).timeout
+	assert_that(r.scale).is_equal(Vector2.ONE)
+	assert_that(r.modulate.a).is_equal(1.0)
+
+
+func _label_texts(r: RollReadout) -> Array:
+	var texts: Array = []
+	for node: Node in r.find_children("*", "Label", true, false):
+		texts.append((node as Label).text)
+	return texts

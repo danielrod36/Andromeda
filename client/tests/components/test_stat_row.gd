@@ -62,6 +62,23 @@ func test_dm_sign_reads_the_numeric_value_not_the_glyphs() -> void:
 	assert_int(StatRow._dm_sign("")).is_equal(0)
 
 
+func test_dm_sign_stops_at_the_first_number_token() -> void:
+	# Multi-number chip text ("DM +0 -2") must read the LEADING token only —
+	# concatenating every digit defeated the zero-check and flipped the sign.
+	assert_int(StatRow._dm_sign("DM +0 -2")).is_equal(0)
+	assert_int(StatRow._dm_sign("+1 5 9")).is_equal(1)
+	assert_int(StatRow._dm_sign("\u22121 vs 4")).is_equal(-1)
+
+
+func test_preview_before_set_stat_colors_neutrally() -> void:
+	# No baseline yet: _num_from("") is NAN (not a phantom 0.0), so the
+	# preview renders neutral ink instead of a bogus ok/danger tint.
+	var row := _fresh_row()
+	row.set_preview(5)
+	assert_str(_cells(row)[1].text).is_equal(" \u2192 5")
+	assert_bool(is_nan(StatRow._num_from(""))).is_true()
+
+
 func test_drop_hint_tints_value_accent_and_border() -> void:
 	var row := _fresh_row()
 	row.set_stat("END", 7, "DM +0")

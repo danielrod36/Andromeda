@@ -50,9 +50,19 @@ func test_medium_speed_types_partway_at_half_a_second() -> void:
 func test_medium_speed_completes_on_its_own() -> void:
 	var prose := _fresh_prose()
 	prose.feed("narration", SENTENCE)
-	await get_tree().create_timer(3.0).timeout
-	assert_str(prose.visible_text()).is_equal(SENTENCE)
+	await _await_idle(prose)
 	assert_bool(prose.is_typing()).is_false()
+	assert_str(prose.visible_text()).is_equal(SENTENCE)
+
+
+## Poll-until-idle with a generous deadline: per-char timers quantize to
+## frame boundaries, so a fixed 3s window with exact asserts flakes under
+## CI load. The deadline only bounds the wait; asserts stay exact.
+func _await_idle(prose: TypewriterProse, deadline := 8.0) -> void:
+	var waited := 0.0
+	while prose.is_typing() and waited < deadline:
+		await get_tree().create_timer(0.05).timeout
+		waited += 0.05
 
 
 func test_instant_speed_shows_everything_at_once() -> void:
@@ -131,3 +141,29 @@ func test_setup_enables_scroll_following_and_prose_font() -> void:
 	var rich := prose.get_child(0)
 	assert_bool(rich.scroll_following).is_true()
 	assert_bool(rich.bbcode_enabled).is_true()
+
+
+func test_bracketed_prose_renders_literally() -> void:
+	# Wire content is never trusted bbcode: [sighs] must survive, real tags
+	# like [b] must not parse, and stray [/color] must not eat our wrappers.
+	ClientSettings.set_value("reading/text_speed", "instant")
+	var prose := _fresh_prose()
+	prose.feed("narration", "[sighs] The [b]bold[/b] move [/color] ends.")
+	assert_str(prose.visible_text()).is_equal("[sighs] The [b]bold[/b] move [/color] ends.")
+	assert_bool(str(prose._rich.get_parsed_text()).contains("sighs")).is_true()
+
+
+func test_exit_tree_mid_typing_lands_and_re_add_types_again() -> void:
+	# Screens push/pop; a typewriter leaving the tree mid-sentence must not
+	# resume on a dead instance or stay frozen when re-added.
+	var prose := _fresh_prose()
+	prose.feed("narration", SENTENCE)
+	await get_tree().create_timer(0.15).timeout
+	assert_bool(prose.is_typing()).is_true()
+	remove_child(prose)
+	assert_bool(prose.is_typing()).is_false()  # landed + cancelled pump
+	add_child(prose)
+	prose.feed("narration", "Fresh line after re-add.")
+	assert_bool(prose.is_typing()).is_true()
+	prose.skip()
+	assert_str(prose.visible_text()).is_equal(SENTENCE + " Fresh line after re-add.")

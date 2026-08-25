@@ -5,16 +5,25 @@ extends VBoxContainer
 ## change/badge blocks land as instant lines, `done` snaps the tail home and
 ## announces all_text_shown — once per stream, reset by the next narration.
 ## Connect feed() to BeatDirector.block_received; skip() snaps without emitting.
+##
+## Layout: a landed transcript (RichTextLabel, append-only) plus an active
+## line (Label) that carries the typing cursor + caret — per-char cost is
+## O(active sentence), not O(transcript). Transcript content is bbcode-
+## ESCAPED ([→[lb], ]→[rb]) so LLM prose can never inject tags; only this
+## component's own change/badge color tags ride the wire. History is capped
+## (_MAX_BLOCKS); exceeding it rewrites the transcript from the window.
 
 signal all_text_shown
 
 const CARET := "\u258C"
+const _MAX_BLOCKS := 400
 
 ## reading/text_speed → ms per character (spec C2).
 const SPEED_MS := {"slow": 45, "medium": 25, "fast": 12, "instant": 0}
 
 var _theme: PackTheme
 var _rich: RichTextLabel
+var _active: Label
 ## Blocks already fully shown: {kind: narration|change|badge, text: String}.
 var _landed: Array = []
 ## Narration blocks waiting their turn behind the one currently typing.
@@ -30,7 +39,7 @@ var _stream_done := false
 func setup(t: PackTheme) -> void:
 	_theme = t
 	_rich = RichTextLabel.new()
-	_rich.bbcode_enabled = true  # content is plain; only our color tags use it
+	_rich.bbcode_enabled = true  # only for our color tags; content is escaped
 	_rich.scroll_following = true
 	_rich.fit_content = false
 	_rich.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -38,6 +47,12 @@ func setup(t: PackTheme) -> void:
 	_rich.add_theme_font_size_override("font_size", 14)
 	_rich.add_theme_color_override("default_color", t.ink)
 	add_child(_rich)
+	_active = Label.new()
+	_active.add_theme_font_override("font", Fonts.prose())
+	_active.add_theme_font_size_override("font_size", 14)
+	_active.add_theme_color_override("font_color", t.ink)
+	_active.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_active)
 
 
 ## Block dispatch — wire to BeatDirector.block_received.
@@ -53,7 +68,6 @@ func feed(block_type: String, content: String) -> void:
 				_begin({"kind": "narration", "text": content})
 			else:
 				_queue.append({"kind": "narration", "text": content})
-				_rebuild()
 		"change", "badge":
 			# change/badge land instantly, so anything still typing or queued
 			# snaps home first to keep the chronology intact.
@@ -73,13 +87,28 @@ func skip() -> void:
 
 
 func visible_text() -> String:
-	# get_parsed_text() returns what the reader sees (.text holds the raw
-	# bbcode source, and reads empty after clear()+append_text()).
-	return _rich.get_parsed_text() if _rich != null else ""
+	var parts := PackedStringArray()
+	var prev_kind := ""
+	for block: Dictionary in _render_blocks():
+		var kind := str(block["kind"])
+		if not parts.is_empty():
+			var newline := prev_kind != "narration" or kind != "narration"
+			parts[parts.size() - 1] += "\n" if newline else " "
+		parts.append(str(block["text"]))
+		prev_kind = kind
+	return "".join(parts)
 
 
 func is_typing() -> bool:
 	return _typing
+
+
+## Leaving the tree mid-typing (screens push/pop; auto_free) lands everything
+## and cancels the pump — the pending per-char timer would otherwise resume
+## on a dead instance, and a re-added instance would sit frozen in _typing.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_EXIT_TREE and _typing:
+		_snap()
 
 
 ## Milliseconds per character right now. Reduced motion and the "instant"
@@ -90,9 +119,19 @@ func _speed_ms() -> int:
 	return int(SPEED_MS.get(str(ClientSettings.get_value("reading/text_speed")), 25))
 
 
+## bbcode escape for wire content — brackets in LLM prose must render
+## literally, never parse as tags.
+static func _esc(text: String) -> String:
+	return text.replace("[", "[lb]").replace("]", "[rb]")
+
+
 func _land(block: Dictionary) -> void:
 	_landed.append(block)
-	_rebuild()
+	if _landed.size() > _MAX_BLOCKS:
+		_landed = _landed.slice(_landed.size() - _MAX_BLOCKS)
+		_rewrite_transcript()
+	else:
+		_append_transcript(block)
 
 
 func _begin(block: Dictionary) -> void:
@@ -100,7 +139,7 @@ func _begin(block: Dictionary) -> void:
 	_progress = 0
 	_typing = true
 	_gen += 1
-	_rebuild()
+	_update_active()
 	_pump(_gen)
 
 
@@ -109,13 +148,13 @@ func _snap() -> void:
 	_gen += 1
 	_typing = false
 	if not _current.is_empty():
-		_landed.append(_current)
+		_land(_current)
 		_current = {}
 	for queued: Dictionary in _queue:
-		_landed.append(queued)
+		_land(queued)
 	_queue.clear()
 	_progress = 0
-	_rebuild()
+	_update_active()
 
 
 ## Advance the cursor one char at a time until superseded or drained.
@@ -123,47 +162,77 @@ func _pump(gen: int) -> void:
 	while gen == _gen and _typing and is_inside_tree():
 		var text := str(_current.get("text", ""))
 		_progress += 1
-		_rebuild()
+		_update_active()
 		if _progress >= text.length():
-			_landed.append(_current)
+			_land(_current)
 			_current = {}
 			_progress = 0
 			if _queue.is_empty():
 				_typing = false
-				_rebuild()
+				_update_active()
 				return
 			_current = _queue.pop_front()
 		await get_tree().create_timer(float(_speed_ms()) / 1000.0).timeout
 
 
-## Render landed blocks plus the truncated active block with the caret.
-func _rebuild() -> void:
-	if _rich == null:
+## The typing line: the active block truncated at the cursor, caret appended.
+func _update_active() -> void:
+	if _active == null:
 		return
-	var parts := PackedStringArray()
-	var prev_kind := ""
-	for block: Dictionary in _render_blocks():
-		var kind := str(block["kind"])
-		var txt := str(block["text"])
-		if not parts.is_empty():
-			var newline := prev_kind != "narration" or kind != "narration"
-			parts[parts.size() - 1] += "\n" if newline else " "
-		match kind:
-			"change":
-				parts.append("[color=#%s]%s[/color]" % [_theme.muted.to_html(false), txt])
-			"badge":
-				parts.append("[color=#%s]%s[/color]" % [_theme.accent.to_html(false), txt])
-			_:
-				parts.append(txt)
-		prev_kind = kind
+	if _current.is_empty():
+		_active.text = ""
+		return
+	var text := str(_current["text"])
+	var shown := text.substr(0, _progress)
+	if _progress < text.length():
+		shown += CARET
+	_active.text = shown
+
+
+func _append_transcript(block: Dictionary) -> void:
+	if _transcript_has_text():
+		var prev_index := _landed.size() - 2  # block is already landed at -1
+		var prev_kind := str(_landed[prev_index]["kind"]) if prev_index >= 0 else ""
+		var sep := " " if (str(block["kind"]) == "narration" and prev_kind == "narration") else "\n"
+		_rich.append_text(sep)
+	_append_block_bbcode(block)
+
+
+## One block as bbcode: escaped content, colored for change/badge.
+func _append_block_bbcode(block: Dictionary) -> void:
+	var kind := str(block["kind"])
+	var txt := _esc(str(block["text"]))
+	match kind:
+		"change":
+			_rich.append_text("[color=#%s]%s[/color]" % [_theme.muted.to_html(false), txt])
+		"badge":
+			_rich.append_text("[color=#%s]%s[/color]" % [_theme.accent.to_html(false), txt])
+		_:
+			_rich.append_text(txt)
+
+
+## Full transcript rewrite from the (already capped) window — only when the
+## cap drops the oldest blocks.
+func _rewrite_transcript() -> void:
 	_rich.clear()
-	_rich.append_text("".join(parts))
+	var window := _landed.duplicate()
+	_landed = []
+	for block: Dictionary in window:
+		_landed.append(block)
+		_append_transcript(block)
 
 
-## Landed blocks, then the active narration truncated at the cursor + caret.
+func _transcript_has_text() -> bool:
+	return not _rich.get_parsed_text().is_empty()
+
+
+## Landed blocks, then the active narration truncated at the cursor.
 func _render_blocks() -> Array:
 	var blocks := _landed.duplicate()
 	if not _current.is_empty():
-		var shown := str(_current["text"]).substr(0, _progress) + CARET
+		var text := str(_current["text"])
+		var shown := text.substr(0, _progress)
+		if _progress < text.length():
+			shown += CARET
 		blocks.append({"kind": "narration", "text": shown})
 	return blocks

@@ -85,3 +85,19 @@ func test_mark_last_retold_on_an_empty_rail_is_a_noop() -> void:
 	rail.mark_last_retold()
 	assert_int(rail.beat_count()).is_equal(0)
 	assert_that(_entries(rail).get_child_count()).is_equal(0)
+
+
+func test_rebuild_keeps_the_newest_beat_in_view() -> void:
+	# The full teardown would clamp the scroll to the top, parking the
+	# newest beat below the fold; the deferred snap must undo that.
+	var rail := _fresh_rail()
+	rail._scroll.custom_minimum_size = Vector2(300, 90)
+	var long_prose := "The beacons lied about the weather for a week straight, and the crew "
+	for i: int in 8:
+		rail.add_beat("TERM %d \u00B7 SURVEY DUTY" % (i + 1), long_prose + str(i))
+	await get_tree().create_timer(0.1).timeout  # let the deferred snap run
+	var bar := rail._scroll.get_v_scroll_bar()
+	assert_float(bar.max_value).is_greater(0.0)  # content genuinely overflows
+	# Bottom = max − page (the scrollbar clamps there); approx absorbs the
+	# integer rounding of scroll_vertical.
+	assert_float(float(rail._scroll.scroll_vertical)).is_equal_approx(bar.max_value - bar.page, 2.0)

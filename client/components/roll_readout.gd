@@ -13,30 +13,54 @@ const _DIE_COMPACT := 18
 
 var _theme: PackTheme
 var _frame_mode := "line"  # line | accent (natural 2) | ok (natural 12)
+var _tween: Tween
 
 
-## Parses `Label: 2D6({raw})+DM({dm})={total} vs {target} -> outcome [tier]`
-## into {label, dm, total, target, outcome, tier}; {} when unparseable.
+## Parses the server's receipt lines into
+## {label, dm, total, target, outcome, tier}; {} when unparseable.
+## Two wire shapes (src/game/lifepath.py):
+##   `Label: 2D6({raw})+DM({dm})={total} vs {target} -> outcome [tier]`
+##   `Label: 2D6({raw})={total} vs {target} -> outcome`  (dm == 0 — the
+##   server omits the DM segment; the re-enlistment receipt never has one)
+## `target` stays a String when non-numeric (the re-enlistment `—`).
 static func parse_receipt(receipt: String) -> Dictionary:
 	var head := receipt.split(":", true, 1)
 	if head.size() != 2 or head[0].strip_edges() == "":
 		return {}
 	var body := head[1]
+	var dm := 0
+	var after_dm := body
 	var dm_open := body.find("+DM(")
-	var dm_close := body.find(")", dm_open + 4) if dm_open != -1 else -1
-	var eq := body.find("=", dm_close + 1) if dm_close != -1 else -1
-	var vs := body.find(" vs ", eq + 1) if eq != -1 else -1
-	var arrow := body.find(" -> ", vs + 4) if vs != -1 else -1
-	if dm_open == -1 or dm_close == -1 or eq == -1 or vs == -1 or arrow == -1:
+	if dm_open != -1:
+		var dm_close := body.find(")", dm_open + 4)
+		if dm_close == -1:
+			return {}
+		var dm_text := body.substr(dm_open + 4, dm_close - dm_open - 4).strip_edges()
+		if not dm_text.is_valid_int():
+			return {}
+		dm = int(dm_text)
+		after_dm = body.substr(dm_close + 1)
+	var eq := after_dm.find("=")
+	if eq == -1:
 		return {}
-	var outcome_parts := body.substr(arrow + 4).strip_edges().split(" ", false)
-	if outcome_parts.is_empty():
+	var vs := after_dm.find(" vs ", eq + 1)
+	if vs == -1:
+		return {}
+	var arrow := after_dm.find(" -> ", vs + 4)
+	if arrow == -1:
+		return {}
+	var total_text := after_dm.substr(eq + 1, vs - eq - 1).strip_edges()
+	if not total_text.is_valid_int():
+		return {}
+	var target_text := after_dm.substr(vs + 4, arrow - vs - 4).strip_edges()
+	var outcome_parts := after_dm.substr(arrow + 4).strip_edges().split(" ", false)
+	if outcome_parts.is_empty() or target_text == "":
 		return {}
 	return {
 		"label": head[0].strip_edges(),
-		"dm": int(body.substr(dm_open + 4, dm_close - dm_open - 4).strip_edges()),
-		"total": int(body.substr(eq + 1, vs - eq - 1).strip_edges()),
-		"target": int(body.substr(vs + 4, arrow - vs - 4).strip_edges()),
+		"dm": dm,
+		"total": int(total_text),
+		"target": int(target_text) if target_text.is_valid_int() else target_text,
 		"outcome": outcome_parts[0],
 		"tier": " ".join(outcome_parts.slice(1)),
 	}
@@ -60,11 +84,13 @@ func show_full(roll: Dictionary, receipt: String) -> void:
 	var parsed := parse_receipt(receipt)
 	var top := _top_row()
 	top.add_child(_dice_row(roll, _DIE_FULL))
-	top.add_child(_dm_chip_from(parsed, roll))
+	var chip := _dm_chip_from(parsed, roll)
+	if chip != null:
+		top.add_child(chip)
 	top.add_child(_eq_label())
 	top.add_child(_total_label(int(roll.get("total", 0))))
 	if not parsed.is_empty():
-		top.add_child(Fonts.label("vs %d" % int(parsed["target"]), Fonts.data(), 10, _theme.muted))
+		top.add_child(Fonts.label("vs %s" % str(parsed["target"]), Fonts.data(), 10, _theme.muted))
 		var outcome := str(parsed["outcome"]).to_lower()
 		var color := _theme.ok if outcome == "success" else _theme.danger
 		top.add_child(Fonts.label(str(parsed["outcome"]).to_upper(), Fonts.inter(), 11, color))
@@ -79,7 +105,9 @@ func show_compact(roll: Dictionary, receipt: String) -> void:
 	var parsed := parse_receipt(receipt)
 	var top := _top_row()
 	top.add_child(_dice_row(roll, _DIE_COMPACT))
-	top.add_child(_dm_chip_from(parsed, roll))
+	var chip := _dm_chip_from(parsed, roll)
+	if chip != null:
+		top.add_child(chip)
 	_mount(top, 34)
 	_frame_mode = "line"
 	_land()
@@ -89,7 +117,9 @@ func show_compact(roll: Dictionary, receipt: String) -> void:
 func show_table(roll: Dictionary, result_text: String) -> void:
 	var top := _top_row()
 	top.add_child(_dice_row(roll, _DIE_FULL))
-	top.add_child(_dm_chip_from({}, roll))
+	var chip := _dm_chip_from({}, roll)
+	if chip != null:
+		top.add_child(chip)
 	top.add_child(_eq_label())
 	top.add_child(_total_label(int(roll.get("total", 0))))
 	top.add_child(Fonts.label("\u2192 %s" % result_text, Fonts.data(), 11, _theme.ink))
@@ -161,9 +191,12 @@ func _dice_row(roll: Dictionary, die_px: int) -> HBoxContainer:
 
 
 ## Chip text = signed DM (+ the receipt label when parseable); sign colors the
-## border and text per the mock's .dm.pos / .dm.neg.
+## border and text per the mock's .dm.pos / .dm.neg. A DM of zero applies
+## nothing — no chip (the mock shows chips only for actual modifiers).
 func _dm_chip_from(parsed: Dictionary, roll: Dictionary) -> PanelContainer:
 	var dm := int(parsed.get("dm", int(roll.get("modifiers", 0))))
+	if dm == 0:
+		return null
 	var text := _signed(dm)
 	if not parsed.is_empty() and str(parsed["label"]).strip_edges() != "":
 		text += " " + str(parsed["label"]).to_upper().strip_edges()
@@ -197,30 +230,37 @@ func _total_label(total: int) -> Label:
 	return Fonts.label(str(total).replace("-", "\u2212"), Fonts.title(), 26, _theme.ink)
 
 
+## "Natural" is a 2D6 idiom — only exactly two six-sided dice can earn the
+## fumble/crit frames; 3D6 summing 12 or a lone die showing 2 never do.
 static func _natural_sum(roll: Dictionary) -> int:
+	if int(roll.get("ndice", 2)) != 2 or int(roll.get("sides", 6)) != 6:
+		return 0
 	var total := 0
 	for face: Variant in Array(roll.get("rolls", [])):
 		total += int(face)
 	return total
 
 
-## Stamp-landing: one-shot 0.12s scale/alpha arrival. Reduced motion (or no
-## tree to run a tween in) snaps straight to the resting state.
+## Stamp-landing: one-shot 0.12s scale/alpha arrival. A previous landing is
+## killed first — back-to-back rolls never overlap tweens on the same
+## properties. Reduced motion (or no tree to run a tween in) snaps.
 func _land() -> void:
 	if _theme == null:
 		return
 	pivot_offset = size / 2.0
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
 	if bool(ClientSettings.get_value("reading/reduced_motion")) or not is_inside_tree():
 		scale = Vector2.ONE
 		modulate.a = 1.0
 		return
 	scale = Vector2(0.9, 0.9)
 	modulate.a = 0.2
-	var tween := create_tween().set_parallel(true)
-	tween.tween_property(self, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(
+	_tween = create_tween().set_parallel(true)
+	_tween.tween_property(self, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(
 		Tween.EASE_OUT
 	)
-	tween.tween_property(self, "modulate:a", 1.0, 0.12)
+	_tween.tween_property(self, "modulate:a", 1.0, 0.12)
 
 
 class PipDie:
@@ -236,6 +276,7 @@ class PipDie:
 		5: ["TL", "TR", "C", "BL", "BR"],
 		6: ["TL", "TR", "ML", "MR", "BL", "BR"],
 	}
+
 	var pip_value := 1
 	var face_color := Color.WHITE
 	var pip_color := Color.BLACK

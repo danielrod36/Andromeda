@@ -3,12 +3,15 @@ extends VBoxContainer
 ## The story rail (mockup 06b .rail): THE STORY SO FAR header over the beat
 ## entries as they resolve — newest last, newest prose at full ink, older
 ## prose dimmed to 70%; stamps always stay accent. Steered re-tells mark the
-## last stamp " — RE-TOLD" in danger.
+## last stamp " — RE-TOLD" in danger. After each rebuild the view scrolls to
+## the newest beat (the teardown would otherwise clamp the scroll to the top
+## and park the fresh entry below the fold).
 
 const RETOLD_SUFFIX := " \u2014 RE-TOLD"
 
 var _theme: PackTheme
 var _entries: VBoxContainer
+var _scroll: ScrollContainer
 ## One Dictionary per beat: {stamp, prose, retold} — rebuilt on change.
 var _beats: Array = []
 
@@ -19,14 +22,20 @@ func setup(t: PackTheme) -> void:
 	add_theme_constant_override("separation", 12)
 	var header := Fonts.label("THE STORY SO FAR", Fonts.micro_tracked(), 12, t.accent)
 	add_child(header)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
+	_scroll = ScrollContainer.new()
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(_scroll)
+	# Follow-bottom: every layout growth (a beat landing, autowrap settling)
+	# snaps the view to the newest entry. Rebuilds would otherwise clamp the
+	# scroll toward the top and park the fresh beat below the fold.
+	_scroll.get_v_scroll_bar().changed.connect(
+		func() -> void: _scroll.scroll_vertical = _scroll.get_v_scroll_bar().max_value
+	)
 	_entries = VBoxContainer.new()
 	_entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_entries.add_theme_constant_override("separation", 14)
-	scroll.add_child(_entries)
+	_scroll.add_child(_entries)
 
 
 ## Append one beat entry (newest last). `stamp` is the screen-provided

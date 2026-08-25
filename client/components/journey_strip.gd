@@ -59,7 +59,12 @@ func set_phase(phase: String) -> void:
 
 static func _done_count(phase: String) -> int:
 	if not SEGMENT_BY_PHASE.has(phase):
-		return SEGMENTS.size()  # unknown or complete — the journey is done
+		if phase != "complete":
+			# Drift must surface in dev output, not silently render as done.
+			push_warning(
+				"JourneyStrip: unmapped phase '%s' — rendering the journey as done" % phase
+			)
+		return SEGMENTS.size()
 	return SEGMENTS.find(str(SEGMENT_BY_PHASE[phase]))
 
 
