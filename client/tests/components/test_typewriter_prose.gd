@@ -153,6 +153,28 @@ func test_bracketed_prose_renders_literally() -> void:
 	assert_bool(str(prose._rich.get_parsed_text()).contains("sighs")).is_true()
 
 
+func test_active_line_wraps_like_the_transcript() -> void:
+	var prose := _fresh_prose()
+	assert_int(prose._active.autowrap_mode).is_equal(TextServer.AUTOWRAP_WORD_SMART)
+	assert_int(prose._active.size_flags_horizontal).is_equal(Control.SIZE_EXPAND_FILL)
+
+
+func test_history_cap_trims_in_batches() -> void:
+	ClientSettings.set_value("reading/text_speed", "instant")
+	var prose := _fresh_prose()
+	# Below cap + batch (401..500): landings append, nothing trims.
+	for i: int in 499:
+		prose.feed("narration", "line %d" % i)
+	assert_int(prose._landed.size()).is_equal(499)
+	# Crossing 400 + 100 slices the window back to 400.
+	prose.feed("narration", "line 499")
+	prose.feed("narration", "line 500")
+	assert_int(prose._landed.size()).is_equal(400)
+	# The window keeps the NEWEST 400 (indices 101..500).
+	assert_str(str(prose._landed[0]["text"])).is_equal("line 101")
+	assert_str(str(prose._landed[399]["text"])).is_equal("line 500")
+
+
 func test_exit_tree_mid_typing_lands_and_re_add_types_again() -> void:
 	# Screens push/pop; a typewriter leaving the tree mid-sentence must not
 	# resume on a dead instance or stay frozen when re-added.

@@ -12,6 +12,10 @@ const RETOLD_SUFFIX := " \u2014 RE-TOLD"
 var _theme: PackTheme
 var _entries: VBoxContainer
 var _scroll: ScrollContainer
+## Follow-bottom state: pinned while the view sits at the newest entry;
+## a user scroll-up suspends following until they return to the bottom.
+var _at_bottom := true
+var _user_scrolling := false
 ## One Dictionary per beat: {stamp, prose, retold} — rebuilt on change.
 var _beats: Array = []
 
@@ -26,16 +30,33 @@ func setup(t: PackTheme) -> void:
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(_scroll)
-	# Follow-bottom: every layout growth (a beat landing, autowrap settling)
-	# snaps the view to the newest entry. Rebuilds would otherwise clamp the
-	# scroll toward the top and park the fresh beat below the fold.
-	_scroll.get_v_scroll_bar().changed.connect(
-		func() -> void: _scroll.scroll_vertical = _scroll.get_v_scroll_bar().max_value
-	)
+	# Follow-bottom, user-aware: the scrollbar's `changed` fires on every
+	# layout growth; while the view sits at the bottom (or a user scroll is
+	# in progress from the bottom), growth re-snaps to the newest entry.
+	# A reader who scrolled up is left in place — re-reads stay possible.
+	var bar := _scroll.get_v_scroll_bar()
+	bar.changed.connect(_on_scroll_changed)
+	_scroll.scroll_started.connect(func() -> void: _user_scrolling = true)
+	_scroll.scroll_ended.connect(_on_user_scroll_ended)
 	_entries = VBoxContainer.new()
 	_entries.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_entries.add_theme_constant_override("separation", 14)
 	_scroll.add_child(_entries)
+
+
+func _on_scroll_changed() -> void:
+	if _scroll == null or _user_scrolling:
+		return
+	var rail_bar := _scroll.get_v_scroll_bar()
+	if _at_bottom:
+		_scroll.scroll_vertical = int(rail_bar.max_value)
+	_at_bottom = absf(_scroll.scroll_vertical - (rail_bar.max_value - rail_bar.page)) <= 4.0
+
+
+func _on_user_scroll_ended() -> void:
+	_user_scrolling = false
+	var rail_bar := _scroll.get_v_scroll_bar()
+	_at_bottom = absf(_scroll.scroll_vertical - (rail_bar.max_value - rail_bar.page)) <= 4.0
 
 
 ## Append one beat entry (newest last). `stamp` is the screen-provided

@@ -101,3 +101,27 @@ func test_rebuild_keeps_the_newest_beat_in_view() -> void:
 	# Bottom = max − page (the scrollbar clamps there); approx absorbs the
 	# integer rounding of scroll_vertical.
 	assert_float(float(rail._scroll.scroll_vertical)).is_equal_approx(bar.max_value - bar.page, 2.0)
+
+
+func test_user_scroll_up_suspends_following_until_back_at_bottom() -> void:
+	var rail := _fresh_rail()
+	rail._scroll.custom_minimum_size = Vector2(300, 90)
+	for i: int in 6:
+		rail.add_beat("TERM %d" % (i + 1), "Beat number %d with some length to it." % i)
+	await get_tree().create_timer(0.1).timeout
+	var bar := rail._scroll.get_v_scroll_bar()
+	# Reader scrolls up mid-read: following suspends.
+	rail._user_scrolling = true
+	rail._scroll.scroll_vertical = 0
+	rail._on_user_scroll_ended()
+	assert_bool(rail._at_bottom).is_false()
+	rail.add_beat("TERM 7", "A new beat lands while the reader is up.")
+	await get_tree().create_timer(0.1).timeout
+	assert_float(float(rail._scroll.scroll_vertical)).is_less(bar.max_value - bar.page - 4.0)
+	# Back at the bottom: following resumes.
+	rail._scroll.scroll_vertical = int(bar.max_value)
+	rail._on_user_scroll_ended()
+	assert_bool(rail._at_bottom).is_true()
+	rail.add_beat("TERM 8", "And following picks it up again.")
+	await get_tree().create_timer(0.1).timeout
+	assert_float(float(rail._scroll.scroll_vertical)).is_equal_approx(bar.max_value - bar.page, 2.0)

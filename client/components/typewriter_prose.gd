@@ -17,6 +17,10 @@ signal all_text_shown
 
 const CARET := "\u258C"
 const _MAX_BLOCKS := 400
+## Trims run in batches: the window is sliced back to _MAX_BLOCKS only
+## once it exceeds _MAX_BLOCKS + _TRIM_BATCH, so the full-transcript
+## rewrite amortizes to O(window / batch) per landing.
+const _TRIM_BATCH := 100
 
 ## reading/text_speed → ms per character (spec C2).
 const SPEED_MS := {"slow": 45, "medium": 25, "fast": 12, "instant": 0}
@@ -48,6 +52,8 @@ func setup(t: PackTheme) -> void:
 	_rich.add_theme_color_override("default_color", t.ink)
 	add_child(_rich)
 	_active = Label.new()
+	_active.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_active.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_active.add_theme_font_override("font", Fonts.prose())
 	_active.add_theme_font_size_override("font_size", 14)
 	_active.add_theme_color_override("font_color", t.ink)
@@ -127,7 +133,7 @@ static func _esc(text: String) -> String:
 
 func _land(block: Dictionary) -> void:
 	_landed.append(block)
-	if _landed.size() > _MAX_BLOCKS:
+	if _landed.size() > _MAX_BLOCKS + _TRIM_BATCH:
 		_landed = _landed.slice(_landed.size() - _MAX_BLOCKS)
 		_rewrite_transcript()
 	else:
