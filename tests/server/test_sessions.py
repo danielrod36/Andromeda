@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 
 def _create(client, name="The Ruuth Run", **overrides):
     body = {"kind": "chargen", "name": name, "seed": 42, "pack_id": "scifi"}
@@ -20,6 +22,13 @@ class TestCreateAndView:
         assert session["phase"] == "roll_characteristics"
         assert session["contract_version"] == 1
         assert session["view"]["options"][0]["option_id"] == "roll_pool"
+        # M3-S1: additive envelope fields (ceremony stamp + crisis label).
+        assert session["seed"] == 42
+        assert session["death_mode"] == "narrative"
+
+    def test_create_carries_requested_death_mode(self, client):
+        session = _create(client, death_mode="ironman")
+        assert session["death_mode"] == "ironman"
 
     def test_create_writes_autosave(self, client, tmp_path):
         _create(client)
@@ -113,6 +122,25 @@ class TestNarrate:
         assert "record_story_direction" in kinds
         assert "record_narration" in kinds
 
+    def test_steered_world_intro_records_a_new_narration(self, client):
+        """M3-S1: steering a replayed beat forces a re-tell — a second
+        world_intro narration record lands (the replay path is skipped)."""
+        session = _create(client)
+        sid = session["id"]
+        client.post(f"/v1/sessions/{sid}/narrate", json={"beat": "world_intro"})
+        client.post(
+            f"/v1/sessions/{sid}/narrate",
+            json={"beat": "world_intro", "steering": "lean into the loneliness"},
+        )
+        resp = client.get(f"/v1/sessions/{sid}/audit?per_page=200")
+        rows = resp.json()["rows"]
+        intro_records = [
+            e
+            for e in rows
+            if e["command_type"] == "record_narration" and e["changes"].get("beat") == "world_intro"
+        ]
+        assert len(intro_records) == 2  # original + steered re-tell
+
     def test_scene_beat_after_choose(self, client):
         session = _create(client)
         client.post(f"/v1/sessions/{session['id']}/choose", json={"option_id": "roll_pool"})
@@ -145,6 +173,50 @@ class TestPromote:
         assert created["kind"] == "adventure"
         resp = client.post(f"/v1/sessions/{created['id']}/promote")
         assert resp.status_code == 422
+
+    def test_promote_after_completion_flips_to_adventure(self, client):
+        """M3-S1 (the M2-deferred integration test): a fully played chargen
+        promotes in place — same id/name, kind flips to adventure, the
+        envelope's phase/view become the adventure's first decision."""
+        session = _create(client, name="Mara Voss", death_mode="ironman")
+        sid = session["id"]
+
+        # Scripted lifepath: prefer muster-out and finish; first non-dimmed
+        # option otherwise (the game-layer pattern, driven over HTTP).
+        for _ in range(300):
+            current = client.get(f"/v1/sessions/{sid}").json()["session"]
+            if current["phase"] == "complete":
+                break
+            options = current["view"]["options"]
+            ids = {o["option_id"] for o in options}
+            if current["phase"] == "re_enlist" and "reenlist_muster" in ids:
+                pick = "reenlist_muster"
+            elif current["phase"] == "choose_career_change" and "career_change_finish" in ids:
+                pick = "career_change_finish"
+            else:
+                pick = next((o["option_id"] for o in options if not o["dimmed"]), None)
+            if pick is None:
+                break
+            resp = client.post(f"/v1/sessions/{sid}/choose", json={"option_id": pick})
+            assert resp.status_code == 200, resp.text
+        else:
+            pytest.fail("scripted chargen did not reach complete within 300 choices")
+
+        complete = client.get(f"/v1/sessions/{sid}").json()["session"]
+        assert complete["phase"] == "complete"
+        assert complete["view"] is None
+
+        promoted = client.post(f"/v1/sessions/{sid}/promote")
+        assert promoted.status_code == 200, promoted.text
+        envelope = promoted.json()["session"]
+        assert envelope["id"] == sid
+        assert envelope["name"] == "Mara Voss"
+        assert envelope["kind"] == "adventure"
+        assert envelope["phase"] != "complete"
+        assert envelope["view"]  # the adventure's first decision
+        # Additive M3-S1 fields survive the flip.
+        assert envelope["seed"] == 42
+        assert envelope["death_mode"] == "ironman"
 
 
 class TestAdventureFlow:

@@ -75,6 +75,11 @@ def _session_payload(record: SessionRecord) -> dict:
         "phase": phase,
         "view": view,
         "contract_version": contract,
+        # M3-S1: additive envelope fields for client rendering — the
+        # ceremony's FATE SEEDED stamp (seed) and the crisis card's
+        # death-mode label. Server truth only; no contract bump.
+        "seed": record.game.state.seed,
+        "death_mode": record.game.state.campaign.death_mode,
     }
 
 
