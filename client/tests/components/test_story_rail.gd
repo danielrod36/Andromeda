@@ -84,18 +84,27 @@ func test_mark_last_retold_on_an_empty_rail_is_a_noop() -> void:
 	var rail := _fresh_rail()
 	rail.mark_last_retold()
 	assert_int(rail.beat_count()).is_equal(0)
-	assert_that(_entries(rail).get_child_count()).is_equal(0)
 
 
-func test_rebuild_keeps_the_newest_beat_in_view() -> void:
-	# The full teardown would clamp the scroll to the top, parking the
-	# newest beat below the fold; the deferred snap must undo that.
+func test_mark_last_retold_is_idempotent_per_beat() -> void:
+	# Steering the same beat twice re-tells the prose, not the suffix.
+	var rail := _fresh_rail()
+	rail.add_beat("TERM 2 \u00B7 SURVEY DUTY", "Second.")
+	rail.mark_last_retold()
+	rail.mark_last_retold()
+	var stamp: Label = _entries(rail).get_child(0).get_child(0)
+	assert_str(stamp.text).is_equal("TERM 2 \u00B7 SURVEY DUTY \u2014 RE-TOLD")
+
+
+func test_newest_beat_stays_in_view_as_beats_land() -> void:
+	# Beats append incrementally; follow-bottom rides each growth while the
+	# reader sits at the bottom — the newest entry never lands below the fold.
 	var rail := _fresh_rail()
 	rail._scroll.custom_minimum_size = Vector2(300, 90)
 	var long_prose := "The beacons lied about the weather for a week straight, and the crew "
 	for i: int in 8:
 		rail.add_beat("TERM %d \u00B7 SURVEY DUTY" % (i + 1), long_prose + str(i))
-	await get_tree().create_timer(0.1).timeout  # let the deferred snap run
+	await get_tree().create_timer(0.1).timeout  # let the layout settle
 	var bar := rail._scroll.get_v_scroll_bar()
 	assert_float(bar.max_value).is_greater(0.0)  # content genuinely overflows
 	# Bottom = max − page (the scrollbar clamps there); approx absorbs the

@@ -66,10 +66,16 @@ func add_beat(stamp: String, prose: String) -> void:
 
 
 ## Stamp the newest beat as re-told (steered narration replayed).
+## Idempotent: a second steer of the same beat re-tells the prose without
+## stacking another suffix.
 func mark_last_retold() -> void:
 	if _nodes.is_empty():
 		return
-	var stamp_label: Label = _nodes[_nodes.size() - 1]["stamp"]
+	var record: Dictionary = _nodes[_nodes.size() - 1]
+	if bool(record.get("retold", false)):
+		return
+	record["retold"] = true
+	var stamp_label: Label = record["stamp"]
 	stamp_label.text += RETOLD_SUFFIX
 	stamp_label.add_theme_color_override("font_color", _theme.danger)
 
