@@ -104,24 +104,27 @@ func test_rebuild_keeps_the_newest_beat_in_view() -> void:
 
 
 func test_user_scroll_up_suspends_following_until_back_at_bottom() -> void:
+	# Drives the REAL changed pipeline — assignments to scroll_vertical are
+	# exactly what a wheel/drag does to the bar, so the test covers the same
+	# ordering the engine sees (value change first, snap decision derived
+	# from the cached bottom gap).
 	var rail := _fresh_rail()
 	rail._scroll.custom_minimum_size = Vector2(300, 90)
 	for i: int in 6:
 		rail.add_beat("TERM %d" % (i + 1), "Beat number %d with some length to it." % i)
 	await get_tree().create_timer(0.1).timeout
 	var bar := rail._scroll.get_v_scroll_bar()
-	# Reader scrolls up mid-read: following suspends.
-	rail._user_scrolling = true
+	# Following: the newest beat is in view.
+	assert_float(float(rail._scroll.scroll_vertical)).is_equal_approx(bar.max_value - bar.page, 2.0)
+	# Reader wheels up: the gap widens, following suspends.
 	rail._scroll.scroll_vertical = 0
-	rail._on_user_scroll_ended()
-	assert_bool(rail._at_bottom).is_false()
+	await get_tree().create_timer(0.05).timeout
 	rail.add_beat("TERM 7", "A new beat lands while the reader is up.")
 	await get_tree().create_timer(0.1).timeout
 	assert_float(float(rail._scroll.scroll_vertical)).is_less(bar.max_value - bar.page - 4.0)
-	# Back at the bottom: following resumes.
+	# Reader returns to the bottom: following re-pins and rides the next beat.
 	rail._scroll.scroll_vertical = int(bar.max_value)
-	rail._on_user_scroll_ended()
-	assert_bool(rail._at_bottom).is_true()
+	await get_tree().create_timer(0.05).timeout
 	rail.add_beat("TERM 8", "And following picks it up again.")
 	await get_tree().create_timer(0.1).timeout
 	assert_float(float(rail._scroll.scroll_vertical)).is_equal_approx(bar.max_value - bar.page, 2.0)
