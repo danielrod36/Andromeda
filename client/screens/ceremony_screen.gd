@@ -70,8 +70,12 @@ func _ready() -> void:
 	_rebuild()
 
 
+## ESC never routes through the stack here — the local _unhandled_input
+## owns it (the abandon confirm must gate navigation). Returning "" keeps
+## a broken handler from silently navigating away WITHOUT deleting the
+## session (the exact leak the confirm exists to prevent).
 func esc_target() -> String:
-	return "title"
+	return ""
 
 
 func screen_enter(params: Dictionary) -> void:
@@ -88,6 +92,9 @@ func screen_enter(params: Dictionary) -> void:
 	_confirming = false
 	_seed_label.text = _seed_docket_text()
 	_name_edit.text = ""
+	# A fresh fate starts a fresh transcript — the typewriter is append-only,
+	# so the previous fate's narration must not survive re-entry.
+	_rebuild_prose()
 	_show_fate_beat()
 
 
@@ -98,12 +105,11 @@ func screen_exit() -> void:
 		_director.skip()
 
 
-## ESC — abandon this fate. The screen owns ESC (instead of letting the
-## ScreenStack auto-route on esc_target) because the confirm must gate the
-## navigation and the stack's replace() cannot be vetoed from screen_exit —
-## the same pattern Chronicles uses for its gated destructive actions. While
-## a modal is open it consumes ESC first (the overlay mounts after the stack
-## — main.gd), so this handler only ever runs with no modal up.
+## ESC — abandon this fate. This screen owns ESC in _unhandled_input
+## because the confirm must gate the navigation and the stack's replace()
+## cannot be vetoed from screen_exit. While a modal is open it consumes ESC
+## first (the overlay mounts after the stack — main.gd), so this handler
+## only ever runs with no modal up.
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
@@ -121,7 +127,9 @@ func _client() -> Node:
 
 func _on_pack_changed(t: PackTheme) -> void:
 	_theme = t
-	if is_inside_tree():
+	# The stack keeps every registered screen in the tree, hidden — only a
+	# visible ceremony rebuilds (is_inside_tree() is always true here).
+	if visible:
 		_rebuild()
 
 
@@ -171,13 +179,10 @@ func _seed_docket_text() -> String:
 	return "FATE SEEDED · %d" % int(_session.get("seed", 0))
 
 
-# --- world intro wiring -------------------------------------------------------
-
-
 func _on_block_received(block_type: String, content: String) -> void:
 	# Indirected (not wired straight to feed) so pack rebuilds can swap the
 	# typewriter without touching the director's connections.
-	if _prose != null:
+	if is_instance_valid(_prose):
 		_prose.feed(block_type, content)
 
 
@@ -244,8 +249,8 @@ func _on_name_submitted(_text: String) -> void:
 
 
 func press_take_up() -> void:
-	if _committing or _take_up_btn.disabled:
-		return
+	if _committing or _confirming or _take_up_btn.disabled:
+		return  # mid-commit or mid-abandon: never interleave the two awaits
 	var char_name := _name_edit.text.strip_edges()
 	_committing = true
 	_take_up_btn.disabled = true
@@ -271,8 +276,8 @@ func _reset_committing() -> void:
 
 
 func _confirm_abandon() -> void:
-	if _confirming:
-		return  # a second ESC while the confirm is up must not stack another
+	if _confirming or _committing:
+		return  # never stack confirms, never abandon mid-commit
 	_confirming = true
 	var confirmed: bool = await Services.overlay.confirm(
 		"ABANDON THIS FATE?", "The chronicle is deleted; the seed is lost.", "ABANDON", "STAY"
@@ -283,11 +288,23 @@ func _confirm_abandon() -> void:
 	var session_id := str(_session.get("id", ""))
 	if session_id != "":
 		var res: EngineResult = await _client().delete_session(session_id)
-		if not res.ok:
+		var gone := res.ok or res.error_code == "not_found" or res.error_code == "session_not_found"
+		if not gone:
 			# The abandon failed — keep the fate and say why.
 			Services.overlay.toast_error(res)
 			_confirming = false
 			return
+	# The promise is "the chronicle is deleted": drop the on-disk chronicle
+	# too (the session delete only clears the in-memory record) and the
+	# store's stale reference. A missing save is already-gone — fine.
+	var save_name := str(_session.get("name", ""))
+	if save_name != "":
+		var save_res: EngineResult = await _client().delete_save(save_name)
+		if not save_res.ok and save_res.error_code != "save_not_found":
+			Services.overlay.toast_error(save_res)
+			_confirming = false
+			return
+	SessionStore.clear()
 	_confirming = false
 	navigate.emit("title", {})
 
@@ -331,6 +348,9 @@ func _build() -> void:
 
 	_seed_label.text = _seed_docket_text()
 	_name_edit.text = _name_text
+	# A programmatic .text assignment does not emit text_changed — recompute
+	# the take-up state so a rebuild at BEAT_NAME keeps a typed name live.
+	_on_name_changed(_name_text)
 
 
 func _build_fate_beat(stage: Control, t: PackTheme) -> Control:
@@ -392,15 +412,9 @@ func _build_intro_beat(stage: Control, t: PackTheme) -> Control:
 func _build_prose(parent: Control, t: PackTheme) -> TypewriterProse:
 	var prose := TypewriterProse.new()
 	prose.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	prose.setup(t)
-	# Mock 04 reads the intro larger than the shell spine (19px-equivalent).
-	prose._rich.add_theme_font_size_override("font_size", 16)
-	prose._active.add_theme_font_size_override("font_size", 16)
-	# Legibility over the scene (mock 04's text-shadow).
-	for node: Control in [prose._rich, prose._active]:
-		node.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
-		node.add_theme_constant_override("shadow_offset_x", 0)
-		node.add_theme_constant_override("shadow_offset_y", 2)
+	# Mock 04 reads the intro larger than the shell spine (19px-equivalent)
+	# with a text shadow for legibility over the scene — public knobs.
+	prose.setup(t, 16, true)
 	parent.add_child(prose)
 	prose.all_text_shown.connect(_unlock_continue)
 	return prose

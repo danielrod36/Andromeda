@@ -10,6 +10,9 @@ extends GdUnitTestSuite
 ## skipped the count is 0; standalone probes (LineEdit + text + focus +
 ## rebuild cycles, freed) report 0 orphans, so the leak is internal to the
 ## gdUnit harness/LineEdit interplay, not a leak in this screen's tree.
+## The chronicles two-frame flush remedy was tried in after_test (still in
+## place, harmless) — it does NOT clear these orphans, ruling out deferred
+## frees and confirming the LineEdit attribution.
 
 const _SESSION := {
 	"id": "sess-c1",
@@ -32,7 +35,9 @@ func before() -> void:
 
 
 func before_test() -> void:
-	ClientSettings.set_value("reading/reduced_motion", false)
+	# Reduced motion shortens the fate hold to 0.3s — the 1.2s path stays
+	# covered by the two dedicated fate tests, which drive their own screens.
+	ClientSettings.set_value("reading/reduced_motion", true)
 	# Blocks land instantly at the reader's speed — the suite drives timing
 	# itself instead of racing the typewriter.
 	ClientSettings.set_value("reading/text_speed", "instant")
@@ -44,8 +49,8 @@ func before_test() -> void:
 	Services.overlay = auto_free(OverlayLayer.new())
 	add_child(Services.overlay)
 	_screen = await _fresh_screen()
-	# Await the beat-1 hold so most tests start at the intro beat (beat 2).
-	await get_tree().create_timer(1.4).timeout
+	# Await the (shortened) beat-1 hold so tests start at the intro beat.
+	await get_tree().create_timer(0.45).timeout
 
 
 func after_test() -> void:
@@ -54,6 +59,10 @@ func after_test() -> void:
 	PackThemes.apply("neutral")
 	Services.overlay = null
 	SessionStore.clear()
+	# Flush deferred frees (toasts, modals, call_deferred resets) so the
+	# orphan monitor sees a clean tree — the chronicles suite's remedy.
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 func _fresh_screen() -> CeremonyScreen:
@@ -292,7 +301,7 @@ func test_enter_in_the_name_field_commits() -> void:
 func test_name_commit_failure_toasts_and_keeps_the_beat() -> void:
 	_enter_name_beat()
 	_fake.responses["set_character_name"] = (FakeEngineClient.err(
-		422, "invalid_choice", "name must be 80 characters or fewer"
+		422, "invalid_request", "String should have at most 80 characters"
 	))
 	_screen._name_edit.text = "Branwen"
 	_screen._on_name_changed(_screen._name_edit.text)
@@ -302,7 +311,7 @@ func test_name_commit_failure_toasts_and_keeps_the_beat() -> void:
 	)
 	_screen.press_take_up()
 	await get_tree().process_frame
-	assert_str(_last_toast()._message).is_equal("name must be 80 characters or fewer")
+	assert_str(_last_toast()._message).is_equal("String should have at most 80 characters")
 	assert_that(nav).is_empty()
 	assert_bool(_screen._beat_name.visible).is_true()
 	assert_bool(SessionStore.has_session()).is_false()
@@ -320,6 +329,10 @@ func _esc_key() -> InputEventKey:
 
 func test_esc_confirms_then_deletes_and_returns_to_title() -> void:
 	_fake.responses["delete_session"] = FakeEngineClient.ok({})
+	_fake.responses["delete_save"] = FakeEngineClient.ok(
+		{"deleted": ["The Ruuth Run.autosave.json"]}
+	)
+	SessionStore.set_current(_SESSION)
 	var nav: Array = []
 	_screen.navigate.connect(
 		func(target: String, params: Dictionary) -> void: nav.append([target, params])
@@ -331,6 +344,11 @@ func test_esc_confirms_then_deletes_and_returns_to_title() -> void:
 	var deletes := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "delete_session")
 	assert_that(deletes).has_size(1)
 	assert_str(str(deletes[0][1])).is_equal("sess-c1")
+	# The promise is "the chronicle is deleted" — the on-disk save goes too.
+	var save_deletes := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "delete_save")
+	assert_that(save_deletes).has_size(1)
+	assert_str(str(save_deletes[0][1])).is_equal("The Ruuth Run")
+	assert_that(SessionStore.current).is_empty()
 	assert_that(nav).has_size(1)
 	assert_str(str(nav[0][0])).is_equal("title")
 
@@ -375,7 +393,59 @@ func test_screen_enter_without_a_session_navigates_title() -> void:
 	screen.screen_enter({"session": null})
 	assert_that(nav).has_size(1)
 	assert_str(str(nav[0][0])).is_equal("title")
-	assert_str(screen.esc_target()).is_equal("title")
+	assert_str(screen.esc_target()).is_equal("")
+
+
+func test_reentry_resets_the_intro_transcript() -> void:
+	# A second fate on the same screen instance starts a fresh transcript —
+	# the typewriter is append-only, so the old narration must not survive.
+	_pump.play_forward(_intro_blocks())
+	await get_tree().process_frame
+	assert_str(_screen._prose.visible_text()).contains("beacons")
+	var nav: Array = []
+	_screen.navigate.connect(
+		func(target: String, params: Dictionary) -> void: nav.append([target, params])
+	)
+	_screen.screen_enter({"session": _SESSION})
+	assert_str(_screen._prose.visible_text()).is_equal("")
+	assert_int(_screen._beat).is_equal(_screen.BEAT_FATE)
+
+
+func test_abandon_treats_a_missing_session_as_gone() -> void:
+	# After a sidecar restart the session id is unknown — a 404 delete is
+	# already-gone, not a trap in a confirm-fail loop.
+	_fake.responses["delete_session"] = FakeEngineClient.err(
+		404, "session_not_found", "no such session"
+	)
+	_fake.responses["delete_save"] = FakeEngineClient.err(404, "save_not_found", "no such save")
+	var nav: Array = []
+	_screen.navigate.connect(
+		func(target: String, params: Dictionary) -> void: nav.append([target, params])
+	)
+	_screen._unhandled_input(_esc_key())
+	await get_tree().process_frame
+	assert_bool(_press_modal_button(Services.overlay, "ABANDON")).is_true()
+	await get_tree().process_frame
+	assert_that(nav).has_size(1)
+	assert_str(str(nav[0][0])).is_equal("title")
+
+
+func test_abandon_is_blocked_while_a_commit_is_in_flight() -> void:
+	# ESC during the name-commit await must not interleave deletes with the
+	# commit's navigation.
+	_enter_name_beat()
+	_fake.responses["set_character_name"] = FakeEngineClient.ok(
+		{"session": _named_session("Branwen")}
+	)
+	_screen._name_edit.text = "Branwen"
+	_screen._on_name_changed(_screen._name_edit.text)
+	_screen.press_take_up()
+	_screen._unhandled_input(_esc_key())
+	await get_tree().process_frame
+	# No confirm ever opened: the abandon was refused mid-commit.
+	assert_bool(_press_modal_button(Services.overlay, "ABANDON")).is_false()
+	var deletes := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "delete_session")
+	assert_that(deletes).is_empty()
 
 
 # --- helpers ------------------------------------------------------------------
