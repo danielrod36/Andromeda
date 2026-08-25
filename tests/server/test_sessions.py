@@ -127,12 +127,15 @@ class TestNarrate:
         world_intro narration record lands (the replay path is skipped)."""
         session = _create(client)
         sid = session["id"]
-        client.post(f"/v1/sessions/{sid}/narrate", json={"beat": "world_intro"})
-        client.post(
+        first = client.post(f"/v1/sessions/{sid}/narrate", json={"beat": "world_intro"})
+        assert first.status_code == 200, first.text
+        steered = client.post(
             f"/v1/sessions/{sid}/narrate",
             json={"beat": "world_intro", "steering": "lean into the loneliness"},
         )
+        assert steered.status_code == 200, steered.text
         resp = client.get(f"/v1/sessions/{sid}/audit?per_page=200")
+        assert resp.status_code == 200, resp.text
         rows = resp.json()["rows"]
         intro_records = [
             e
