@@ -62,7 +62,13 @@ var _stream_gen := -1
 ## optionally, the pump (StreamPump or a fake). Without a pump a real
 ## StreamPump is created in _ready. Re-configuring with a different pump
 ## rewires the signal connections (the retired pump is disconnected).
+## Rejected while a beat is in flight: a mid-beat swap would orphan the
+## streaming beat (its pump's signals unobservable → NARRATING forever).
+## Configure between beats.
 func configure(p_client: Node, p_pump: Node = null) -> void:
+	if state != State.IDLE and (p_pump != null and p_pump != _pump):
+		beat_failed.emit("director_busy", "cannot swap the stream pump while a beat is in flight")
+		return
 	_client = p_client
 	if p_pump != null and p_pump != _pump:
 		_unwire_pump()

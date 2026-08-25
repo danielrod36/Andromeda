@@ -308,6 +308,38 @@ func test_failed_stream_handler_can_chain_a_retry_beat_safely() -> void:
 	assert_int(director.state).is_equal(BeatDirector.State.IDLE)
 
 
+func test_mid_beat_pump_swap_is_rejected() -> void:
+	# Kilo PR#46 follow-up: swapping the pump while a beat streams would
+	# orphan it (signals unobservable → NARRATING forever). The swap is
+	# rejected; the in-flight beat keeps its pump and completes normally.
+	var fake_client := _client_with_choose(_ok_choose([]))
+	var pump_a: FakeStreamPump = auto_free(FakeStreamPump.new())
+	add_child(pump_a)
+	var director := _make_director(fake_client, pump_a)
+
+	director.run("abc123", "roll_pool")
+	await get_tree().create_timer(0.05).timeout
+	assert_int(director.state).is_equal(BeatDirector.State.NARRATING)
+
+	var pump_b: FakeStreamPump = auto_free(FakeStreamPump.new())
+	add_child(pump_b)
+	var failures: Array = []
+	var finished: Array = []
+	director.beat_failed.connect(func(c: String, _m: String) -> void: failures.append(c))
+	director.beat_finished.connect(func(s: Dictionary) -> void: finished.append(s))
+
+	director.configure(fake_client, pump_b)
+	assert_that(failures).has_size(1)
+	assert_str(failures[0]).is_equal("director_busy")
+	assert_that(pump_b.start_calls).is_empty()
+	assert_int(director.state).is_equal(BeatDirector.State.NARRATING)
+
+	fake_client.responses["choose"] = _ok_choose([])
+	pump_a.play_forward(_blocks())  # the original pump still owns the beat
+	assert_that(finished).has_size(1)
+	assert_int(director.state).is_equal(BeatDirector.State.IDLE)
+
+
 func test_cursor_resets_on_session_change() -> void:
 	var fake_client: FakeEngineClient = auto_free(FakeEngineClient.new())
 	var fake_pump: FakeStreamPump = auto_free(FakeStreamPump.new())
