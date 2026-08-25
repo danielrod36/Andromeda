@@ -40,7 +40,9 @@ var _gen := 0  # typing-loop generation; bumping cancels a superseded loop
 var _stream_done := false
 
 
-func setup(t: PackTheme) -> void:
+## font_size and shadow are presentation knobs for the screens that host
+## this component (the ceremony reads its intro larger, over a scene).
+func setup(t: PackTheme, font_size := 14, shadow := false) -> void:
 	_theme = t
 	_rich = RichTextLabel.new()
 	_rich.bbcode_enabled = true  # only for our color tags; content is escaped
@@ -48,17 +50,22 @@ func setup(t: PackTheme) -> void:
 	_rich.fit_content = false
 	_rich.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_rich.add_theme_font_override("font", Fonts.prose())
-	_rich.add_theme_font_size_override("font_size", 14)
+	_rich.add_theme_font_size_override("font_size", font_size)
 	_rich.add_theme_color_override("default_color", t.ink)
 	add_child(_rich)
 	_active = Label.new()
 	_active.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_active.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_active.add_theme_font_override("font", Fonts.prose())
-	_active.add_theme_font_size_override("font_size", 14)
+	_active.add_theme_font_size_override("font_size", font_size)
 	_active.add_theme_color_override("font_color", t.ink)
 	_active.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_active)
+	if shadow:
+		for node: Control in [_rich, _active]:
+			node.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
+			node.add_theme_constant_override("shadow_offset_x", 0)
+			node.add_theme_constant_override("shadow_offset_y", 2)
 
 
 ## Block dispatch — wire to BeatDirector.block_received.

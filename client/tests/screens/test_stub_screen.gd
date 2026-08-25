@@ -21,7 +21,7 @@ func test_chargen_session_gets_the_ceremony_stub() -> void:
 			}
 		)
 	)
-	assert_str(stub.title_text()).is_equal("THE CEREMONY arrives in M3")
+	assert_str(stub.title_text()).is_equal("THE CHARGEN SHELL arrives later in M3")
 	assert_str(stub.esc_target()).is_equal("title")
 
 
@@ -90,4 +90,4 @@ func test_completed_chargen_null_view_gets_the_ceremony_stub() -> void:
 			}
 		)
 	)
-	assert_str(stub.title_text()).is_equal("THE CEREMONY arrives in M3")
+	assert_str(stub.title_text()).is_equal("THE CHARGEN SHELL arrives later in M3")

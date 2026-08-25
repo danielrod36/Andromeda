@@ -19,7 +19,7 @@ func screen_enter(params: Dictionary) -> void:
 	var kind := str(_session.get("kind", ""))
 	var view: Dictionary = _view()
 	if kind == "chargen":
-		_title = "THE CEREMONY arrives in M3"
+		_title = "THE CHARGEN SHELL arrives later in M3"
 	elif bool(view.get("game_over", false)):
 		_title = "THE MEMORIAL arrives in M4"
 	else:

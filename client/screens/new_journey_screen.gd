@@ -4,7 +4,7 @@ extends BaseScreen
 ## 03-new-journey.html: the launch manifest. Pack/profile/death-mode cards
 ## (selected = accent border + ▸ LOCKED IN), rerollable seed, immutability
 ## notice, narrator status. BEGIN → POST /v1/sessions {kind:"chargen"} → the
-## Ceremony stub (M3).
+## Ceremony (M3).
 
 const _PROFILE_COPY := {
 	"narrative":
@@ -459,7 +459,7 @@ func press_begin() -> void:
 		return
 	SessionStore.set_current(session)
 	_reset_submitting.call_deferred()  # one-shot: a same-frame re-press stays blocked
-	navigate.emit("stub", {"session": session})
+	navigate.emit("ceremony", {"session": session})
 	# Apply the pack after navigating: applying first rebuilds this screen
 	# while it is still the visible one (visible flicker).
 	ClientSettings.set_value("ui/last_played_pack", selected_pack)
