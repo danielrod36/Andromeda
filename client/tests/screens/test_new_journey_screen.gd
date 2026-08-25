@@ -192,7 +192,7 @@ func test_begin_creates_session_and_navigates() -> void:
 	assert_str(str(payload["profile"])).is_equal("narrative")
 	assert_str(str(payload["death_mode"])).is_equal("narrative")
 	assert_bool(payload["seed"] is int).is_true()
-	assert_str(str(nav[0][0])).is_equal("stub")
+	assert_str(str(nav[0][0])).is_equal("ceremony")
 	SessionStore.clear()
 
 
