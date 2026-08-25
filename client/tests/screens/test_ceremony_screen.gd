@@ -136,6 +136,9 @@ func test_fate_beat_shows_the_seed_docket() -> void:
 
 
 func test_fate_beat_auto_advances_to_the_world_intro() -> void:
+	# The suite default is reduced-motion (speed); this test exists to cover
+	# the NON-reduced 1.2s hold — restore it explicitly.
+	ClientSettings.set_value("reading/reduced_motion", false)
 	var ctx := _screen_at_beat_one()
 	var screen: CeremonyScreen = ctx[0]
 	var pump: FakeStreamPump = ctx[1]
@@ -154,7 +157,8 @@ func test_fate_beat_auto_advances_fast_under_reduced_motion() -> void:
 	var ctx := _screen_at_beat_one()
 	var screen: CeremonyScreen = ctx[0]
 	var pump: FakeStreamPump = ctx[1]
-	await get_tree().create_timer(0.6).timeout
+	await get_tree().create_timer(0.45).timeout
+	assert_bool(screen._beat_fate.visible).is_false()
 	assert_bool(screen._beat_intro.visible).is_true()
 	assert_that(pump.start_calls).has_size(1)
 

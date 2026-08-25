@@ -92,6 +92,9 @@ func screen_enter(params: Dictionary) -> void:
 	_confirming = false
 	_seed_label.text = _seed_docket_text()
 	_name_edit.text = ""
+	# Programmatic assignment emits no text_changed — recompute so a stale
+	# enabled TAKE UP THE TALE can never ship an empty name after re-entry.
+	_on_name_changed("")
 	# A fresh fate starts a fresh transcript — the typewriter is append-only,
 	# so the previous fate's narration must not survive re-entry.
 	_rebuild_prose()
