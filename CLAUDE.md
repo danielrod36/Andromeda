@@ -38,6 +38,7 @@ uv run ruff check --fix src tests    # auto-fix lint errors
 
 ```bash
 tools/get_godot.sh               # one-time: pinned Godot 4.7.1 into tools/godot/
+tools/run_client.sh              # launch the game (client boots its own sidecar)
 tools/run_client_lint.sh         # gdlint + gdformat over first-party GDScript
 tools/run_client_tests.sh        # gdUnit4 headless (golden suites self-skip)
 ANDROMEDA_DISPLAY=1 tools/run_client_tests.sh                  # with a display: incl. golden
