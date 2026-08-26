@@ -266,6 +266,28 @@ func test_pop_reentry_with_empty_params_resumes_the_live_session() -> void:
 	assert_str(_screen._session["phase"]).is_equal("choose_career")
 
 
+func test_hidden_beat_finish_stashes_the_envelope_for_pop_resume() -> void:
+	# Sheet open during a beat: the finished envelope is stashed (never
+	# applied off-stage); pop-resume applies it — the consumed phase must
+	# not re-render with clickable stale cards.
+	_apply("choose_skills")
+	await get_tree().process_frame
+	(_cards()[0]["button"] as Button).pressed.emit()
+	await get_tree().process_frame
+	assert_int(_screen._director.state).is_equal(BeatDirector.State.NARRATING)
+	_screen.visible = false  # drawer pushed
+	var next := (_SESSION as Dictionary).duplicate()
+	next["phase"] = "choose_commission"
+	next["view"] = view_for("choose_commission")
+	_screen._on_beat_finished(next)
+	assert_str(_screen._session["phase"]).is_equal("choose_commission")  # stashed
+	_screen.visible = true
+	_screen.screen_enter({})  # pop-resume
+	await get_tree().process_frame
+	assert_str(_screen._session["phase"]).is_equal("choose_commission")
+	assert_that(_cards()).has_size(3)  # re-rendered from the NEW view
+
+
 func test_reconnect_fetches_the_fresh_envelope() -> void:
 	var fresh := (_SESSION as Dictionary).duplicate()
 	fresh["phase"] = "assign_characteristics"

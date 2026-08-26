@@ -29,10 +29,12 @@ func _ready() -> void:
 
 
 func _on_pack_changed(t: PackTheme) -> void:
+	# Unconditional: pack switches happen in Settings while this drawer is
+	# HIDDEN — a visible-gated rebuild would keep the stale frame forever
+	# (screen_enter never rebuilds the frame). Hidden rebuilds are cheap and
+	# the drawer re-fetches its data on the next screen_enter anyway.
 	_theme = t
-	# Only a live, visible drawer re-themes; hidden (or suite-torn-down)
-	# instances just adopt the theme on their next build.
-	if visible and is_inside_tree():
+	if is_inside_tree():
 		_build()
 
 

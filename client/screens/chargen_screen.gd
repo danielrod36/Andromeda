@@ -240,6 +240,9 @@ func _build_card(option: Dictionary, index: int) -> Control:
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	btn.pressed.connect(_on_option_chosen.bind(option_id))
+	# The card IS the visual; the engine's default focus ring would clash
+	# with the mockup styling (M5 adds a themed ring with the a11y pass).
+	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
 	card.add_child(btn)
 	_cards.append({"card": card, "button": btn, "option_id": option_id, "dimmed": dimmed})
@@ -319,9 +322,12 @@ func _on_receipts(events: Array) -> void:
 
 
 func _on_beat_finished(session: Dictionary) -> void:
-	# A hidden screen never applies envelopes — a deferred skip or a late
-	# stream completion must not navigate (e.g. 'reveal') from off-stage.
+	# Hidden (drawer open): stash the envelope — never navigate or render
+	# off-stage — and let pop-resume apply it. Dropping the envelope would
+	# leave _session on the already-consumed phase (every choice then 422s).
 	if not visible:
+		if not session.is_empty():
+			_session = session
 		return
 	_apply_envelope(session)
 
