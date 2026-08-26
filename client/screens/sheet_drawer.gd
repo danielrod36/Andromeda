@@ -22,7 +22,18 @@ var _epoch := 0
 
 func _ready() -> void:
 	_theme = PackThemes.current
+	# The drawer is registered at boot and lives across pack changes —
+	# rebuild on theme switches like every peer screen.
+	PackThemes.pack_changed.connect(_on_pack_changed)
 	_build()
+
+
+func _on_pack_changed(t: PackTheme) -> void:
+	_theme = t
+	# Only a live, visible drawer re-themes; hidden (or suite-torn-down)
+	# instances just adopt the theme on their next build.
+	if visible and is_inside_tree():
+		_build()
 
 
 ## Pushed overlays own ESC as pop — never the stack's replace-auto-route.

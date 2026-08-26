@@ -55,9 +55,14 @@ func esc_target() -> String:
 
 func screen_enter(params: Dictionary) -> void:
 	_epoch += 1
+	# pop() re-enters with EMPTY params — a live session means "resume",
+	# never "leave". Only a genuinely absent session routes home.
 	var session: Variant = params.get("session")
 	if not (session is Dictionary) or (session as Dictionary).is_empty():
-		navigate.emit("title", {})
+		if _session.is_empty():
+			navigate.emit("title", {})
+			return
+		_apply_envelope(_session)
 		return
 	if str((session as Dictionary).get("kind", "")) == "adventure":
 		# Defensive: an adventure envelope never renders here (M4's shell).
@@ -70,9 +75,24 @@ func screen_enter(params: Dictionary) -> void:
 
 func screen_exit() -> void:
 	_epoch += 1
-	# Never leave a narration stream running behind a hidden screen.
-	if _director != null and _director.state == BeatDirector.State.NARRATING:
-		_director.skip()
+	# Abandon an in-flight beat — but NEVER synchronously: skip() emits
+	# beat_finished → _apply_envelope → navigate.emit while the stack is
+	# still inside its own transition (re-entrant replace corrupts it).
+	# Deferred one frame, the stack's transition has committed and the
+	# hidden screen ignores the envelope (visible guards).
+	if _director != null and _director.state != BeatDirector.State.IDLE:
+		var director := _director
+		var epoch := _epoch
+		_deferred_abandon.call_deferred(director, epoch)
+
+
+func _deferred_abandon(director: BeatDirector, epoch: int) -> void:
+	if epoch != _epoch or not is_instance_valid(director):
+		return  # re-entered (or freed) before the frame landed — keep the beat
+	if director.state == BeatDirector.State.NARRATING:
+		director.skip()
+	# CHOOSING/RECEIPTS: the choose await resolves later and run()'s stale
+	# generation check drops it; nothing else to do.
 
 
 func _client() -> Node:
@@ -117,11 +137,14 @@ func _apply_envelope(session: Dictionary) -> void:
 	_render_view(session.get("view", {}))
 
 
-func _render_view(view: Dictionary) -> void:
-	if not (view is Dictionary) or view.is_empty():
+## `view` arrives as an explicit null for complete sessions — soft-typed so
+## the guard below can handle it instead of raising on the call boundary.
+func _render_view(view: Variant) -> void:
+	if not (view is Dictionary) or (view as Dictionary).is_empty():
 		return
 	_clear_stage()
-	var prompt := str(view.get("prompt", ""))
+	var v: Dictionary = view
+	var prompt := str(v.get("prompt", ""))
 	if prompt != "":
 		_prompt_label = Fonts.label(prompt, Fonts.prose(), 16, _theme.ink)
 		_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -139,7 +162,7 @@ func _render_view(view: Dictionary) -> void:
 	_cards_box.add_theme_constant_override("v_separation", 10)
 	_cards_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_stage_holder.add_child(_cards_box)
-	var options: Array = view.get("options", [])
+	var options: Array = v.get("options", [])
 	for i: int in options.size():
 		var option: Dictionary = options[i]
 		_cards_box.add_child(_build_card(option, i))
@@ -176,12 +199,14 @@ func _refresh_subnote(view: Dictionary) -> void:
 	if not is_instance_valid(_subnote):
 		return
 	# Only counts derivable from the view itself — never invented numbers.
-	var options: Array = view.get("options", [])
+	var options: Array = (view as Dictionary).get("options", [])
 	var pickable := 0
 	for option: Dictionary in options:
 		if not bool(option.get("dimmed", false)):
 			pickable += 1
-	_subnote.text = "%d CHOICES OPEN" % pickable if pickable > 0 else ""
+	_subnote.text = (
+		"%d CHOICE%s OPEN" % [pickable, "" if pickable == 1 else "S"] if pickable > 0 else ""
+	)
 
 
 # --- the generic stage ---------------------------------------------------------
@@ -196,7 +221,7 @@ func _build_card(option: Dictionary, index: int) -> Control:
 	box.add_theme_constant_override("separation", 4)
 	card.add_child(box)
 	box.add_child(Fonts.label(str(option.get("label", option_id)), Fonts.inter(), 14, _theme.ink))
-	var odds := str(option.get("odds_line", ""))
+	var odds := _opt_str(option, "odds_line")
 	if odds != "":
 		box.add_child(Fonts.label(odds, Fonts.data(), 11, _odds_color(odds)))
 	for line: Variant in option.get("preview", []):
@@ -204,7 +229,7 @@ func _build_card(option: Dictionary, index: int) -> Control:
 		bullet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(bullet)
 	if dimmed:
-		var requirement := str(option.get("requirement", ""))
+		var requirement := _opt_str(option, "requirement")
 		if requirement != "":
 			var req := Fonts.label(requirement, Fonts.data(), 10, _theme.danger)
 			req.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -214,30 +239,18 @@ func _build_card(option: Dictionary, index: int) -> Control:
 	btn.flat = true
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	btn.pressed.connect(_on_option_chosen.bind(option_id))
+
 	card.add_child(btn)
 	_cards.append({"card": card, "button": btn, "option_id": option_id, "dimmed": dimmed})
 	if not dimmed and not _reduced_motion():
-		# Staggered rise (~40ms per card), mockup 06's entrance.
+		# Staggered rise (~40ms per card), mockup 06's entrance. Dimmed cards
+		# keep their static 0.45 — they never tween (the guard above).
 		card.modulate.a = 0.0
 		var tween := card.create_tween()
 		tween.tween_interval(0.04 * index)
-		tween.tween_property(card, "modulate:a", 0.45 if dimmed else 1.0, 0.12)
+		tween.tween_property(card, "modulate:a", 1.0, 0.12)
 	return card
-
-
-## The trailing percent ("... · 72% FAVORABLE" → 72); -1 when none.
-static func _trailing_percent(text: String) -> int:
-	var pct := text.find("%")
-	if pct == -1:
-		return -1
-	var end := pct - 1  # digit just before the %
-	var start := end
-	while start >= 0 and text[start].is_valid_int():
-		start -= 1
-	var digits := text.substr(start + 1, end - start)
-	return int(digits) if digits.is_valid_int() else -1
 
 
 ## Odds color by the trailing percent band (mockup 07's ok/accent/danger).
@@ -250,6 +263,26 @@ func _odds_color(odds_line: String) -> Color:
 	if percent >= 40:
 		return _theme.accent
 	return _theme.danger
+
+
+## The trailing percent ("... · 72% FAVORABLE" → 72); -1 when none.
+## Parses the digit run that ENDS at the '%' — other numbers don't count.
+static func _trailing_percent(text: String) -> int:
+	var pct := text.find("%")
+	if pct == -1:
+		return -1
+	var end := pct - 1  # digit just before the %
+	var start := end
+	while start >= 0 and text[start].is_valid_int():
+		start -= 1
+	var digits := text.substr(start + 1, end - start)
+	return int(digits) if digits.is_valid_int() else -1
+
+
+## Optional wire strings arrive as explicit nulls — "" them for rendering.
+static func _opt_str(option: Dictionary, key: String) -> String:
+	var value: Variant = option.get(key, "")
+	return str(value) if value is String else ""
 
 
 func _on_option_chosen(option_id: String) -> void:
@@ -285,16 +318,20 @@ func _on_receipts(events: Array) -> void:
 	_refresh_cards_enabled()
 
 
+func _on_beat_finished(session: Dictionary) -> void:
+	# A hidden screen never applies envelopes — a deferred skip or a late
+	# stream completion must not navigate (e.g. 'reveal') from off-stage.
+	if not visible:
+		return
+	_apply_envelope(session)
+
+
 # --- director plumbing ---------------------------------------------------------
 
 
 func _on_block_received(block_type: String, content: String) -> void:
 	if is_instance_valid(_prose):
 		_prose.feed(block_type, content)
-
-
-func _on_beat_finished(session: Dictionary) -> void:
-	_apply_envelope(session)
 
 
 func _on_beat_failed(_error_code: String, message: String) -> void:
@@ -334,6 +371,14 @@ func _build() -> void:
 			continue  # the director survives rebuilds — its stream state is ours
 		remove_child(child)
 		child.free()
+	# The freed stage nodes must never be referenced again — reset the
+	# bookkeeping exactly like _clear_stage does (a pack rebuild frees the
+	# old cards; a later _render_view with an empty view early-returns
+	# before _clear_stage and would otherwise hold freed buttons).
+	_cards = []
+	_prompt_label = null
+	_receipts_box = null
+	_cards_box = null
 	var t := _theme
 	_backdrop = SceneBackdrop.new()
 	_backdrop.pack_theme = t

@@ -151,9 +151,10 @@ func test_cards_disable_while_a_beat_is_in_flight() -> void:
 	_apply("choose_skills")
 	await get_tree().process_frame
 	(_cards()[0]["button"] as Button).pressed.emit()
-	await get_tree().process_frame
-	# choose resolved; the pump stream is now in flight (NARRATING).
 	assert_int(_screen._director.state).is_equal(BeatDirector.State.NARRATING)
+	# Mid-beat: every card disabled, including the non-dimmed pair.
+	for entry: Dictionary in _cards():
+		assert_bool((entry["button"] as Button).disabled).is_true()
 	_pump.play_forward([{"type": "narration", "content": "Done."}, {"type": "done", "content": ""}])
 	await get_tree().process_frame
 	await get_tree().process_frame  # let beat_finished rebuild the stage
@@ -238,13 +239,31 @@ func test_adventure_kind_routes_to_stub() -> void:
 
 
 func test_screen_enter_without_a_session_navigates_title() -> void:
+	var fresh: ChargenScreen = auto_free(ChargenScreen.new())
+	fresh.client_override = _fake
+	fresh.pump_override = _pump
+	add_child(fresh)
+	var nav: Array = []
+	fresh.navigate.connect(
+		func(target: String, params: Dictionary) -> void: nav.append([target, params])
+	)
+	fresh.screen_enter({"session": null})
+	assert_that(nav).has_size(1)
+	assert_str(str(nav[0][0])).is_equal("title")
+
+
+func test_pop_reentry_with_empty_params_resumes_the_live_session() -> void:
+	# pop() re-enters with EMPTY params — the live session means resume,
+	# never eject to title (the sheet drawer's close path).
+	_apply("choose_career")
+	await get_tree().process_frame
 	var nav: Array = []
 	_screen.navigate.connect(
 		func(target: String, params: Dictionary) -> void: nav.append([target, params])
 	)
-	_screen.screen_enter({"session": null})
-	assert_that(nav).has_size(1)
-	assert_str(str(nav[0][0])).is_equal("title")
+	_screen.screen_enter({})
+	assert_that(nav).is_empty()  # no ejection
+	assert_str(_screen._session["phase"]).is_equal("choose_career")
 
 
 func test_reconnect_fetches_the_fresh_envelope() -> void:
