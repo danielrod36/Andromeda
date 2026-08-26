@@ -108,16 +108,16 @@ func _on_retry() -> void:
 	_boot()
 
 
-## The M2 screen set (Tasks 7-10); M3 replaces the stubs one by one.
+## The M2 screen set + M3 additions; the M4 stub remains for adventure.
 func _register_screens() -> void:
 	_stack.register("title", TitleScreen.new())
 	_stack.register("settings", SettingsScreen.new())
 	_stack.register("chronicles", ChroniclesScreen.new())
 	_stack.register("new_journey", NewJourneyScreen.new())
 	_stack.register("ceremony", CeremonyScreen.new())
-	# Chargen shell placeholder — C4 replaces this registration; "stub" stays
-	# the adventure boundary for M4.
-	_stack.register("chargen", StubScreen.new())
+	_stack.register("chargen", ChargenScreen.new())
+	_stack.register("reveal", StubScreen.new())  # M3-C8 replaces
+	_stack.register("sheet_drawer", SheetDrawer.new())
 	_stack.register("stub", StubScreen.new())
 
 
