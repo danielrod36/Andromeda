@@ -288,6 +288,26 @@ func test_hidden_beat_finish_stashes_the_envelope_for_pop_resume() -> void:
 	assert_that(_cards()).has_size(3)  # re-rendered from the NEW view
 
 
+func test_stashed_complete_envelope_routes_to_reveal_on_resume() -> void:
+	# The trickiest stash case: a complete envelope arriving while hidden.
+	# Pop-resume applies it inside screen_enter — the navigate to reveal
+	# must fire exactly once, after the stack's pop has finished.
+	_screen.visible = false
+	var done := (_SESSION as Dictionary).duplicate()
+	done["phase"] = "complete"
+	done["view"] = null
+	_screen._on_beat_finished(done)
+	assert_str(_screen._session["phase"]).is_equal("complete")  # stashed
+	var nav: Array = []
+	_screen.navigate.connect(
+		func(target: String, params: Dictionary) -> void: nav.append([target, params])
+	)
+	_screen.visible = true
+	_screen.screen_enter({})  # pop-resume
+	assert_that(nav).has_size(1)
+	assert_str(str(nav[0][0])).is_equal("reveal")
+
+
 func test_reconnect_fetches_the_fresh_envelope() -> void:
 	var fresh := (_SESSION as Dictionary).duplicate()
 	fresh["phase"] = "assign_characteristics"

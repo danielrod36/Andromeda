@@ -78,8 +78,8 @@ func screen_exit() -> void:
 	# Abandon an in-flight beat — but NEVER synchronously: skip() emits
 	# beat_finished → _apply_envelope → navigate.emit while the stack is
 	# still inside its own transition (re-entrant replace corrupts it).
-	# Deferred one frame, the stack's transition has committed and the
-	# hidden screen ignores the envelope (visible guards).
+	# Deferred one frame, the stack's transition has committed; a hidden
+	# screen's _on_beat_finished stashes instead of applying.
 	if _director != null and _director.state != BeatDirector.State.IDLE:
 		var director := _director
 		var epoch := _epoch
@@ -95,17 +95,20 @@ func _deferred_abandon(director: BeatDirector, epoch: int) -> void:
 	# generation check drops it; nothing else to do.
 
 
+func _on_pack_changed(t: PackTheme) -> void:
+	# Unconditional: chargen is registered at boot and stays in the tree
+	# hidden — a pack switch in Settings must retheme the frame or a later
+	# entry renders the NEW stage inside the OLD frame (screen_enter never
+	# rebuilds the frame; _apply_envelope re-renders content only).
+	_theme = t
+	if is_inside_tree():
+		_build()
+		if not _session.is_empty():
+			_apply_envelope(_session)
+
+
 func _client() -> Node:
 	return client_override if client_override != null else Services.client
-
-
-func _on_pack_changed(t: PackTheme) -> void:
-	_theme = t
-	# The stack keeps registered screens in the tree, hidden — only a
-	# visible screen rebuilds.
-	if visible:
-		_build()
-		_apply_envelope(_session)
 
 
 ## Params may be stale (session created screens ago) — re-fetch the truth.
