@@ -135,7 +135,11 @@ func _apply_envelope(session: Dictionary) -> void:
 	if is_instance_valid(_backdrop):
 		_backdrop.kicker_text = _kicker_text(str(session.get("phase", "")))
 	if str(session.get("phase", "")) == "complete":
-		navigate.emit("reveal", {"session": session})
+		# Only a VISIBLE screen navigates. Hidden callers (pack_changed
+		# re-applying a lingering complete stash) must never fire navigate
+		# off-stage — the stash waits for pop-resume.
+		if visible:
+			navigate.emit("reveal", {"session": session})
 		return
 	_render_view(session.get("view", {}))
 
