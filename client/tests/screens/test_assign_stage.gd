@@ -41,7 +41,7 @@ func _fresh_stage(view: Dictionary = _VIEW) -> AssignStage:
 	var stage: AssignStage = auto_free(AssignStage.new())
 	add_child(stage)
 	stage.setup(_theme())
-	stage.build_from_view(view, func(_id: String) -> void: pass)
+	stage.build_from_view(view)
 	return stage
 
 

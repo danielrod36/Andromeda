@@ -382,12 +382,17 @@ func _show_interpretation(record: Dictionary) -> void:
 		Fonts.label("YOUR WORDS, READ BY THE REFEREE", Fonts.micro_tracked(), 10, _theme.accent)
 	)
 	var body := str(record.get("rationale", ""))
-	var target_label := str(option.get("label", selected)) if option != null else str(selected)
+	var matched := option != null
+	var target := (
+		str((option as Dictionary).get("label", selected))
+		if matched
+		else str(record.get("rejection_reason", "NO MATCH — REPHRASE OR PICK A CARD"))
+	)
 	var line := Fonts.label(
-		"“%s” → %s" % [str(record.get("text", "")), target_label.to_upper()],
+		"“%s” → %s" % [str(record.get("text", "")), target.to_upper()],
 		Fonts.prose(),
 		12,
-		_theme.ink
+		_theme.ink if matched else _theme.muted
 	)
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	line.custom_minimum_size = Vector2(420, 0)
@@ -440,7 +445,7 @@ func _render_assign_stage(v: Dictionary) -> void:
 	stage.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	stage.choose_option.connect(_on_option_chosen)
 	_stage_holder.add_child(stage)
-	stage.build_from_view(v, _on_option_chosen)
+	stage.build_from_view(v)
 
 
 ## The generic card stage — every other phase (mockup 06's choice cards).
@@ -625,6 +630,9 @@ func _on_receipts(events: Array) -> void:
 
 
 func _on_beat_finished(session: Dictionary) -> void:
+	# Hidden (drawer open): stash the envelope — never navigate or render
+	# off-stage — and let pop-resume apply it. Dropping the envelope would
+	# leave _session on the already-consumed phase (every choice then 422s).
 	if not visible:
 		if not session.is_empty():
 			_session = session

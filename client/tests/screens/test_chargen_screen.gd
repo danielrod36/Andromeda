@@ -383,6 +383,42 @@ func test_freetext_sends_and_renders_the_interpretation_card() -> void:
 	assert_str(_screen._freetext_edit.text).is_equal("")  # cleared after send
 
 
+func test_freetext_rejection_shows_reason_without_proceed() -> void:
+	_apply_freetext_phase()
+	_fake.responses["freetext"] = (
+		FakeEngineClient
+		. ok(
+			{
+				"record":
+				{
+					"choice_id": "choose_career",
+					"text": "uh whatever",
+					"selected_option_id": null,
+					"rationale": "Unclear intent.",
+					"context_hash": "abc",
+					"validation": "rejected_no_match",
+					"rejection_reason": "no card matched those words",
+				}
+			}
+		)
+	)
+	_screen._freetext_edit.text = "uh whatever"
+	_screen._on_freetext_send()
+	await get_tree().create_timer(0.05).timeout
+	assert_bool(is_instance_valid(_screen._interp_card)).is_true()
+	var texts: Array = []
+	for node: Node in _screen._interp_card.find_children("*", "Label", true, false):
+		texts.append((node as Label).text)
+	var joined := " | ".join(texts.map(func(t: String) -> String: return t))
+	assert_bool(joined.contains("NO CARD MATCHED THOSE WORDS")).is_true()
+	assert_bool(joined.contains("null")).is_false()
+	# No PROCEED button — a rejection must not commit anything.
+	var buttons: Array = _screen._interp_card.find_children("*", "Button", true, false)
+	var proceed: Array = buttons.filter(
+		func(b: Node) -> bool: return (b as Button).text.contains("PROCEED")
+	)
+
+
 func test_freetext_unavailable_toasts_the_engine_message() -> void:
 	_apply_freetext_phase()
 	_fake.responses["freetext"] = FakeEngineClient.err(
