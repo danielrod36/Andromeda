@@ -19,7 +19,9 @@ var _session := {}
 var _director: BeatDirector
 ## Guards the reconnect fetch across re-entry/exit.
 var _epoch := 0
-
+## Bumped by every applied envelope — a reconnect resolving after a newer
+## application is stale and discarded.
+var _session_gen := 0
 var _backdrop: SceneBackdrop
 var _strip: JourneyStrip
 var _stage_holder: Control
@@ -27,11 +29,19 @@ var _prose: TypewriterProse
 var _dockbar: HBoxContainer
 var _sheet_btn: Button
 var _subnote: Label
-## Current generic-stage nodes, rebuilt per envelope.
+var _freetext_slot: HBoxContainer
+var _freetext_edit: LineEdit
+var _freetext_send: Button
+var _interp_card: PanelContainer
+var _freetext_busy := false
 var _prompt_label: Label
 var _receipts_box: VBoxContainer
 var _cards_box: GridContainer
 var _cards: Array = []
+var _career_filter := ""
+var _career_selected := ""
+var _career_view := {}
+var _career_hero: PanelContainer
 
 
 func _ready() -> void:
@@ -112,10 +122,14 @@ func _client() -> Node:
 
 
 ## Params may be stale (session created screens ago) — re-fetch the truth.
+## A fetch that resolves after a NEWER envelope applied locally (a finished
+## beat, a pack re-apply) is discarded: its snapshot is older than what the
+## player already sees.
 func _reconnect() -> void:
 	var epoch := _epoch
+	var gen := _session_gen
 	var res: EngineResult = await _client().get_session(str(_session.get("id", "")))
-	if epoch != _epoch or not is_inside_tree() or not visible:
+	if epoch != _epoch or gen != _session_gen or not is_inside_tree() or not visible:
 		return
 	if not res.ok:
 		Services.overlay.toast_error(res)
@@ -129,6 +143,7 @@ func _reconnect() -> void:
 func _apply_envelope(session: Dictionary) -> void:
 	if session.is_empty():
 		return
+	_session_gen += 1
 	_session = session
 	if is_instance_valid(_strip):
 		_strip.set_phase(str(session.get("phase", "")))
@@ -145,12 +160,291 @@ func _apply_envelope(session: Dictionary) -> void:
 
 
 ## `view` arrives as an explicit null for complete sessions — soft-typed so
-## the guard below can handle it instead of raising on the call boundary.
+## the guard below can handle it instead of raising at the call boundary.
 func _render_view(view: Variant) -> void:
 	if not (view is Dictionary) or (view as Dictionary).is_empty():
 		return
 	_clear_stage()
 	var v: Dictionary = view
+	var phase := str(v.get("phase", ""))
+	if phase == "assign_characteristics":
+		_render_assign_stage(v)
+	elif phase == "choose_career":
+		_career_filter = ""
+		_career_selected = ""
+		_render_career_deck(v)
+	else:
+		_render_generic_stage(v)
+	_refresh_freetext_slot(v)
+
+
+## The freetext slot (mockup 07a's dockbar): offered only when the phase
+## allows it; a translation renders as an interpretation card.
+func _refresh_freetext_slot(v: Dictionary) -> void:
+	if is_instance_valid(_freetext_slot):
+		_freetext_slot.visible = bool(v.get("allows_freetext", false))
+		var hint := _opt_str_dict(v, "freetext_hint")
+		if is_instance_valid(_freetext_edit):
+			_freetext_edit.placeholder_text = hint if hint != "" else "In your own words…"
+			_freetext_edit.editable = not _freetext_busy
+	if is_instance_valid(_interp_card):
+		_interp_card.queue_free()
+		_interp_card = null
+
+
+static func _opt_str_dict(source: Dictionary, key: String) -> String:
+	var value: Variant = source.get(key, "")
+	return str(value) if value is String else ""
+
+
+## The career deck (mockup 07a): filter chips over the card grid, a hero
+## rail on selection (big odds + full description + ATTEMPT), selection
+## dims the rest to 45%.
+func _render_career_deck(v: Dictionary) -> void:
+	_career_view = v
+	var prompt := str(v.get("prompt", ""))
+	if prompt != "":
+		_prompt_label = Fonts.label(prompt, Fonts.prose(), 16, _theme.ink)
+		_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_prompt_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_stage_holder.add_child(_prompt_label)
+	var filters := HBoxContainer.new()
+	filters.add_theme_constant_override("separation", 8)
+	filters.alignment = BoxContainer.ALIGNMENT_CENTER
+	_stage_holder.add_child(filters)
+	var chars := _career_filter_chars(v)
+	var chip_row := PackedStringArray(["ALL"])
+	chip_row.append_array(chars)
+	for chip_label: String in chip_row:
+		var chip := Button.new()
+		chip.text = chip_label
+		chip.toggle_mode = true
+		chip.button_pressed = (
+			chip_label == _career_filter or (chip_label == "ALL" and _career_filter == "")
+		)
+		chip.add_theme_font_override("font", Fonts.micro_tracked())
+		chip.add_theme_font_size_override("font_size", 11)
+		chip.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		var wanted := "" if chip_label == "ALL" else chip_label
+		chip.pressed.connect(_on_career_filter.bind(wanted))
+		filters.add_child(chip)
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	body.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_stage_holder.add_child(body)
+	_cards_box = GridContainer.new()
+	_cards_box.columns = 3
+	_cards_box.add_theme_constant_override("h_separation", 10)
+	_cards_box.add_theme_constant_override("v_separation", 10)
+	body.add_child(_cards_box)
+	_career_hero = PanelContainer.new()
+	_career_hero.custom_minimum_size = Vector2(300, 0)
+	_career_hero.visible = false
+	body.add_child(_career_hero)
+	var index := 0
+	for option_variant: Variant in v.get("options", []):
+		if not (option_variant is Dictionary):
+			continue
+		var option: Dictionary = option_variant
+		if _career_filter != "" and not _career_matches(option, _career_filter):
+			continue
+		_cards_box.add_child(_build_card(option, index, _on_career_card_pressed))
+		index += 1
+	if _career_selected != "":
+		_open_career_hero(_career_selected)
+	_refresh_cards_enabled()
+	_refresh_subnote(v)
+
+
+## Characteristics offered by the deck — parsed from the qualify previews
+## ("2D6+1 vs INT 6+ to qualify"); never hardcoded per pack.
+func _career_filter_chars(v: Dictionary) -> Array:
+	var found := {}
+	for option_variant: Variant in v.get("options", []):
+		if not (option_variant is Dictionary):
+			continue
+		for preview_variant: Variant in (option_variant as Dictionary).get("preview", []):
+			var preview := str(preview_variant)
+			for char_name: String in ["STR", "DEX", "END", "INT", "EDU", "SOC"]:
+				if preview.contains(" vs %s " % char_name):
+					found[char_name] = true
+	return found.keys()
+
+
+func _career_matches(option: Dictionary, char_name: String) -> bool:
+	for preview_variant: Variant in option.get("preview", []):
+		if str(preview_variant).contains(" vs %s " % char_name):
+			return true
+	return false
+
+
+func _on_career_filter(wanted: String) -> void:
+	_career_filter = wanted
+	_career_selected = ""
+	_render_career_deck(_career_view)
+
+
+## Card presses on the deck SELECT (hero rail) — the funnel fires from the
+## hero's ATTEMPT button, per mockup 07a.
+func _on_career_card_pressed(option_id: String) -> void:
+	if _director.state != BeatDirector.State.IDLE:
+		return
+	_career_selected = option_id
+	_open_career_hero(option_id)
+	for entry: Dictionary in _cards:
+		var card: Control = entry["card"]
+		card.modulate.a = 0.45 if str(entry["option_id"]) != option_id else 1.0
+
+
+func _open_career_hero(option_id: String) -> void:
+	if not is_instance_valid(_career_hero):
+		return
+	var option: Variant = _find_option_in(_career_view, option_id)
+	if option == null:
+		_career_hero.visible = false
+		return
+	for child: Node in _career_hero.get_children():
+		_career_hero.remove_child(child)
+		child.free()
+	var t := _theme
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	_career_hero.add_child(box)
+	box.add_child(Fonts.label(str(option.get("label", "")), Fonts.inter(), 16, t.ink))
+	var odds := _opt_str(option, "odds_line")
+	if odds != "":
+		var percent := _trailing_percent(odds)
+		if percent >= 0:
+			var big := Fonts.label("%d%%" % percent, Fonts.title(), 30, _odds_color(odds))
+			box.add_child(big)
+		box.add_child(Fonts.label(odds, Fonts.data(), 10, t.muted))
+	var description := _opt_str(option, "description")
+	if description != "":
+		var prose := Fonts.label(description, Fonts.prose(), 12, t.ink)
+		prose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		prose.custom_minimum_size = Vector2(272, 0)
+		box.add_child(prose)
+	for preview_variant: Variant in option.get("preview", []):
+		var bullet := Fonts.label("· %s" % str(preview_variant), Fonts.data(), 10, t.muted)
+		bullet.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		bullet.custom_minimum_size = Vector2(272, 0)
+		box.add_child(bullet)
+	var attempt := Kit.btn("ATTEMPT QUALIFICATION ▸", t)
+	attempt.pressed.connect(_on_option_chosen.bind(option_id))
+	box.add_child(attempt)
+	_career_hero.visible = true
+
+
+func _find_option_in(v: Dictionary, wanted: String) -> Variant:
+	for option_variant: Variant in v.get("options", []):
+		if (
+			option_variant is Dictionary
+			and str((option_variant as Dictionary).get("option_id", "")) == wanted
+		):
+			return option_variant
+	return null
+
+
+func _on_freetext_send() -> void:
+	if _freetext_busy or _director.state != BeatDirector.State.IDLE:
+		return
+	var text := _freetext_edit.text.strip_edges() if is_instance_valid(_freetext_edit) else ""
+	if text == "":
+		return
+	_freetext_busy = true
+	if is_instance_valid(_freetext_edit):
+		_freetext_edit.editable = false
+	var res: EngineResult = await _client().freetext(str(_session.get("id", "")), text)
+	_freetext_busy = false
+	if is_instance_valid(_freetext_edit):
+		_freetext_edit.editable = true
+		_freetext_edit.text = ""
+	if not res.ok:
+		# 422 translator_unavailable (or any error) — engine message verbatim.
+		Services.overlay.toast_error(res)
+		return
+	_show_interpretation(res.data.get("record", {}))
+
+
+## The interpretation card: your words → the option the referee read them
+## as. APPLY commits it through the funnel; DISMISS drops the proposal.
+func _show_interpretation(record: Dictionary) -> void:
+	if is_instance_valid(_interp_card):
+		_interp_card.queue_free()
+	var selected: Variant = record.get("selected_option_id", null)
+	var option: Variant = _find_view_option(str(selected) if selected != null else "")
+	var card := Kit.card(_theme)
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	card.add_child(box)
+	box.add_child(
+		Fonts.label("YOUR WORDS, READ BY THE REFEREE", Fonts.micro_tracked(), 10, _theme.accent)
+	)
+	var body := str(record.get("rationale", ""))
+	var target_label := str(option.get("label", selected)) if option != null else str(selected)
+	var line := Fonts.label(
+		"“%s” → %s" % [str(record.get("text", "")), target_label.to_upper()],
+		Fonts.prose(),
+		12,
+		_theme.ink
+	)
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	line.custom_minimum_size = Vector2(420, 0)
+	box.add_child(line)
+	if body != "":
+		var why := Fonts.label(body, Fonts.prose(), 11, _theme.muted)
+		why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		why.custom_minimum_size = Vector2(420, 0)
+		box.add_child(why)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	box.add_child(row)
+	if option != null:
+		var apply_btn := Kit.btn("PROCEED ▸", _theme)
+		apply_btn.pressed.connect(
+			func() -> void: _on_option_chosen(str(option.get("option_id", "")))
+		)
+		row.add_child(apply_btn)
+	var dismiss := Kit.ghost_btn("DISMISS", _theme)
+	dismiss.pressed.connect(
+		func() -> void:
+			if is_instance_valid(card):
+				card.queue_free()
+	)
+	row.add_child(dismiss)
+	if is_instance_valid(_stage_holder):
+		_stage_holder.add_child(card)
+	_interp_card = card
+
+
+## Find a current option by id (the interpretation card's APPLY target).
+func _find_view_option(option_id: String) -> Variant:
+	if _session.is_empty():
+		return null
+	var view: Variant = _session.get("view", null)
+	if not (view is Dictionary):
+		return null
+	for option_variant: Variant in (view as Dictionary).get("options", []):
+		if option_variant is Dictionary:
+			var option: Dictionary = option_variant
+			if str(option.get("option_id", "")) == option_id:
+				return option
+	return null
+
+
+## The bespoke pool-assignment stage (mockup 06a): chips × stat matrix.
+func _render_assign_stage(v: Dictionary) -> void:
+	var stage := AssignStage.new()
+	stage.setup(_theme)
+	stage.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	stage.choose_option.connect(_on_option_chosen)
+	_stage_holder.add_child(stage)
+	stage.build_from_view(v, _on_option_chosen)
+
+
+## The generic card stage — every other phase (mockup 06's choice cards).
+func _render_generic_stage(v: Dictionary) -> void:
 	var prompt := str(v.get("prompt", ""))
 	if prompt != "":
 		_prompt_label = Fonts.label(prompt, Fonts.prose(), 16, _theme.ink)
@@ -174,7 +468,7 @@ func _render_view(view: Variant) -> void:
 		var option: Dictionary = options[i]
 		_cards_box.add_child(_build_card(option, i))
 	_refresh_cards_enabled()
-	_refresh_subnote(view)
+	_refresh_subnote(v)
 
 
 func _clear_stage() -> void:
@@ -219,7 +513,9 @@ func _refresh_subnote(view: Dictionary) -> void:
 # --- the generic stage ---------------------------------------------------------
 
 
-func _build_card(option: Dictionary, index: int) -> Control:
+func _build_card(
+	option: Dictionary, index: int, on_press: Callable = Callable(_on_option_chosen)
+) -> Control:
 	var option_id := str(option.get("option_id", ""))
 	var dimmed := bool(option.get("dimmed", false))
 	var card := Kit.card(_theme)
@@ -246,7 +542,7 @@ func _build_card(option: Dictionary, index: int) -> Control:
 	btn.flat = true
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	btn.pressed.connect(_on_option_chosen.bind(option_id))
+	btn.pressed.connect(on_press.bind(option_id))
 	# The card IS the visual; the engine's default focus ring would clash
 	# with the mockup styling (M5 adds a themed ring with the a11y pass).
 	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
@@ -329,9 +625,6 @@ func _on_receipts(events: Array) -> void:
 
 
 func _on_beat_finished(session: Dictionary) -> void:
-	# Hidden (drawer open): stash the envelope — never navigate or render
-	# off-stage — and let pop-resume apply it. Dropping the envelope would
-	# leave _session on the already-consumed phase (every choice then 422s).
 	if not visible:
 		if not session.is_empty():
 			_session = session
@@ -463,3 +756,20 @@ func _build() -> void:
 	_dockbar.add_child(spacer)
 	_subnote = Fonts.label("", Fonts.micro_tracked(), 12, t.muted)
 	_dockbar.add_child(_subnote)
+	_freetext_slot = HBoxContainer.new()
+	_freetext_slot.add_theme_constant_override("separation", 8)
+	_freetext_slot.visible = false
+	_dockbar.add_child(_freetext_slot)
+	var pen := Fonts.label("✎", Fonts.micro_tracked(), 12, t.accent)
+	_freetext_slot.add_child(pen)
+	_freetext_edit = LineEdit.new()
+	_freetext_edit.custom_minimum_size = Vector2(260, 0)
+	_freetext_edit.add_theme_font_override("font", Fonts.prose())
+	_freetext_edit.add_theme_font_size_override("font_size", 12)
+	_freetext_edit.add_theme_color_override("font_color", t.ink)
+	_freetext_edit.add_theme_color_override("caret_color", t.accent)
+	_freetext_edit.placeholder_text = "In your own words…"
+	_freetext_slot.add_child(_freetext_edit)
+	_freetext_send = Kit.btn("SEND ▸", t)
+	_freetext_send.pressed.connect(_on_freetext_send)
+	_freetext_slot.add_child(_freetext_send)

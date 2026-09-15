@@ -78,6 +78,8 @@ func before_test() -> void:
 	_fake.responses["choose"] = FakeEngineClient.ok(
 		{"session": after_choose, "result": {}, "events": []}
 	)
+	Services.overlay = auto_free(OverlayLayer.new())
+	add_child(Services.overlay)
 	_screen = auto_free(ChargenScreen.new())
 	_screen.client_override = _fake
 	_screen.pump_override = _pump
@@ -155,11 +157,18 @@ func test_cards_disable_while_a_beat_is_in_flight() -> void:
 	# Mid-beat: every card disabled, including the non-dimmed pair.
 	for entry: Dictionary in _cards():
 		assert_bool((entry["button"] as Button).disabled).is_true()
+	# Await the beat's completion signal directly — frame-counting races the
+	# director's deferred continuations under the fake's instant awaits.
+	var finished := {"ok": false}
+	_screen._director.beat_finished.connect(func(_s: Dictionary) -> void: finished["ok"] = true)
 	_pump.play_forward([{"type": "narration", "content": "Done."}, {"type": "done", "content": ""}])
-	await get_tree().process_frame
-	await get_tree().process_frame  # let beat_finished rebuild the stage
-	await get_tree().process_frame
+	var waited := 0.0
+	while not finished["ok"] and waited < 2.0:
+		await get_tree().process_frame
+		waited += 0.016
+	assert_bool(finished["ok"]).is_true()
 	assert_int(_screen._director.state).is_equal(BeatDirector.State.IDLE)
+	await get_tree().process_frame  # the envelope application lands
 	for entry: Dictionary in _cards():
 		var expected: bool = bool(entry["dimmed"])
 		assert_bool((entry["button"] as Button).disabled).is_equal(expected)
@@ -327,6 +336,85 @@ func test_pack_change_with_a_lingering_complete_stash_never_navigates() -> void:
 	_screen.screen_enter({})
 	assert_that(nav).has_size(1)
 	assert_str(str(nav[0][0])).is_equal("reveal")
+
+
+func test_freetext_slot_visibility_follows_the_phase() -> void:
+	var view := view_for("choose_career")
+	view["allows_freetext"] = true  # the real career phase offers freetext
+	var session := (_SESSION as Dictionary).duplicate()
+	session["phase"] = "choose_career"
+	session["view"] = view
+	_screen._apply_envelope(session)
+	await get_tree().process_frame
+	assert_bool(_screen._freetext_slot.visible).is_true()
+	_apply("run_survival")  # allows_freetext: false in the fixture
+	await get_tree().process_frame
+	assert_bool(_screen._freetext_slot.visible).is_false()
+
+
+func test_freetext_sends_and_renders_the_interpretation_card() -> void:
+	_apply_freetext_phase()
+	_fake.responses["freetext"] = (
+		FakeEngineClient
+		. ok(
+			{
+				"record":
+				{
+					"choice_id": "choose_career",
+					"text": "a life among the stars, in uniform",
+					"selected_option_id": "first",
+					"rationale": "The discipline of service.",
+					"context_hash": "abc",
+				}
+			}
+		)
+	)
+	_screen._freetext_edit.text = "a life among the stars, in uniform"
+	_screen._on_freetext_send()
+	await get_tree().create_timer(0.05).timeout
+	var sends := _fake.calls.filter(func(c: Array) -> bool: return c[0] == "freetext")
+	assert_that(sends).has_size(1)
+	assert_str(str(sends[0][2])).is_equal("a life among the stars, in uniform")
+	assert_bool(is_instance_valid(_screen._interp_card)).is_true()
+	var labels: Array = []
+	for node: Node in _screen._interp_card.find_children("*", "Label", true, false):
+		labels.append((node as Label).text)
+	assert_bool(str(labels[1]).contains("FIRST")).is_true()  # the read option
+	assert_str(_screen._freetext_edit.text).is_equal("")  # cleared after send
+
+
+func test_freetext_unavailable_toasts_the_engine_message() -> void:
+	_apply_freetext_phase()
+	_fake.responses["freetext"] = FakeEngineClient.err(
+		422,
+		"translator_unavailable",
+		"No translator configured — set the narrator model in Settings"
+	)
+	_screen._freetext_edit.text = "something"
+	_screen._on_freetext_send()
+	await get_tree().create_timer(0.05).timeout
+	assert_str(_last_toast()._message).is_equal(
+		"No translator configured — set the narrator model in Settings"
+	)
+	assert_bool(not is_instance_valid(_screen._interp_card)).is_true()
+	assert_bool(_screen._freetext_edit.editable).is_true()  # re-enabled
+
+
+func _apply_freetext_phase() -> void:
+	var view := view_for("choose_career")
+	view["allows_freetext"] = true
+	var session := (_SESSION as Dictionary).duplicate()
+	session["phase"] = "choose_career"
+	session["view"] = view
+	_screen._apply_envelope(session)
+	await get_tree().process_frame
+
+
+func _last_toast() -> Toast:
+	var box: VBoxContainer = Services.overlay._toast_box
+	if box.get_child_count() == 0:
+		return null
+	return box.get_child(box.get_child_count() - 1) as Toast
 
 
 func test_reconnect_fetches_the_fresh_envelope() -> void:
